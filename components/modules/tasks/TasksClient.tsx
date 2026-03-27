@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Lock, GripVertical, Trash2, ChevronDown, ChevronRight, Pencil, AlertTriangle, Calendar, CheckSquare, Square, X } from 'lucide-react'
+import { Plus, Lock, GripVertical, Trash2, ChevronDown, ChevronRight, Pencil, AlertTriangle, Calendar, CheckSquare, Square, X, Clock, Repeat } from 'lucide-react'
 
 import { getAllWorkTasks, createWorkTask, updateWorkTask, updateTaskStatus, deleteWorkTask } from '@/app/actions/tasks/tasks'
 import { Button } from '@/components/ui/Button'
@@ -277,7 +277,12 @@ function TaskCard({
             )}
             {task.due_date && (
               <Badge color={isOverdue ? 'var(--expense)' : 'var(--text-2)'}>
-                <Calendar size={10} /> {task.due_date}
+                <Calendar size={10} /> {task.due_date}{task.due_time ? ` ${task.due_time.slice(0, 5)}` : ''}
+              </Badge>
+            )}
+            {task.is_recurring && (
+              <Badge color="var(--mod-tasks)">
+                <Repeat size={10} /> {task.recurrence_pattern === 'daily' ? 'Diaria' : task.recurrence_pattern === 'weekly' ? 'Semanal' : 'Mensual'}
               </Badge>
             )}
             {subtasks.length > 0 && (
@@ -323,6 +328,7 @@ function TaskCard({
 function AddTaskSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const [isRecurring, setIsRecurring] = useState(false)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -337,6 +343,7 @@ function AddTaskSheet({ open, onClose }: { open: boolean; onClose: () => void })
       setError(result.error)
       return
     }
+    setIsRecurring(false)
     onClose()
   }
 
@@ -380,10 +387,44 @@ function AddTaskSheet({ open, onClose }: { open: boolean; onClose: () => void })
         </div>
 
         <div className="space-y-1">
+          <label htmlFor="due_time" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Hora limite (opcional)</label>
+          <input id="due_time" name="due_time" type="time"
+            className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+        </div>
+
+        <div className="space-y-1">
           <label htmlFor="tags" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Tags (separados por coma)</label>
           <input id="tags" name="tags" type="text" placeholder="trabajo, informe, cliente..."
             className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
         </div>
+
+        {/* Recurring toggle */}
+        <div className="flex items-center gap-3">
+          <label className="flex cursor-pointer items-center gap-2">
+            <input type="checkbox" name="is_recurring" checked={isRecurring} onChange={(e) => setIsRecurring(e.target.checked)}
+              className="h-4 w-4 rounded border-[var(--border-strong)] accent-[var(--mod-tasks)]" />
+            <span className="text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Tarea repetitiva</span>
+          </label>
+        </div>
+
+        {isRecurring && (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label htmlFor="recurrence_pattern" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Frecuencia</label>
+              <select id="recurrence_pattern" name="recurrence_pattern" defaultValue="weekly"
+                className="w-full appearance-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]">
+                <option value="daily">Diaria</option>
+                <option value="weekly">Semanal</option>
+                <option value="monthly">Mensual</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="recurrence_end" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Hasta (opcional)</label>
+              <input id="recurrence_end" name="recurrence_end" type="date"
+                className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+            </div>
+          </div>
+        )}
 
         <Button type="submit" disabled={pending} className="w-full">
           {pending ? 'Creando...' : 'Crear tarea'}
@@ -409,9 +450,13 @@ function EditTaskSheet({
   const [pending, setPending] = useState(false)
   const [subtasks, setSubtasks] = useState<Subtask[]>([])
   const [newSub, setNewSub] = useState('')
+  const [isRecurring, setIsRecurring] = useState(false)
 
   useEffect(() => {
-    if (task) setSubtasks(task.subtasks ?? [])
+    if (task) {
+      setSubtasks(task.subtasks ?? [])
+      setIsRecurring(task.is_recurring ?? false)
+    }
   }, [task])
 
   if (!task) return null
@@ -486,10 +531,44 @@ function EditTaskSheet({
         </div>
 
         <div className="space-y-1">
+          <label htmlFor="edit-due_time" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Hora limite (opcional)</label>
+          <input id="edit-due_time" name="due_time" type="time" defaultValue={task.due_time ?? ''}
+            className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+        </div>
+
+        <div className="space-y-1">
           <label htmlFor="edit-tags" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Tags (separados por coma)</label>
           <input id="edit-tags" name="tags" type="text" defaultValue={task.tags.join(', ')}
             className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
         </div>
+
+        {/* Recurring toggle */}
+        <div className="flex items-center gap-3">
+          <label className="flex cursor-pointer items-center gap-2">
+            <input type="checkbox" name="is_recurring" checked={isRecurring} onChange={(e) => setIsRecurring(e.target.checked)}
+              className="h-4 w-4 rounded border-[var(--border-strong)] accent-[var(--mod-tasks)]" />
+            <span className="text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Tarea repetitiva</span>
+          </label>
+        </div>
+
+        {isRecurring && (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label htmlFor="edit-recurrence_pattern" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Frecuencia</label>
+              <select id="edit-recurrence_pattern" name="recurrence_pattern" defaultValue={task.recurrence_pattern ?? 'weekly'}
+                className="w-full appearance-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]">
+                <option value="daily">Diaria</option>
+                <option value="weekly">Semanal</option>
+                <option value="monthly">Mensual</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="edit-recurrence_end" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Hasta (opcional)</label>
+              <input id="edit-recurrence_end" name="recurrence_end" type="date" defaultValue={task.recurrence_end ?? ''}
+                className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+            </div>
+          </div>
+        )}
 
         {/* Subtasks */}
         <div className="space-y-2">

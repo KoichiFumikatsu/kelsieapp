@@ -133,3 +133,68 @@ export async function deleteMedicamento(id: string): Promise<ActionResult<null>>
   if (error) return { ok: false, error: error.message }
   return { ok: true, data: null }
 }
+
+export async function updateMedicamento(id: string, formData: FormData): Promise<ActionResult<Medicamento>> {
+  const ctx = await getCtx()
+  if (!ctx?.householdId) return { ok: false, error: 'Sin hogar asignado' }
+
+  const nombre = formData.get('nombre') as string
+  const dosis = (formData.get('dosis') as string) || null
+  const notas = (formData.get('notas') as string) || null
+  const selectedUserId = (formData.get('user_id') as string) || ctx.userId
+  const fechaInicio = (formData.get('fecha_inicio') as string) || null
+  const horaInicio = (formData.get('hora_inicio') as string) || null
+  const frecuenciaHorasRaw = formData.get('frecuencia_horas') as string
+  const frecuenciaHoras = frecuenciaHorasRaw ? parseInt(frecuenciaHorasRaw, 10) : null
+  const duracionDiasRaw = formData.get('duracion_dias') as string
+  const duracionDias = duracionDiasRaw ? parseInt(duracionDiasRaw, 10) : null
+
+  if (!nombre) return { ok: false, error: 'El nombre es requerido' }
+
+  // Recalculate proxima_toma
+  let proximaToma: string | null = null
+  if (fechaInicio && horaInicio && frecuenciaHoras) {
+    const dt = new Date(`${fechaInicio}T${horaInicio}:00`)
+    const now = new Date()
+    while (dt < now) {
+      dt.setTime(dt.getTime() + frecuenciaHoras * 3600000)
+    }
+    if (duracionDias) {
+      const endDate = new Date(fechaInicio)
+      endDate.setDate(endDate.getDate() + duracionDias)
+      if (dt > endDate) proximaToma = null
+      else proximaToma = dt.toISOString()
+    } else {
+      proximaToma = dt.toISOString()
+    }
+  }
+
+  let fechaFin: string | null = null
+  if (fechaInicio && duracionDias) {
+    const end = new Date(fechaInicio)
+    end.setDate(end.getDate() + duracionDias)
+    fechaFin = end.toISOString().split('T')[0]
+  }
+
+  const { data, error } = await ctx.supabase
+    .from('medicamentos')
+    .update({
+      nombre,
+      dosis,
+      notas,
+      user_id: selectedUserId,
+      fecha_inicio: fechaInicio || null,
+      fecha_fin: fechaFin,
+      hora_inicio: horaInicio || null,
+      frecuencia_horas: frecuenciaHoras,
+      duracion_dias: duracionDias,
+      proxima_toma: proximaToma,
+    })
+    .eq('id', id)
+    .eq('household_id', ctx.householdId)
+    .select()
+    .single()
+
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, data: data as Medicamento }
+}

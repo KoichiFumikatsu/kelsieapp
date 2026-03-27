@@ -54,6 +54,10 @@ export async function createWorkTask(formData: FormData): Promise<ActionResult<W
   const descripcion = (formData.get('descripcion') as string) || null
   const prioridad = (formData.get('prioridad') as string) || 'mid'
   const dueDate = (formData.get('due_date') as string) || null
+  const dueTime = (formData.get('due_time') as string) || null
+  const isRecurring = formData.get('is_recurring') === 'on'
+  const recurrencePattern = isRecurring ? ((formData.get('recurrence_pattern') as string) || null) : null
+  const recurrenceEnd = isRecurring ? ((formData.get('recurrence_end') as string) || null) : null
   const tagsRaw = (formData.get('tags') as string) || ''
   const tags = tagsRaw ? tagsRaw.split(',').map((t) => t.trim()).filter(Boolean) : []
   const subtasksRaw = (formData.get('subtasks') as string) || '[]'
@@ -71,6 +75,10 @@ export async function createWorkTask(formData: FormData): Promise<ActionResult<W
       descripcion,
       prioridad,
       due_date: dueDate || null,
+      due_time: dueTime || null,
+      is_recurring: isRecurring,
+      recurrence_pattern: recurrencePattern,
+      recurrence_end: recurrenceEnd || null,
       tags,
       subtasks,
     })
@@ -105,6 +113,10 @@ export async function updateWorkTask(id: string, formData: FormData): Promise<Ac
   const descripcion = (formData.get('descripcion') as string) || null
   const prioridad = (formData.get('prioridad') as string) || 'mid'
   const dueDate = (formData.get('due_date') as string) || null
+  const dueTime = (formData.get('due_time') as string) || null
+  const isRecurring = formData.get('is_recurring') === 'on'
+  const recurrencePattern = isRecurring ? ((formData.get('recurrence_pattern') as string) || null) : null
+  const recurrenceEnd = isRecurring ? ((formData.get('recurrence_end') as string) || null) : null
   const tagsRaw = (formData.get('tags') as string) || ''
   const tags = tagsRaw ? tagsRaw.split(',').map((t) => t.trim()).filter(Boolean) : []
   const subtasksRaw = (formData.get('subtasks') as string) || '[]'
@@ -113,7 +125,7 @@ export async function updateWorkTask(id: string, formData: FormData): Promise<Ac
 
   const { data, error } = await ctx.supabase
     .from('work_tasks')
-    .update({ titulo, descripcion, prioridad, due_date: dueDate || null, tags, subtasks })
+    .update({ titulo, descripcion, prioridad, due_date: dueDate || null, due_time: dueTime || null, is_recurring: isRecurring, recurrence_pattern: recurrencePattern, recurrence_end: recurrenceEnd || null, tags, subtasks })
     .eq('id', id)
     .eq('user_id', ctx.userId)
     .select()

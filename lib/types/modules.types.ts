@@ -150,6 +150,8 @@ export interface Subtask {
   done: boolean
 }
 
+export type RecurrencePattern = 'daily' | 'weekly' | 'monthly'
+
 export interface WorkTask {
   id: string
   household_id: string
@@ -159,6 +161,10 @@ export interface WorkTask {
   prioridad: TaskPriority
   status: TaskStatus
   due_date: string | null
+  due_time: string | null
+  is_recurring: boolean
+  recurrence_pattern: RecurrencePattern | null
+  recurrence_end: string | null
   tags: string[]
   subtasks: Subtask[]
   notify_on_due: boolean

@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Stethoscope, Pill, Calendar, Building2, UserRound, Trash2, Users, Clock, Bell } from 'lucide-react'
+import { Plus, Stethoscope, Pill, Calendar, Building2, UserRound, Trash2, Users, Clock, Bell, Pencil } from 'lucide-react'
 
 import { getMedicalRecords, createMedicalRecord, deleteMedicalRecord } from '@/app/actions/medical/records'
-import { getMedicamentos, createMedicamento, toggleMedicamento, deleteMedicamento } from '@/app/actions/medical/medicamentos'
+import { getMedicamentos, createMedicamento, toggleMedicamento, deleteMedicamento, updateMedicamento } from '@/app/actions/medical/medicamentos'
 import { getUpcomingReminders } from '@/app/actions/medical/reminders'
 import { TimelineItem } from '@/components/modules/medical/TimelineItem'
 import { useHousehold } from '@/hooks/useHousehold'
@@ -31,6 +31,7 @@ export function MedicalClient() {
   const [tab, setTab] = useState<Tab>('timeline')
   const [showAddRecord, setShowAddRecord] = useState(false)
   const [showAddMed, setShowAddMed] = useState(false)
+  const [editingMed, setEditingMed] = useState<Medicamento | null>(null)
   const { members, profile } = useHousehold()
 
   const loadData = useCallback(async () => {
@@ -255,6 +256,13 @@ export function MedicalClient() {
                     </div>
                     <div className="flex gap-1">
                       <button
+                        onClick={() => setEditingMed(med)}
+                        className="rounded p-1 text-[var(--text-3)] hover:text-[var(--mod-medical)]"
+                        title="Editar"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
                         onClick={() => handleToggleMed(med.id, !med.activo)}
                         className={`rounded px-2 py-1 text-[10px] font-medium ${
                           med.activo
@@ -292,6 +300,16 @@ export function MedicalClient() {
 
       {/* Add Med Sheet */}
       <AddMedSheet open={showAddMed} onClose={() => { setShowAddMed(false); loadData() }} members={members} currentUserId={profile?.id} />
+
+      {/* Edit Med Sheet */}
+      <EditMedSheet
+        open={!!editingMed}
+        med={editingMed}
+        onClose={() => setEditingMed(null)}
+        onSaved={() => { setEditingMed(null); loadData() }}
+        members={members}
+        currentUserId={profile?.id}
+      />
     </div>
   )
 }
@@ -455,6 +473,99 @@ function AddMedSheet({ open, onClose, members, currentUserId }: { open: boolean;
 
         <Button type="submit" disabled={pending} className="w-full">
           {pending ? 'Guardando...' : 'Guardar medicamento'}
+        </Button>
+      </form>
+    </BottomSheet>
+  )
+}
+
+/* ── EditMedSheet ── */
+function EditMedSheet({
+  open,
+  med,
+  onClose,
+  onSaved,
+  members,
+  currentUserId,
+}: {
+  open: boolean
+  med: Medicamento | null
+  onClose: () => void
+  onSaved: () => void
+} & MemberProps) {
+  const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
+
+  if (!med) return null
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setPending(true)
+    setError(null)
+    const form = new FormData(e.currentTarget)
+    const result = await updateMedicamento(med!.id, form)
+    setPending(false)
+    if (!result.ok) { setError(result.error); return }
+    onSaved()
+  }
+
+  return (
+    <BottomSheet open={open} onClose={onClose} title="Editar medicamento">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <p className="rounded border border-[var(--expense)] bg-[color-mix(in_srgb,var(--expense)_8%,transparent)] px-3 py-2 text-xs text-[var(--expense)]">{error}</p>
+        )}
+
+        {members.length > 1 && (
+          <div className="space-y-1">
+            <label htmlFor="edit_med_user_id" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Miembro</label>
+            <select id="edit_med_user_id" name="user_id" defaultValue={med.user_id} className="w-full appearance-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]">
+              {members.map((m) => (
+                <option key={m.id} value={m.id}>{m.display_name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <div className="space-y-1">
+          <label htmlFor="edit_nombre" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Nombre</label>
+          <input id="edit_nombre" name="nombre" type="text" required defaultValue={med.nombre} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label htmlFor="edit_dosis" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Dosis</label>
+            <input id="edit_dosis" name="dosis" type="text" defaultValue={med.dosis ?? ''} placeholder="500mg, 1 pastilla..." className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="edit_duracion_dias" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Dias recetados</label>
+            <input id="edit_duracion_dias" name="duracion_dias" type="number" min="1" defaultValue={med.duracion_dias ?? ''} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label htmlFor="edit_hora_inicio" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Hora inicio</label>
+            <input id="edit_hora_inicio" name="hora_inicio" type="time" defaultValue={med.hora_inicio?.slice(0, 5) ?? ''} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="edit_frecuencia_horas" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Cada (horas)</label>
+            <input id="edit_frecuencia_horas" name="frecuencia_horas" type="number" min="1" max="72" defaultValue={med.frecuencia_horas ?? ''} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <label htmlFor="edit_fecha_inicio" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Fecha inicio</label>
+          <input id="edit_fecha_inicio" name="fecha_inicio" type="date" defaultValue={med.fecha_inicio ?? ''} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+        </div>
+
+        <div className="space-y-1">
+          <label htmlFor="edit_notas" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Notas</label>
+          <textarea id="edit_notas" name="notas" rows={2} defaultValue={med.notas ?? ''} placeholder="Instrucciones especiales..." className="w-full resize-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+        </div>
+
+        <Button type="submit" disabled={pending} className="w-full">
+          {pending ? 'Guardando...' : 'Guardar cambios'}
         </Button>
       </form>
     </BottomSheet>
