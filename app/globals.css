@@ -1,15 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  /* Core */
-  --bg: #F2F0EB;
+  /* Core — Arknights-inspired neutral canvas */
+  --bg: #E8E6E1;
   --surface: #FFFFFF;
-  --surface-2: #F8F7F4;
-  --text-1: #191917;
-  --text-2: #6B6960;
-  --text-3: #A8A59F;
+  --surface-2: #F0EEEA;
+  --surface-glass: rgba(255, 255, 255, 0.45);
+  --text-1: #141413;
+  --text-2: #575650;
+  --text-3: #9C9A94;
+  --border: rgba(20, 20, 19, 0.08);
+  --border-strong: rgba(20, 20, 19, 0.18);
 
-  /* Semánticos (FIJOS) */
+  /* Semánticos */
   --income: #1A7A5A;
   --expense: #C0472A;
   --warn: #B87428;
@@ -57,4 +60,63 @@ body {
   font-family: var(--font-mono);
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+/* Glass panel — HSR / Wuthering Waves inspired */
+.glass {
+  background: var(--surface-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+}
+
+/* Module card — Arknights operator-card style */
+.mod-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.mod-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent, var(--text-3));
+}
+.mod-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent, var(--text-3)) 15%, transparent);
+}
+
+/* Accent bar for section headers — Arknights style */
+.section-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-bar::before {
+  content: '';
+  width: 3px;
+  height: 16px;
+  border-radius: 1px;
+  background: var(--accent, var(--text-1));
+  flex-shrink: 0;
+}
+
+/* Tag / badge — tactical status indicator */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }

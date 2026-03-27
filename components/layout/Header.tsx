@@ -2,36 +2,41 @@
 
 import { useHousehold } from '@/hooks/useHousehold'
 import { logout } from '@/app/actions/core/auth'
+import { LogOut } from 'lucide-react'
 
 export function Header() {
   const { profile, household, loading } = useHousehold()
 
   if (loading) {
     return (
-      <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-muted/20 bg-surface px-4">
-        <div className="h-5 w-32 animate-pulse rounded bg-surface-2" />
+      <header className="sticky top-0 z-10 flex h-12 items-center justify-between glass px-4">
+        <div className="h-4 w-28 animate-pulse rounded bg-surface-2" />
       </header>
     )
   }
 
-  return (
-    <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-muted/20 bg-surface px-4">
-      <div className="flex items-center gap-2">
-        <span className="text-lg font-bold text-primary">
-          {household?.name ?? 'Household OS'}
-        </span>
-      </div>
+  const initial = profile?.display_name?.charAt(0)?.toUpperCase() ?? '?'
 
-      <div className="flex items-center gap-3">
+  return (
+    <header className="sticky top-0 z-10 flex h-12 items-center justify-between glass px-4">
+      <span className="text-sm font-bold tracking-tight text-primary">
+        {household?.name ?? 'Household OS'}
+      </span>
+
+      <div className="flex items-center gap-2.5">
         {profile && (
-          <div className="flex items-center gap-1.5">
-            <span
-              className="flex h-7 w-7 items-center justify-center rounded-full text-sm"
-              style={{ backgroundColor: profile.color_hex + '20', color: profile.color_hex }}
+          <div className="flex items-center gap-2">
+            <div
+              className="flex h-7 w-7 items-center justify-center rounded text-xs font-bold"
+              style={{
+                backgroundColor: profile.color_hex + '18',
+                color: profile.color_hex,
+                border: `1px solid ${profile.color_hex}30`,
+              }}
             >
-              {profile.avatar_emoji}
-            </span>
-            <span className="hidden text-sm font-medium text-secondary sm:inline">
+              {initial}
+            </div>
+            <span className="hidden text-xs font-medium text-secondary sm:inline">
               {profile.display_name}
             </span>
           </div>
@@ -39,9 +44,10 @@ export function Header() {
         <form action={logout}>
           <button
             type="submit"
-            className="rounded-md px-2 py-1 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-secondary"
+            className="flex h-7 w-7 items-center justify-center rounded text-muted transition-colors hover:bg-surface-2 hover:text-secondary"
+            aria-label="Cerrar sesión"
           >
-            Salir
+            <LogOut size={14} strokeWidth={1.8} />
           </button>
         </form>
       </div>

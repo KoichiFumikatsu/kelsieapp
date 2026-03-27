@@ -2,42 +2,60 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import {
+  Wallet,
+  Sparkles,
+  LayoutGrid,
+  ListChecks,
+  GraduationCap,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
-const NAV_ITEMS = [
-  { href: '/finance', label: 'Finanzas', emoji: '💸', color: 'var(--mod-finance)' },
-  { href: '/chores', label: 'Tareas', emoji: '🧹', color: 'var(--mod-chores)' },
-  { href: '/dashboard', label: 'Home', emoji: '🏠', color: 'var(--text-1)' },
-  { href: '/tasks', label: 'Trabajo', emoji: '📋', color: 'var(--mod-tasks)' },
-  { href: '/studies', label: 'Estudio', emoji: '🎓', color: 'var(--mod-studies)' },
-] as const
+type NavItem = {
+  href: string
+  label: string
+  icon: LucideIcon
+  color: string
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { href: '/finance', label: 'Finanzas', icon: Wallet, color: 'var(--mod-finance)' },
+  { href: '/chores', label: 'Tareas', icon: Sparkles, color: 'var(--mod-chores)' },
+  { href: '/dashboard', label: 'Home', icon: LayoutGrid, color: 'var(--text-1)' },
+  { href: '/tasks', label: 'Trabajo', icon: ListChecks, color: 'var(--mod-tasks)' },
+  { href: '/studies', label: 'Estudio', icon: GraduationCap, color: 'var(--mod-studies)' },
+]
 
 export function BottomNav() {
   const pathname = usePathname()
 
   return (
-    <nav className="sticky bottom-0 z-10 flex h-16 items-center justify-around border-t border-muted/20 bg-surface">
+    <nav className="sticky bottom-0 z-10 flex h-14 items-center justify-around glass">
       {NAV_ITEMS.map((item) => {
         const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+        const Icon = item.icon
 
         return (
           <Link
             key={item.href}
             href={item.href}
-            className="flex flex-col items-center gap-0.5 px-2 py-1 transition-colors"
+            className="relative flex flex-col items-center gap-0.5 px-3 py-1.5"
           >
+            {isActive && (
+              <span
+                className="absolute -top-px left-1/2 h-[2px] w-6 -translate-x-1/2"
+                style={{ background: item.color }}
+              />
+            )}
+            <Icon
+              size={20}
+              strokeWidth={isActive ? 2.2 : 1.5}
+              style={{ color: isActive ? item.color : 'var(--text-3)' }}
+              className="transition-colors"
+            />
             <span
-              className="text-xl transition-transform"
-              style={{
-                transform: isActive ? 'scale(1.15)' : 'scale(1)',
-              }}
-            >
-              {item.emoji}
-            </span>
-            <span
-              className="text-[10px] font-medium transition-colors"
-              style={{
-                color: isActive ? item.color : 'var(--text-3)',
-              }}
+              className="text-[10px] font-semibold tracking-wide transition-colors"
+              style={{ color: isActive ? item.color : 'var(--text-3)' }}
             >
               {item.label}
             </span>
