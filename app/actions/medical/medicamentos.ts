@@ -17,12 +17,12 @@ async function getCtx() {
 
 export async function getMedicamentos(onlyActive = true): Promise<ActionResult<Medicamento[]>> {
   const ctx = await getCtx()
-  if (!ctx) return { ok: false, error: 'No autenticado' }
+  if (!ctx?.householdId) return { ok: false, error: 'Sin hogar asignado' }
 
   let query = ctx.supabase
     .from('medicamentos')
-    .select('*')
-    .eq('user_id', ctx.userId)
+    .select('*, profiles(display_name, color_hex)')
+    .eq('household_id', ctx.householdId)
 
   if (onlyActive) query = query.eq('activo', true)
 
@@ -42,6 +42,7 @@ export async function createMedicamento(formData: FormData): Promise<ActionResul
   const fechaInicio = (formData.get('fecha_inicio') as string) || null
   const fechaFin = (formData.get('fecha_fin') as string) || null
   const notas = (formData.get('notas') as string) || null
+  const selectedUserId = (formData.get('user_id') as string) || ctx.userId
 
   if (!nombre) return { ok: false, error: 'El nombre es requerido' }
 
@@ -49,7 +50,7 @@ export async function createMedicamento(formData: FormData): Promise<ActionResul
     .from('medicamentos')
     .insert({
       household_id: ctx.householdId,
-      user_id: ctx.userId,
+      user_id: selectedUserId,
       nombre,
       dosis,
       frecuencia,
@@ -66,13 +67,13 @@ export async function createMedicamento(formData: FormData): Promise<ActionResul
 
 export async function toggleMedicamento(id: string, activo: boolean): Promise<ActionResult<Medicamento>> {
   const ctx = await getCtx()
-  if (!ctx) return { ok: false, error: 'No autenticado' }
+  if (!ctx?.householdId) return { ok: false, error: 'Sin hogar asignado' }
 
   const { data, error } = await ctx.supabase
     .from('medicamentos')
     .update({ activo })
     .eq('id', id)
-    .eq('user_id', ctx.userId)
+    .eq('household_id', ctx.householdId)
     .select()
     .single()
 
@@ -82,13 +83,13 @@ export async function toggleMedicamento(id: string, activo: boolean): Promise<Ac
 
 export async function deleteMedicamento(id: string): Promise<ActionResult<null>> {
   const ctx = await getCtx()
-  if (!ctx) return { ok: false, error: 'No autenticado' }
+  if (!ctx?.householdId) return { ok: false, error: 'Sin hogar asignado' }
 
   const { error } = await ctx.supabase
     .from('medicamentos')
     .delete()
     .eq('id', id)
-    .eq('user_id', ctx.userId)
+    .eq('household_id', ctx.householdId)
 
   if (error) return { ok: false, error: error.message }
   return { ok: true, data: null }

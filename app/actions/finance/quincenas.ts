@@ -111,8 +111,12 @@ export async function updateQuincena(id: string, formData: FormData): Promise<Ac
   const updates: Record<string, unknown> = {}
   const nombre = formData.get('nombre') as string | null
   const saldoInicial = formData.get('saldo_inicial') as string | null
+  const fechaInicio = formData.get('fecha_inicio') as string | null
+  const fechaFin = formData.get('fecha_fin') as string | null
   if (nombre) updates.nombre = nombre
   if (saldoInicial !== null && saldoInicial !== '') updates.saldo_inicial = Number(saldoInicial)
+  if (fechaInicio) updates.fecha_inicio = fechaInicio
+  if (fechaFin) updates.fecha_fin = fechaFin
 
   const { error } = await supabase
     .from('quincenas')

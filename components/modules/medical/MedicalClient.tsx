@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Lock, Stethoscope, Pill, Calendar, Building2, UserRound, Trash2 } from 'lucide-react'
+import { Plus, Stethoscope, Pill, Calendar, Building2, UserRound, Trash2, Users } from 'lucide-react'
 
 import { getMedicalRecords, createMedicalRecord, deleteMedicalRecord } from '@/app/actions/medical/records'
 import { getMedicamentos, createMedicamento, toggleMedicamento, deleteMedicamento } from '@/app/actions/medical/medicamentos'
 import { getUpcomingReminders } from '@/app/actions/medical/reminders'
 import { TimelineItem } from '@/components/modules/medical/TimelineItem'
+import { useHousehold } from '@/hooks/useHousehold'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { BottomSheet } from '@/components/ui/Modal'
@@ -30,6 +31,7 @@ export function MedicalClient() {
   const [tab, setTab] = useState<Tab>('timeline')
   const [showAddRecord, setShowAddRecord] = useState(false)
   const [showAddMed, setShowAddMed] = useState(false)
+  const { members, profile } = useHousehold()
 
   const loadData = useCallback(async () => {
     const [recRes, medRes, remRes] = await Promise.all([
@@ -73,10 +75,10 @@ export function MedicalClient() {
 
   return (
     <div className="space-y-4 p-4 md:p-6">
-      {/* Private indicator */}
+      {/* Shared indicator */}
       <div className="flex items-center gap-2 text-xs text-[var(--text-3)]">
-        <Lock size={12} />
-        <span>Vista privada — solo tu puedes ver estos datos</span>
+        <Users size={12} />
+        <span>Vista compartida del hogar</span>
       </div>
 
       {/* KPIs */}
@@ -164,6 +166,11 @@ export function MedicalClient() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <Badge color={cfg.color}>{cfg.label}</Badge>
+                          {(rec as any).profiles?.display_name && (
+                            <span className="text-[10px] font-medium" style={{ color: (rec as any).profiles.color_hex }}>
+                              {(rec as any).profiles.display_name}
+                            </span>
+                          )}
                           <span className="num text-xs text-[var(--text-3)]">{formatDateShort(rec.fecha)}</span>
                         </div>
                         {rec.especialidad && (
@@ -225,6 +232,11 @@ export function MedicalClient() {
                       <div className="flex items-center gap-2">
                         <Pill size={14} className={med.activo ? 'text-[var(--mod-medical)]' : 'text-[var(--text-3)]'} />
                         <span className="text-sm font-medium text-[var(--text-1)]">{med.nombre}</span>
+                        {(med as any).profiles?.display_name && (
+                          <span className="text-[10px] font-medium" style={{ color: (med as any).profiles.color_hex }}>
+                            {(med as any).profiles.display_name}
+                          </span>
+                        )}
                         {!med.activo && <Badge color="var(--text-3)">Inactivo</Badge>}
                       </div>
                       <div className="mt-1 space-y-0.5 text-xs text-[var(--text-3)]">
@@ -267,16 +279,18 @@ export function MedicalClient() {
       </button>
 
       {/* Add Record Sheet */}
-      <AddRecordSheet open={showAddRecord} onClose={() => { setShowAddRecord(false); loadData() }} />
+      <AddRecordSheet open={showAddRecord} onClose={() => { setShowAddRecord(false); loadData() }} members={members} currentUserId={profile?.id} />
 
       {/* Add Med Sheet */}
-      <AddMedSheet open={showAddMed} onClose={() => { setShowAddMed(false); loadData() }} />
+      <AddMedSheet open={showAddMed} onClose={() => { setShowAddMed(false); loadData() }} members={members} currentUserId={profile?.id} />
     </div>
   )
 }
 
 /* ── AddRecordSheet ── */
-function AddRecordSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+interface MemberProps { members: { id: string; display_name: string; color_hex: string }[]; currentUserId?: string }
+
+function AddRecordSheet({ open, onClose, members, currentUserId }: { open: boolean; onClose: () => void } & MemberProps) {
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -296,6 +310,17 @@ function AddRecordSheet({ open, onClose }: { open: boolean; onClose: () => void 
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <p className="rounded border border-[var(--expense)] bg-[color-mix(in_srgb,var(--expense)_8%,transparent)] px-3 py-2 text-xs text-[var(--expense)]">{error}</p>
+        )}
+
+        {members.length > 1 && (
+          <div className="space-y-1">
+            <label htmlFor="user_id" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Miembro</label>
+            <select id="user_id" name="user_id" defaultValue={currentUserId} className="w-full appearance-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]">
+              {members.map((m) => (
+                <option key={m.id} value={m.id}>{m.display_name}</option>
+              ))}
+            </select>
+          </div>
         )}
 
         <div className="grid grid-cols-2 gap-3">
@@ -349,7 +374,7 @@ function AddRecordSheet({ open, onClose }: { open: boolean; onClose: () => void 
 }
 
 /* ── AddMedSheet ── */
-function AddMedSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+function AddMedSheet({ open, onClose, members, currentUserId }: { open: boolean; onClose: () => void } & MemberProps) {
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -369,6 +394,17 @@ function AddMedSheet({ open, onClose }: { open: boolean; onClose: () => void }) 
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <p className="rounded border border-[var(--expense)] bg-[color-mix(in_srgb,var(--expense)_8%,transparent)] px-3 py-2 text-xs text-[var(--expense)]">{error}</p>
+        )}
+
+        {members.length > 1 && (
+          <div className="space-y-1">
+            <label htmlFor="med_user_id" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Miembro</label>
+            <select id="med_user_id" name="user_id" defaultValue={currentUserId} className="w-full appearance-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]">
+              {members.map((m) => (
+                <option key={m.id} value={m.id}>{m.display_name}</option>
+              ))}
+            </select>
+          </div>
         )}
 
         <div className="space-y-1">

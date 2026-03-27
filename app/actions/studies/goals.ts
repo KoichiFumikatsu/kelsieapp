@@ -21,7 +21,7 @@ export async function getStudyGoals(): Promise<ActionResult<StudyGoal[]>> {
 
   const { data, error } = await ctx.supabase
     .from('study_goals')
-    .select('*')
+    .select('*, profiles(display_name, color_hex)')
     .eq('household_id', ctx.householdId)
     .order('created_at', { ascending: false })
 
@@ -55,6 +55,7 @@ export async function createStudyGoal(formData: FormData): Promise<ActionResult<
   const totalUnidades = Number(formData.get('total_unidades')) || 1
   const fechaInicio = (formData.get('fecha_inicio') as string) || null
   const fechaMeta = (formData.get('fecha_meta') as string) || null
+  const selectedUserId = (formData.get('user_id') as string) || ctx.userId
 
   if (!titulo || !categoria) return { ok: false, error: 'Titulo y categoria son requeridos' }
 
@@ -62,7 +63,7 @@ export async function createStudyGoal(formData: FormData): Promise<ActionResult<
     .from('study_goals')
     .insert({
       household_id: ctx.householdId,
-      user_id: ctx.userId,
+      user_id: selectedUserId,
       titulo,
       descripcion,
       categoria,
@@ -82,13 +83,13 @@ export async function createStudyGoal(formData: FormData): Promise<ActionResult<
 
 export async function updateGoalStatus(id: string, status: StudyGoalStatus): Promise<ActionResult<StudyGoal>> {
   const ctx = await getCtx()
-  if (!ctx) return { ok: false, error: 'No autenticado' }
+  if (!ctx?.householdId) return { ok: false, error: 'Sin hogar asignado' }
 
   const { data, error } = await ctx.supabase
     .from('study_goals')
     .update({ status })
     .eq('id', id)
-    .eq('user_id', ctx.userId)
+    .eq('household_id', ctx.householdId)
     .select()
     .single()
 
@@ -98,13 +99,13 @@ export async function updateGoalStatus(id: string, status: StudyGoalStatus): Pro
 
 export async function deleteStudyGoal(id: string): Promise<ActionResult<null>> {
   const ctx = await getCtx()
-  if (!ctx) return { ok: false, error: 'No autenticado' }
+  if (!ctx?.householdId) return { ok: false, error: 'Sin hogar asignado' }
 
   const { error } = await ctx.supabase
     .from('study_goals')
     .delete()
     .eq('id', id)
-    .eq('user_id', ctx.userId)
+    .eq('household_id', ctx.householdId)
 
   if (error) return { ok: false, error: error.message }
   return { ok: true, data: null }

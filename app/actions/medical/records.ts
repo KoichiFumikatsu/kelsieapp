@@ -17,12 +17,12 @@ async function getCtx() {
 
 export async function getMedicalRecords(): Promise<ActionResult<MedicalRecord[]>> {
   const ctx = await getCtx()
-  if (!ctx) return { ok: false, error: 'No autenticado' }
+  if (!ctx?.householdId) return { ok: false, error: 'Sin hogar asignado' }
 
   const { data, error } = await ctx.supabase
     .from('medical_records')
-    .select('*')
-    .eq('user_id', ctx.userId)
+    .select('*, profiles(display_name, color_hex)')
+    .eq('household_id', ctx.householdId)
     .order('fecha', { ascending: false })
 
   if (error) return { ok: false, error: error.message }
@@ -40,6 +40,7 @@ export async function createMedicalRecord(formData: FormData): Promise<ActionRes
   const doctor = (formData.get('doctor') as string) || null
   const clinica = (formData.get('clinica') as string) || null
   const notas = (formData.get('notas') as string) || null
+  const selectedUserId = (formData.get('user_id') as string) || ctx.userId
 
   if (!tipo || !fecha) return { ok: false, error: 'Tipo y fecha son requeridos' }
 
@@ -47,7 +48,7 @@ export async function createMedicalRecord(formData: FormData): Promise<ActionRes
     .from('medical_records')
     .insert({
       household_id: ctx.householdId,
-      user_id: ctx.userId,
+      user_id: selectedUserId,
       tipo,
       especialidad,
       fecha,
@@ -65,7 +66,7 @@ export async function createMedicalRecord(formData: FormData): Promise<ActionRes
 
 export async function updateMedicalRecord(id: string, formData: FormData): Promise<ActionResult<MedicalRecord>> {
   const ctx = await getCtx()
-  if (!ctx) return { ok: false, error: 'No autenticado' }
+  if (!ctx?.householdId) return { ok: false, error: 'Sin hogar asignado' }
 
   const tipo = formData.get('tipo') as string
   const especialidad = (formData.get('especialidad') as string) || null
@@ -79,7 +80,7 @@ export async function updateMedicalRecord(id: string, formData: FormData): Promi
     .from('medical_records')
     .update({ tipo, especialidad, fecha, proxima_cita: proximaCita || null, doctor, clinica, notas })
     .eq('id', id)
-    .eq('user_id', ctx.userId)
+    .eq('household_id', ctx.householdId)
     .select()
     .single()
 
@@ -89,13 +90,13 @@ export async function updateMedicalRecord(id: string, formData: FormData): Promi
 
 export async function deleteMedicalRecord(id: string): Promise<ActionResult<null>> {
   const ctx = await getCtx()
-  if (!ctx) return { ok: false, error: 'No autenticado' }
+  if (!ctx?.householdId) return { ok: false, error: 'Sin hogar asignado' }
 
   const { error } = await ctx.supabase
     .from('medical_records')
     .delete()
     .eq('id', id)
-    .eq('user_id', ctx.userId)
+    .eq('household_id', ctx.householdId)
 
   if (error) return { ok: false, error: error.message }
   return { ok: true, data: null }

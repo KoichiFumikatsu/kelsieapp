@@ -12,6 +12,7 @@ import { getFinanceKPIs } from '@/app/actions/finance/dashboard'
 import { FinanceKPIPanel } from '@/components/modules/finance/FinanceKPIPanel'
 import { TransaccionList } from '@/components/modules/finance/TransaccionList'
 import { AddTransaccionSheet } from '@/components/modules/finance/AddTransaccionSheet'
+import { useHousehold } from '@/hooks/useHousehold'
 import { Button } from '@/components/ui/Button'
 import { BottomSheet } from '@/components/ui/Modal'
 import { formatPeriod } from '@/lib/utils/format'
@@ -24,6 +25,7 @@ import type {
 
 export function FinanceClient() {
   const router = useRouter()
+  const { members, profile } = useHousehold()
 
   const [quincenas, setQuincenas] = useState<Quincena[]>([])
   const [active, setActive] = useState<Quincena | null>(null)
@@ -240,6 +242,8 @@ export function FinanceClient() {
         onClose={() => { setShowAddTx(false); loadData(active.id) }}
         quincenaId={active.id}
         categorias={categorias}
+        members={members}
+        currentUserId={profile?.id}
       />
 
       <BottomSheet open={showQuincenaSelector} onClose={() => setShowQuincenaSelector(false)} title="Seleccionar quincena">
@@ -502,6 +506,16 @@ function EditQuincenaSheet({ open, quincena, onClose, onSaved }: {
         <div className="space-y-1">
           <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Nombre</label>
           <input name="nombre" required defaultValue={quincena.nombre} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Inicio</label>
+            <input name="fecha_inicio" type="date" required defaultValue={quincena.fecha_inicio} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+          </div>
+          <div className="space-y-1">
+            <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Fin</label>
+            <input name="fecha_fin" type="date" required defaultValue={quincena.fecha_fin} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+          </div>
         </div>
         <div className="space-y-1">
           <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Saldo inicial</label>

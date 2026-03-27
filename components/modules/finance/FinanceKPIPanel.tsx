@@ -1,7 +1,13 @@
 import { formatCOP } from '@/lib/utils/format'
 import { ProgressBar } from '@/components/ui/Progress'
+import { DonutChart, HBarChart } from '@/components/ui/Charts'
 import type { FinanceKPIs } from '@/lib/types/modules.types'
 import { TrendingDown, TrendingUp, Wallet, PiggyBank, AlertTriangle } from 'lucide-react'
+
+const CHART_COLORS = [
+  '#6366f1', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6',
+  '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#84cc16',
+]
 
 interface FinanceKPIPanelProps {
   kpis: FinanceKPIs
@@ -91,33 +97,39 @@ export function FinanceKPIPanel({ kpis, className = '' }: FinanceKPIPanelProps) 
         <p className="text-xs text-[var(--income)]">Buen manejo financiero. Ahorro del {savingsRate}% esta quincena.</p>
       )}
 
-      {/* Per-category bars */}
-      {kpis.porCategoria.length > 0 && (
-        <div className="space-y-3">
+      {/* Per-category charts */}
+      {kpis.porCategoria.filter((c) => c.tipo === 'gasto' && c.real > 0).length > 0 && (
+        <div className="space-y-4">
           <p className="section-bar text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">
-            Por categoria
+            Distribucion de gastos
           </p>
-          {kpis.porCategoria
-            .filter((c) => c.tipo === 'gasto')
-            .map((c) => {
-              const pct = Math.round(c.porcentaje * 100)
-              return (
-                <div key={c.categoriaId} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-[var(--text-1)]">{c.nombre}</span>
-                    <span className="num text-[var(--text-3)]">
-                      {formatCOP(c.real)} / {formatCOP(c.previsto)} <span className={pct > 100 ? 'text-[var(--expense)] font-bold' : ''}>{pct}%</span>
-                    </span>
-                  </div>
-                  <ProgressBar
-                    value={c.porcentaje}
-                    projected={1}
-                    color={c.porcentaje > 1 ? 'var(--expense)' : c.porcentaje > 0.8 ? 'var(--warn)' : 'var(--mod-finance)'}
-                    height={5}
-                  />
-                </div>
-              )
-            })}
+
+          {/* Donut chart — spending distribution */}
+          <DonutChart
+            segments={kpis.porCategoria
+              .filter((c) => c.tipo === 'gasto' && c.real > 0)
+              .map((c, i) => ({
+                label: c.nombre,
+                value: c.real,
+                color: CHART_COLORS[i % CHART_COLORS.length],
+              }))}
+          />
+
+          {/* Horizontal bar chart — budget vs actual */}
+          <p className="section-bar text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">
+            Presupuesto vs real
+          </p>
+          <HBarChart
+            bars={kpis.porCategoria
+              .filter((c) => c.tipo === 'gasto')
+              .map((c, i) => ({
+                label: c.nombre,
+                value: c.real,
+                max: c.previsto,
+                color: c.porcentaje > 1 ? 'var(--expense)' : c.porcentaje > 0.8 ? 'var(--warn)' : CHART_COLORS[i % CHART_COLORS.length],
+              }))}
+            formatValue={formatCOP}
+          />
         </div>
       )}
     </div>

@@ -6,14 +6,22 @@ import { Button } from '@/components/ui/Button'
 import { createTransaccion } from '@/app/actions/finance/transacciones'
 import type { Categoria } from '@/lib/types/modules.types'
 
+interface Member {
+  id: string
+  display_name: string
+  color_hex: string
+}
+
 interface AddTransaccionSheetProps {
   open: boolean
   onClose: () => void
   quincenaId: string
   categorias: Categoria[]
+  members: Member[]
+  currentUserId?: string
 }
 
-export function AddTransaccionSheet({ open, onClose, quincenaId, categorias }: AddTransaccionSheetProps) {
+export function AddTransaccionSheet({ open, onClose, quincenaId, categorias, members, currentUserId }: AddTransaccionSheetProps) {
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -83,6 +91,25 @@ export function AddTransaccionSheet({ open, onClose, quincenaId, categorias }: A
             />
           </div>
         </div>
+
+        {/* Miembro */}
+        {members.length > 1 && (
+          <div className="space-y-1">
+            <label htmlFor="user_id" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">
+              Miembro
+            </label>
+            <select
+              id="user_id"
+              name="user_id"
+              defaultValue={currentUserId}
+              className="w-full appearance-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]"
+            >
+              {members.map((m) => (
+                <option key={m.id} value={m.id}>{m.display_name}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Categoría */}
         <div className="space-y-1">

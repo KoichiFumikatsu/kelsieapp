@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, GraduationCap, Timer, Trash2, ExternalLink } from 'lucide-react'
+import { Plus, GraduationCap, Timer, Trash2, ExternalLink, Users } from 'lucide-react'
 
 import { getStudyGoals, createStudyGoal, updateGoalStatus, deleteStudyGoal } from '@/app/actions/studies/goals'
 import { createStudySession, getStudyStreak } from '@/app/actions/studies/sessions'
 import { CircularProgress } from '@/components/ui/Progress'
 import { StreakCounter } from '@/components/modules/studies/StreakCounter'
+import { useHousehold } from '@/hooks/useHousehold'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { BottomSheet } from '@/components/ui/Modal'
@@ -34,6 +35,7 @@ export function StudiesClient() {
   const [loading, setLoading] = useState(true)
   const [showAddGoal, setShowAddGoal] = useState(false)
   const [sessionGoal, setSessionGoal] = useState<StudyGoal | null>(null)
+  const { members, profile } = useHousehold()
 
   const loadData = useCallback(async () => {
     const [goalsRes, streakRes] = await Promise.all([
@@ -164,7 +166,7 @@ export function StudiesClient() {
       </button>
 
       {/* Add Goal Sheet */}
-      <AddGoalSheet open={showAddGoal} onClose={() => { setShowAddGoal(false); loadData() }} />
+      <AddGoalSheet open={showAddGoal} onClose={() => { setShowAddGoal(false); loadData() }} members={members} currentUserId={profile?.id} />
 
       {/* Session Sheet */}
       {sessionGoal && (
@@ -207,6 +209,11 @@ function GoalCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-[var(--text-1)] line-clamp-1">{goal.titulo}</span>
+            {(goal as any).profiles?.display_name && (
+              <span className="shrink-0 text-[10px] font-medium" style={{ color: (goal as any).profiles.color_hex }}>
+                {(goal as any).profiles.display_name}
+              </span>
+            )}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <Badge color="var(--mod-studies)">{CATEGORY_LABELS[goal.categoria] ?? goal.categoria}</Badge>
@@ -262,7 +269,9 @@ function GoalCard({
 }
 
 /* ── AddGoalSheet ── */
-function AddGoalSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+interface MemberProps { members: { id: string; display_name: string; color_hex: string }[]; currentUserId?: string }
+
+function AddGoalSheet({ open, onClose, members, currentUserId }: { open: boolean; onClose: () => void } & MemberProps) {
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -282,6 +291,17 @@ function AddGoalSheet({ open, onClose }: { open: boolean; onClose: () => void })
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <p className="rounded border border-[var(--expense)] bg-[color-mix(in_srgb,var(--expense)_8%,transparent)] px-3 py-2 text-xs text-[var(--expense)]">{error}</p>
+        )}
+
+        {members.length > 1 && (
+          <div className="space-y-1">
+            <label htmlFor="goal_user_id" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Miembro</label>
+            <select id="goal_user_id" name="user_id" defaultValue={currentUserId} className="w-full appearance-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]">
+              {members.map((m) => (
+                <option key={m.id} value={m.id}>{m.display_name}</option>
+              ))}
+            </select>
+          </div>
         )}
 
         <div className="space-y-1">
