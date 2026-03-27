@@ -145,6 +145,11 @@ export interface ChoreScoreboard {
 export type TaskPriority = 'low' | 'mid' | 'high' | 'urgent'
 export type TaskStatus = 'backlog' | 'in_progress' | 'done' | 'cancelled'
 
+export interface Subtask {
+  text: string
+  done: boolean
+}
+
 export interface WorkTask {
   id: string
   household_id: string
@@ -155,6 +160,7 @@ export interface WorkTask {
   status: TaskStatus
   due_date: string | null
   tags: string[]
+  subtasks: Subtask[]
   notify_on_due: boolean
   created_at: string
   updated_at: string

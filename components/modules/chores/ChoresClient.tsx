@@ -135,11 +135,41 @@ export function ChoresClient() {
     )
   }
 
+  const allToday = instances.filter(() => tab === 'today')
   const pendingCount = instances.filter((i) => i.status === 'pending').length
   const doneCount = instances.filter((i) => i.status === 'done').length
+  const totalToday = pendingCount + doneCount
+  const completionRate = totalToday > 0 ? Math.round((doneCount / totalToday) * 100) : 0
 
   return (
     <div className="space-y-4 p-4 md:p-6">
+      {/* KPIs */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="rounded border border-[var(--border)] bg-[var(--surface)] p-2.5">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">Pendientes</p>
+          <p className="num mt-1 text-sm font-bold text-[var(--mod-chores)]">{pendingCount}</p>
+        </div>
+        <div className="rounded border border-[var(--border)] bg-[var(--surface)] p-2.5">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">Completadas</p>
+          <p className="num mt-1 text-sm font-bold text-[var(--income)]">{doneCount}</p>
+        </div>
+        <div className="rounded border border-[var(--border)] bg-[var(--surface)] p-2.5">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">Tasa</p>
+          <p className={`num mt-1 text-sm font-bold ${completionRate === 100 ? 'text-[var(--income)]' : completionRate >= 50 ? 'text-[var(--warn)]' : 'text-[var(--expense)]'}`}>{completionRate}%</p>
+        </div>
+      </div>
+
+      {/* Suggestion */}
+      {pendingCount > 0 && tab === 'today' && (
+        <p className="text-xs text-[var(--text-3)]">
+          {pendingCount === 1 ? 'Te falta 1 tarea por completar hoy.' : `Te faltan ${pendingCount} tareas por completar hoy.`}
+          {completionRate >= 80 && ' Ya casi terminas!'}
+        </p>
+      )}
+      {pendingCount === 0 && doneCount > 0 && tab === 'today' && (
+        <p className="text-xs text-[var(--income)]">Todas las tareas de hoy completadas.</p>
+      )}
+
       {/* Scoreboard */}
       {scoreboard.length >= 2 && (
         <ScoreCard

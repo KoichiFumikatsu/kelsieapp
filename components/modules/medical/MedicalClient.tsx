@@ -79,6 +79,30 @@ export function MedicalClient() {
         <span>Vista privada — solo tu puedes ver estos datos</span>
       </div>
 
+      {/* KPIs */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="rounded border border-[var(--border)] bg-[var(--surface)] p-2.5">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">Registros</p>
+          <p className="num mt-1 text-sm font-bold text-[var(--mod-medical)]">{records.length}</p>
+        </div>
+        <div className="rounded border border-[var(--border)] bg-[var(--surface)] p-2.5">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">Medicamentos</p>
+          <p className="num mt-1 text-sm font-bold text-[var(--info)]">{meds.filter((m) => m.activo).length}</p>
+        </div>
+        <div className="rounded border border-[var(--border)] bg-[var(--surface)] p-2.5">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">Citas prox.</p>
+          <p className={`num mt-1 text-sm font-bold ${reminders.length > 0 ? 'text-[var(--warn)]' : 'text-[var(--text-3)]'}`}>{reminders.length}</p>
+        </div>
+      </div>
+
+      {/* Suggestions */}
+      {reminders.length === 0 && records.length > 0 && (
+        <p className="text-xs text-[var(--text-3)]">No tienes citas proximamente. Considera agendar un control de rutina.</p>
+      )}
+      {meds.filter((m) => m.activo).length > 0 && (
+        <p className="text-xs text-[var(--text-3)]">Tienes {meds.filter((m) => m.activo).length} medicamento{meds.filter((m) => m.activo).length !== 1 ? 's' : ''} activo{meds.filter((m) => m.activo).length !== 1 ? 's' : ''}.</p>
+      )}
+
       {/* Upcoming reminders */}
       {reminders.length > 0 && (
         <div className="rounded-md border border-[var(--warn)]/30 bg-[color-mix(in_srgb,var(--warn)_5%,transparent)] p-3">

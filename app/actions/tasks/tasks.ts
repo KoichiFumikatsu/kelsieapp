@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import type { ActionResult, WorkTask, TaskStatus } from '@/lib/types/modules.types'
+import type { ActionResult, WorkTask, TaskStatus, Subtask } from '@/lib/types/modules.types'
 
 async function getCtx() {
   const supabase = await createClient()
@@ -56,6 +56,9 @@ export async function createWorkTask(formData: FormData): Promise<ActionResult<W
   const dueDate = (formData.get('due_date') as string) || null
   const tagsRaw = (formData.get('tags') as string) || ''
   const tags = tagsRaw ? tagsRaw.split(',').map((t) => t.trim()).filter(Boolean) : []
+  const subtasksRaw = (formData.get('subtasks') as string) || '[]'
+  let subtasks: Subtask[] = []
+  try { subtasks = JSON.parse(subtasksRaw) } catch { /* ignore */ }
 
   if (!titulo) return { ok: false, error: 'El titulo es requerido' }
 
@@ -69,6 +72,7 @@ export async function createWorkTask(formData: FormData): Promise<ActionResult<W
       prioridad,
       due_date: dueDate || null,
       tags,
+      subtasks,
     })
     .select()
     .single()
@@ -103,10 +107,13 @@ export async function updateWorkTask(id: string, formData: FormData): Promise<Ac
   const dueDate = (formData.get('due_date') as string) || null
   const tagsRaw = (formData.get('tags') as string) || ''
   const tags = tagsRaw ? tagsRaw.split(',').map((t) => t.trim()).filter(Boolean) : []
+  const subtasksRaw = (formData.get('subtasks') as string) || '[]'
+  let subtasks: Subtask[] = []
+  try { subtasks = JSON.parse(subtasksRaw) } catch { /* ignore */ }
 
   const { data, error } = await ctx.supabase
     .from('work_tasks')
-    .update({ titulo, descripcion, prioridad, due_date: dueDate || null, tags })
+    .update({ titulo, descripcion, prioridad, due_date: dueDate || null, tags, subtasks })
     .eq('id', id)
     .eq('user_id', ctx.userId)
     .select()

@@ -74,14 +74,39 @@ export function StudiesClient() {
 
   return (
     <div className="space-y-4 p-4 md:p-6">
-      {/* Header stats */}
-      <div className="flex items-center justify-between">
-        <StreakCounter days={streak} />
-        <div className="text-right">
-          <p className="num text-lg font-bold text-[var(--mod-studies)]">{activeGoals.length}</p>
-          <p className="text-[10px] uppercase tracking-widest text-[var(--text-3)]">Metas activas</p>
+      {/* KPIs */}
+      <div className="grid grid-cols-4 gap-2">
+        <div className="rounded border border-[var(--border)] bg-[var(--surface)] p-2.5">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">Racha</p>
+          <p className={`num mt-1 text-sm font-bold ${streak > 0 ? 'text-[var(--warn)]' : 'text-[var(--text-3)]'}`}>{streak}d</p>
+        </div>
+        <div className="rounded border border-[var(--border)] bg-[var(--surface)] p-2.5">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">Activas</p>
+          <p className="num mt-1 text-sm font-bold text-[var(--mod-studies)]">{activeGoals.length}</p>
+        </div>
+        <div className="rounded border border-[var(--border)] bg-[var(--surface)] p-2.5">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">Completadas</p>
+          <p className="num mt-1 text-sm font-bold text-[var(--income)]">{completedGoals.length}</p>
+        </div>
+        <div className="rounded border border-[var(--border)] bg-[var(--surface)] p-2.5">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">Total</p>
+          <p className="num mt-1 text-sm font-bold text-[var(--text-1)]">{goals.length}</p>
         </div>
       </div>
+
+      {/* Suggestions */}
+      {streak === 0 && goals.length > 0 && (
+        <p className="text-xs text-[var(--text-3)]">No has estudiado hoy. Registra una sesion para mantener tu racha.</p>
+      )}
+      {streak > 0 && streak < 7 && (
+        <p className="text-xs text-[var(--text-3)]">Llevas {streak} {streak === 1 ? 'dia' : 'dias'} de racha. Sigue asi!</p>
+      )}
+      {streak >= 7 && (
+        <p className="text-xs text-[var(--income)]">Racha de {streak} dias! Excelente constancia.</p>
+      )}
+      {activeGoals.length === 0 && completedGoals.length > 0 && (
+        <p className="text-xs text-[var(--text-3)]">Todas tus metas estan completadas. Considera agregar una nueva.</p>
+      )}
 
       {/* Goals list */}
       {goals.length === 0 ? (

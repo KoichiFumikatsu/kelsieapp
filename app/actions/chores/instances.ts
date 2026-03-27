@@ -97,6 +97,20 @@ export async function generateTodayInstances(): Promise<ActionResult<number>> {
 
   const existingIds = new Set((existing ?? []).map((e) => e.template_id))
 
+  // For weekly chores, check if there's an instance this week already
+  const weekStart = new Date()
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay()) // Sunday
+  const weekStartStr = weekStart.toISOString().split('T')[0]
+
+  const { data: existingThisWeek } = await ctx.supabase
+    .from('chore_instances')
+    .select('template_id')
+    .eq('household_id', ctx.householdId)
+    .gte('due_date', weekStartStr)
+    .lte('due_date', today)
+
+  const existingWeekIds = new Set((existingThisWeek ?? []).map((e) => e.template_id))
+
   const toCreate: { template_id: string; household_id: string; assigned_to: string | null; due_date: string }[] = []
 
   for (const t of templates) {
@@ -108,7 +122,8 @@ export async function generateTodayInstances(): Promise<ActionResult<number>> {
         shouldCreate = true
         break
       case 'semanal':
-        shouldCreate = dayOfWeek === 1 // Mondays
+        // Create if no instance exists this week yet
+        shouldCreate = !existingWeekIds.has(t.id)
         break
       case 'quincenal':
         shouldCreate = dayOfMonth === 1 || dayOfMonth === 16

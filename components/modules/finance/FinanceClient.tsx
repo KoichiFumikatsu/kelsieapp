@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, ChevronDown } from 'lucide-react'
+import { Plus, ChevronDown, Tag, Pencil, Trash2 } from 'lucide-react'
 import { createBrowserClient } from '@supabase/ssr'
 
 import { getActiveQuincena, getQuincenas, createQuincena } from '@/app/actions/finance/quincenas'
-import { getCategorias, createCategoria } from '@/app/actions/finance/categorias'
+import { getCategorias, createCategoria, updateCategoria, deleteCategoria } from '@/app/actions/finance/categorias'
 import { getTransacciones } from '@/app/actions/finance/transacciones'
 import { getFinanceKPIs } from '@/app/actions/finance/dashboard'
 import { FinanceKPIPanel } from '@/components/modules/finance/FinanceKPIPanel'
@@ -36,6 +36,8 @@ export function FinanceClient() {
   const [showNewQuincena, setShowNewQuincena] = useState(false)
   const [showNewCategoria, setShowNewCategoria] = useState(false)
   const [showQuincenaSelector, setShowQuincenaSelector] = useState(false)
+  const [showCategorias, setShowCategorias] = useState(false)
+  const [editingCat, setEditingCat] = useState<Categoria | null>(null)
 
   const loadData = useCallback(async (quincenaId?: string) => {
     const [qRes, catRes] = await Promise.all([
@@ -154,16 +156,72 @@ export function FinanceClient() {
           <p className="section-bar text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]" style={{ '--accent': 'var(--mod-finance)' } as React.CSSProperties}>
             Transacciones
           </p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowNewCategoria(true)}
-              className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)] hover:text-[var(--text-1)]"
-            >
-              + Categoría
-            </button>
-          </div>
         </div>
         <TransaccionList transacciones={transacciones} />
+      </div>
+
+      {/* Categories section */}
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <button
+            onClick={() => setShowCategorias(!showCategorias)}
+            className="section-bar text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]"
+            style={{ '--accent': 'var(--mod-finance)' } as React.CSSProperties}
+          >
+            <span className="flex items-center gap-1.5">
+              <Tag size={12} />
+              Categorías
+              <ChevronDown size={12} className={`transition-transform ${showCategorias ? 'rotate-180' : ''}`} />
+            </span>
+          </button>
+          <button
+            onClick={() => setShowNewCategoria(true)}
+            className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)] hover:text-[var(--text-1)]"
+          >
+            + Nueva
+          </button>
+        </div>
+        {showCategorias && (
+          <div className="space-y-1">
+            {categorias.length === 0 && (
+              <p className="py-3 text-center text-xs text-[var(--text-3)]">Sin categorías. Crea una para empezar.</p>
+            )}
+            {categorias.map((cat) => (
+              <div
+                key={cat.id}
+                className="flex items-center justify-between rounded border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5"
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`inline-block h-2 w-2 rounded-full ${cat.tipo === 'gasto' ? 'bg-[var(--expense)]' : 'bg-[var(--income)]'}`} />
+                  <span className="text-sm font-medium text-[var(--text-1)]">{cat.nombre}</span>
+                  {cat.presupuesto_default > 0 && (
+                    <span className="num text-[10px] text-[var(--text-3)]">
+                      ${cat.presupuesto_default.toLocaleString()}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setEditingCat(cat)}
+                    className="rounded p-1 text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]"
+                  >
+                    <Pencil size={12} />
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Eliminar categoría "${cat.nombre}"?`)) return
+                      await deleteCategoria(cat.id)
+                      loadData(active?.id)
+                    }}
+                    className="rounded p-1 text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--expense)]"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* FAB */}
@@ -214,7 +272,13 @@ export function FinanceClient() {
       <NewCategoriaSheet
         open={showNewCategoria}
         onClose={() => setShowNewCategoria(false)}
-        onCreated={() => loadData()}
+        onCreated={() => loadData(active?.id)}
+      />
+      <EditCategoriaSheet
+        open={!!editingCat}
+        categoria={editingCat}
+        onClose={() => setEditingCat(null)}
+        onSaved={() => { setEditingCat(null); loadData(active?.id) }}
       />
     </div>
   )
@@ -326,6 +390,51 @@ function NewCategoriaSheet({ open, onClose, onCreated }: { open: boolean; onClos
         </div>
         <Button type="submit" disabled={pending} className="w-full">
           {pending ? 'Creando...' : 'Agregar categoría'}
+        </Button>
+      </form>
+    </BottomSheet>
+  )
+}
+
+/* ── Edit Categoría Sheet ── */
+function EditCategoriaSheet({ open, categoria, onClose, onSaved }: {
+  open: boolean; categoria: Categoria | null; onClose: () => void; onSaved: () => void
+}) {
+  const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!categoria) return
+    setPending(true)
+    setError(null)
+
+    const result = await updateCategoria(categoria.id, new FormData(e.currentTarget))
+    setPending(false)
+
+    if (!result.ok) { setError(result.error); return }
+    onSaved()
+  }
+
+  if (!categoria) return null
+
+  return (
+    <BottomSheet open={open} onClose={onClose} title="Editar categoría">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && <p className="text-xs text-[var(--expense)]">{error}</p>}
+        <div className="space-y-1">
+          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Nombre</label>
+          <input name="nombre" required defaultValue={categoria.nombre} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+        </div>
+        <div className="space-y-1">
+          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Presupuesto default</label>
+          <div className="flex items-center gap-1">
+            <span className="text-sm font-bold text-[var(--text-3)]">$</span>
+            <input name="presupuesto_default" type="number" min="0" defaultValue={categoria.presupuesto_default} className="num w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+          </div>
+        </div>
+        <Button type="submit" disabled={pending} className="w-full">
+          {pending ? 'Guardando...' : 'Guardar cambios'}
         </Button>
       </form>
     </BottomSheet>
