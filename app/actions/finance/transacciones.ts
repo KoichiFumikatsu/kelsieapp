@@ -1,2 +1,66 @@
 'use server'
-// Server Actions: CRUD transacciones — se implementará en Fase 3
+
+import { createClient } from '@/lib/supabase/server'
+import type { ActionResult, Transaccion, TransaccionConCategoria } from '@/lib/types/modules.types'
+
+export async function getTransacciones(quincenaId: string): Promise<ActionResult<TransaccionConCategoria[]>> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('transacciones')
+    .select('*, categorias(nombre, icono), profiles(display_name, color_hex)')
+    .eq('quincena_id', quincenaId)
+    .order('fecha', { ascending: false })
+    .order('created_at', { ascending: false })
+
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, data: data as TransaccionConCategoria[] }
+}
+
+export async function createTransaccion(formData: FormData): Promise<ActionResult<Transaccion>> {
+  const supabase = await createClient()
+  const user = (await supabase.auth.getUser()).data.user!
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('household_id')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile?.household_id) return { ok: false, error: 'Sin hogar asignado' }
+
+  const quincenaId = formData.get('quincena_id') as string
+  const categoriaId = formData.get('categoria_id') as string
+  const tipo = formData.get('tipo') as 'gasto' | 'ingreso'
+  const importe = Number(formData.get('importe'))
+  const descripcion = (formData.get('descripcion') as string) || null
+  const fecha = (formData.get('fecha') as string) || new Date().toISOString().split('T')[0]
+
+  if (!quincenaId || !categoriaId || !tipo || !importe) {
+    return { ok: false, error: 'Campos requeridos: quincena, categoría, tipo, importe' }
+  }
+
+  const { data, error } = await supabase
+    .from('transacciones')
+    .insert({
+      quincena_id: quincenaId,
+      categoria_id: categoriaId,
+      user_id: user.id,
+      household_id: profile.household_id,
+      tipo,
+      fecha,
+      importe,
+      descripcion,
+    })
+    .select()
+    .single()
+
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, data: data as Transaccion }
+}
+
+export async function deleteTransaccion(id: string): Promise<ActionResult<null>> {
+  const supabase = await createClient()
+  const { error } = await supabase.from('transacciones').delete().eq('id', id)
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, data: null }
+}
