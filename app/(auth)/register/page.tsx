@@ -1,10 +1,14 @@
 'use client'
 
+import { useState } from 'react'
 import { register } from '@/app/actions/core/auth'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useActionState } from 'react'
 
 export default function RegisterPage() {
+  const router = useRouter()
+  const [inviteCode, setInviteCode] = useState('')
   const [state, formAction, pending] = useActionState(
     async (_prev: string | null, formData: FormData) => {
       const result = await register(formData)
@@ -103,12 +107,29 @@ export default function RegisterPage() {
             Inicia sesión
           </Link>
         </p>
-        <p className="text-center text-sm text-secondary">
-          ¿Tienes un código de invitación?{' '}
-          <Link href="/join/codigo" className="font-medium text-mod-chores hover:underline">
-            Únete a un hogar
-          </Link>
-        </p>
+        <div className="rounded-lg border border-muted/30 bg-surface p-4 space-y-3">
+          <p className="text-sm font-medium text-primary">Tienes un codigo de invitacion?</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+              placeholder="Pega el codigo aqui..."
+              className="flex-1 rounded-lg border border-muted/30 bg-base px-3 py-2 font-mono text-sm text-primary placeholder:text-muted focus:border-mod-chores focus:outline-none focus:ring-1 focus:ring-mod-chores"
+            />
+            <button
+              type="button"
+              disabled={!inviteCode.trim()}
+              onClick={() => {
+                const code = inviteCode.trim()
+                if (code) router.push(`/join/${code}`)
+              }}
+              className="rounded-lg bg-mod-chores px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-mod-chores/90 disabled:opacity-50"
+            >
+              Ir
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )

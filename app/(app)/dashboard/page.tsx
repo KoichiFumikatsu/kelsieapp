@@ -7,7 +7,6 @@ import {
   HeartPulse,
   GraduationCap,
   Settings,
-  Copy,
   Flame,
   Pill,
   ClipboardList,
@@ -15,6 +14,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import Link from 'next/link'
+import { InviteLinkCard } from '@/components/ui/InviteLinkCard'
 
 type ModuleCard = {
   name: string
@@ -103,21 +103,8 @@ export default async function DashboardPage() {
         })}
       </div>
 
-      {/* Invite code — tactical panel */}
-      {inviteCode && (
-        <div className="mod-card p-4" style={{ '--accent': 'var(--mod-chores)' } as React.CSSProperties}>
-          <p className="text-xs font-medium uppercase tracking-widest text-muted">
-            Código de invitación
-          </p>
-          <p className="mt-2 flex items-center gap-2 font-mono text-lg font-bold text-primary">
-            {inviteCode}
-            <Copy size={14} className="text-muted" />
-          </p>
-          <p className="mt-2 text-xs text-muted">
-            Comparte este código con tu pareja para que se una al hogar.
-          </p>
-        </div>
-      )}
+      {/* Invite link */}
+      {inviteCode && <InviteLinkCard code={inviteCode} />}
     </div>
   )
 }

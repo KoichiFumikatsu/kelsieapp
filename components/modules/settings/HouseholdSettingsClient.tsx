@@ -34,7 +34,8 @@ export function HouseholdSettingsClient() {
 
   function handleCopyCode() {
     if (!household?.invite_code) return
-    navigator.clipboard.writeText(household.invite_code)
+    const link = `${window.location.origin}/join/${household.invite_code}`
+    navigator.clipboard.writeText(link)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -134,8 +135,11 @@ export function HouseholdSettingsClient() {
             {copied ? <Check size={14} /> : <Copy size={14} />}
           </button>
         </div>
+        <p className="mt-1 break-all text-xs text-[var(--text-3)]">
+          {typeof window !== 'undefined' && `${window.location.origin}/join/${household.invite_code}`}
+        </p>
         <p className="mt-2 text-xs text-[var(--text-3)]">
-          Comparte este código para que tu pareja se una al hogar.
+          Copia el enlace completo para que tu pareja se una al hogar.
         </p>
       </Card>
     </div>
