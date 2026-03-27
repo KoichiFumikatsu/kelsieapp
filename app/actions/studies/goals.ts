@@ -1,2 +1,111 @@
 'use server'
-// Server Actions: CRUD metas de estudio — se implementará en Fase 7
+
+import { createClient } from '@/lib/supabase/server'
+import type { ActionResult, StudyGoal, StudyGoalStatus } from '@/lib/types/modules.types'
+
+async function getCtx() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('household_id')
+    .eq('id', user.id)
+    .single()
+  return { supabase, userId: user.id, householdId: profile?.household_id as string | null }
+}
+
+export async function getStudyGoals(): Promise<ActionResult<StudyGoal[]>> {
+  const ctx = await getCtx()
+  if (!ctx?.householdId) return { ok: false, error: 'Sin hogar asignado' }
+
+  const { data, error } = await ctx.supabase
+    .from('study_goals')
+    .select('*')
+    .eq('household_id', ctx.householdId)
+    .order('created_at', { ascending: false })
+
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, data: data as StudyGoal[] }
+}
+
+export async function getMyStudyGoals(): Promise<ActionResult<StudyGoal[]>> {
+  const ctx = await getCtx()
+  if (!ctx) return { ok: false, error: 'No autenticado' }
+
+  const { data, error } = await ctx.supabase
+    .from('study_goals')
+    .select('*')
+    .eq('user_id', ctx.userId)
+    .order('created_at', { ascending: false })
+
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, data: data as StudyGoal[] }
+}
+
+export async function createStudyGoal(formData: FormData): Promise<ActionResult<StudyGoal>> {
+  const ctx = await getCtx()
+  if (!ctx?.householdId) return { ok: false, error: 'Sin hogar asignado' }
+
+  const titulo = formData.get('titulo') as string
+  const descripcion = (formData.get('descripcion') as string) || null
+  const categoria = formData.get('categoria') as string
+  const plataforma = (formData.get('plataforma') as string) || null
+  const url = (formData.get('url') as string) || null
+  const totalUnidades = Number(formData.get('total_unidades')) || 1
+  const fechaInicio = (formData.get('fecha_inicio') as string) || null
+  const fechaMeta = (formData.get('fecha_meta') as string) || null
+
+  if (!titulo || !categoria) return { ok: false, error: 'Titulo y categoria son requeridos' }
+
+  const { data, error } = await ctx.supabase
+    .from('study_goals')
+    .insert({
+      household_id: ctx.householdId,
+      user_id: ctx.userId,
+      titulo,
+      descripcion,
+      categoria,
+      plataforma,
+      url,
+      total_unidades: totalUnidades,
+      fecha_inicio: fechaInicio || null,
+      fecha_meta: fechaMeta || null,
+      status: 'not_started',
+    })
+    .select()
+    .single()
+
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, data: data as StudyGoal }
+}
+
+export async function updateGoalStatus(id: string, status: StudyGoalStatus): Promise<ActionResult<StudyGoal>> {
+  const ctx = await getCtx()
+  if (!ctx) return { ok: false, error: 'No autenticado' }
+
+  const { data, error } = await ctx.supabase
+    .from('study_goals')
+    .update({ status })
+    .eq('id', id)
+    .eq('user_id', ctx.userId)
+    .select()
+    .single()
+
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, data: data as StudyGoal }
+}
+
+export async function deleteStudyGoal(id: string): Promise<ActionResult<null>> {
+  const ctx = await getCtx()
+  if (!ctx) return { ok: false, error: 'No autenticado' }
+
+  const { error } = await ctx.supabase
+    .from('study_goals')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', ctx.userId)
+
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, data: null }
+}

@@ -137,3 +137,98 @@ export interface ChoreScoreboard {
   totalPuntos: number
   completedCount: number
 }
+
+// =============================================
+// WORK TASKS (private)
+// =============================================
+
+export type TaskPriority = 'low' | 'mid' | 'high' | 'urgent'
+export type TaskStatus = 'backlog' | 'in_progress' | 'done' | 'cancelled'
+
+export interface WorkTask {
+  id: string
+  household_id: string
+  user_id: string
+  titulo: string
+  descripcion: string | null
+  prioridad: TaskPriority
+  status: TaskStatus
+  due_date: string | null
+  tags: string[]
+  notify_on_due: boolean
+  created_at: string
+  updated_at: string
+}
+
+// =============================================
+// MEDICAL (private)
+// =============================================
+
+export type MedicalRecordType = 'consulta' | 'examen' | 'vacuna' | 'control'
+
+export interface MedicalRecord {
+  id: string
+  household_id: string
+  user_id: string
+  tipo: MedicalRecordType
+  especialidad: string | null
+  fecha: string
+  proxima_cita: string | null
+  doctor: string | null
+  clinica: string | null
+  notas: string | null
+  archivos: string[]
+  notify_days_before: number
+  created_at: string
+}
+
+export interface Medicamento {
+  id: string
+  household_id: string
+  user_id: string
+  nombre: string
+  dosis: string | null
+  frecuencia: string | null
+  fecha_inicio: string | null
+  fecha_fin: string | null
+  activo: boolean
+  notas: string | null
+  created_at: string
+}
+
+// =============================================
+// STUDIES
+// =============================================
+
+export type StudyCategory = 'curso' | 'libro' | 'certificacion' | 'idioma' | 'habilidad'
+export type StudyGoalStatus = 'not_started' | 'in_progress' | 'completed' | 'paused'
+
+export interface StudyGoal {
+  id: string
+  household_id: string
+  user_id: string
+  titulo: string
+  descripcion: string | null
+  categoria: StudyCategory
+  plataforma: string | null
+  url: string | null
+  total_unidades: number
+  unidades_completadas: number
+  fecha_inicio: string | null
+  fecha_meta: string | null
+  status: StudyGoalStatus
+  notify_on_milestone: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface StudySession {
+  id: string
+  goal_id: string
+  user_id: string
+  fecha: string
+  minutos: number
+  unidades_avanzadas: number
+  nota: string | null
+  created_at: string
+}
