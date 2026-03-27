@@ -1,26 +1,60 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Core */
+  --bg: #F2F0EB;
+  --surface: #FFFFFF;
+  --surface-2: #F8F7F4;
+  --text-1: #191917;
+  --text-2: #6B6960;
+  --text-3: #A8A59F;
+
+  /* Semánticos (FIJOS) */
+  --income: #1A7A5A;
+  --expense: #C0472A;
+  --warn: #B87428;
+  --info: #2563A8;
+
+  /* Por módulo (accent colors) */
+  --mod-finance: #1A7A5A;
+  --mod-chores: #7C5CBF;
+  --mod-tasks: #2563A8;
+  --mod-medical: #C0472A;
+  --mod-studies: #B87428;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-base: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-primary: var(--text-1);
+  --color-secondary: var(--text-2);
+  --color-muted: var(--text-3);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-income: var(--income);
+  --color-expense: var(--expense);
+  --color-warn: var(--warn);
+  --color-info: var(--info);
+
+  --color-mod-finance: var(--mod-finance);
+  --color-mod-chores: var(--mod-chores);
+  --color-mod-tasks: var(--mod-tasks);
+  --color-mod-medical: var(--mod-medical);
+  --color-mod-studies: var(--mod-studies);
+
+  --font-sans: var(--font-dm-sans), "DM Sans", sans-serif;
+  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", monospace;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text-1);
+  font-family: var(--font-sans);
+}
+
+/* Números siempre monoespaciados y alineados a la derecha */
+.num {
+  font-family: var(--font-mono);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
