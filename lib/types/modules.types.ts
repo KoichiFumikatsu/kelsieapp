@@ -78,3 +78,62 @@ export interface FinanceKPIs {
     porcentaje: number
   }[]
 }
+
+// =============================================
+// CHORES
+// =============================================
+
+export type ChoreFrequency = 'diaria' | 'semanal' | 'quincenal' | 'mensual' | 'unica'
+export type ChoreStatus = 'pending' | 'done' | 'skipped'
+
+export interface ChoreTemplate {
+  id: string
+  household_id: string
+  nombre: string
+  descripcion: string | null
+  icono: string
+  frecuencia: ChoreFrequency
+  puntos: number
+  assigned_to: string | null
+  notify_on_complete: boolean
+  is_active: boolean
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ChoreInstance {
+  id: string
+  template_id: string
+  household_id: string
+  assigned_to: string | null
+  due_date: string
+  completed_at: string | null
+  completed_by: string | null
+  puntos_earned: number
+  status: ChoreStatus
+  nota: string | null
+  created_at: string
+}
+
+export interface ChoreInstanceWithTemplate extends ChoreInstance {
+  chore_templates: { nombre: string; icono: string; puntos: number; frecuencia: ChoreFrequency } | null
+  profiles: { display_name: string; color_hex: string } | null
+}
+
+export interface RewardLog {
+  id: string
+  household_id: string
+  user_id: string
+  puntos: number
+  razon: string
+  created_at: string
+}
+
+export interface ChoreScoreboard {
+  userId: string
+  displayName: string
+  colorHex: string
+  totalPuntos: number
+  completedCount: number
+}

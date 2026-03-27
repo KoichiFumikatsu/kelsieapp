@@ -60,8 +60,8 @@ export async function createQuincena(formData: FormData): Promise<ActionResult<Q
   const fechaFin = formData.get('fecha_fin') as string
   const saldoInicial = Number(formData.get('saldo_inicial'))
 
-  if (!nombre || !fechaInicio || !fechaFin || !saldoInicial) {
-    return { ok: false, error: 'Todos los campos son requeridos' }
+  if (!nombre || !fechaInicio || !fechaFin || saldoInicial == null || isNaN(saldoInicial) || saldoInicial < 0) {
+    return { ok: false, error: 'Todos los campos son requeridos (saldo >= 0)' }
   }
 
   // Desactivar quincena activa anterior

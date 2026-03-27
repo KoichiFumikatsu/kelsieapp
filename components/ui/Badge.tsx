@@ -22,7 +22,7 @@ export function Badge({ children, color = 'var(--text-2)', className = '' }: Bad
 }
 
 /* ── StatusBadge — semantic states ── */
-type Status = 'pending' | 'done' | 'overdue' | 'active' | 'cancelled'
+type Status = 'pending' | 'done' | 'overdue' | 'active' | 'cancelled' | 'skipped'
 
 const STATUS_CONFIG: Record<Status, { label: string; color: string }> = {
   pending:   { label: 'Pendiente',  color: 'var(--warn)' },
@@ -30,6 +30,7 @@ const STATUS_CONFIG: Record<Status, { label: string; color: string }> = {
   overdue:   { label: 'Vencido',    color: 'var(--expense)' },
   active:    { label: 'Activo',     color: 'var(--info)' },
   cancelled: { label: 'Cancelado',  color: 'var(--text-3)' },
+  skipped:   { label: 'Saltado',    color: 'var(--text-3)' },
 }
 
 interface StatusBadgeProps {

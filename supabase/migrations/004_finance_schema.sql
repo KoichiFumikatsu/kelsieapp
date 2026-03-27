@@ -10,7 +10,7 @@ create table public.quincenas (
   nombre text not null,
   fecha_inicio date not null,
   fecha_fin date not null,
-  saldo_inicial numeric not null check (saldo_inicial > 0),
+  saldo_inicial numeric not null check (saldo_inicial >= 0),
   is_active boolean default false,
   created_by uuid not null references public.profiles on delete set null,
   created_at timestamptz default now(),

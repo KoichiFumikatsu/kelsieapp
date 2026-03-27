@@ -272,7 +272,7 @@ function NewQuincenaSheet({ open, onClose, onCreated }: { open: boolean; onClose
           <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Saldo inicial</label>
           <div className="flex items-center gap-1">
             <span className="text-sm font-bold text-[var(--text-3)]">$</span>
-            <input name="saldo_inicial" type="number" min="1" required className="num w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+            <input name="saldo_inicial" type="number" min="0" required className="num w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
           </div>
         </div>
         <Button type="submit" disabled={pending} className="w-full">
