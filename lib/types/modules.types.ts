@@ -199,6 +199,10 @@ export interface Medicamento {
   fecha_fin: string | null
   activo: boolean
   notas: string | null
+  hora_inicio: string | null
+  frecuencia_horas: number | null
+  duracion_dias: number | null
+  proxima_toma: string | null
   created_at: string
 }
 

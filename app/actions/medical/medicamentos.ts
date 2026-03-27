@@ -44,7 +44,42 @@ export async function createMedicamento(formData: FormData): Promise<ActionResul
   const notas = (formData.get('notas') as string) || null
   const selectedUserId = (formData.get('user_id') as string) || ctx.userId
 
+  // New scheduling fields
+  const horaInicio = (formData.get('hora_inicio') as string) || null
+  const frecuenciaHorasRaw = formData.get('frecuencia_horas') as string
+  const frecuenciaHoras = frecuenciaHorasRaw ? parseInt(frecuenciaHorasRaw, 10) : null
+  const duracionDiasRaw = formData.get('duracion_dias') as string
+  const duracionDias = duracionDiasRaw ? parseInt(duracionDiasRaw, 10) : null
+
   if (!nombre) return { ok: false, error: 'El nombre es requerido' }
+
+  // Calculate proxima_toma from fecha_inicio + hora_inicio
+  let proximaToma: string | null = null
+  if (fechaInicio && horaInicio && frecuenciaHoras) {
+    const dt = new Date(`${fechaInicio}T${horaInicio}:00`)
+    // If the first dose is already past, advance to the next scheduled dose
+    const now = new Date()
+    while (dt < now) {
+      dt.setTime(dt.getTime() + frecuenciaHoras * 3600000)
+    }
+    // Check if past end date (fecha_inicio + duracion_dias)
+    if (duracionDias) {
+      const endDate = new Date(fechaInicio)
+      endDate.setDate(endDate.getDate() + duracionDias)
+      if (dt > endDate) proximaToma = null
+      else proximaToma = dt.toISOString()
+    } else {
+      proximaToma = dt.toISOString()
+    }
+  }
+
+  // Auto-calculate fecha_fin from fecha_inicio + duracion_dias if not provided
+  let calculatedFechaFin = fechaFin
+  if (!calculatedFechaFin && fechaInicio && duracionDias) {
+    const end = new Date(fechaInicio)
+    end.setDate(end.getDate() + duracionDias)
+    calculatedFechaFin = end.toISOString().split('T')[0]
+  }
 
   const { data, error } = await ctx.supabase
     .from('medicamentos')
@@ -55,8 +90,12 @@ export async function createMedicamento(formData: FormData): Promise<ActionResul
       dosis,
       frecuencia,
       fecha_inicio: fechaInicio || null,
-      fecha_fin: fechaFin || null,
+      fecha_fin: calculatedFechaFin || null,
       notas,
+      hora_inicio: horaInicio || null,
+      frecuencia_horas: frecuenciaHoras,
+      duracion_dias: duracionDias,
+      proxima_toma: proximaToma,
     })
     .select()
     .single()

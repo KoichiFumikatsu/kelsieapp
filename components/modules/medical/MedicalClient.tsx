@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Stethoscope, Pill, Calendar, Building2, UserRound, Trash2, Users } from 'lucide-react'
+import { Plus, Stethoscope, Pill, Calendar, Building2, UserRound, Trash2, Users, Clock, Bell } from 'lucide-react'
 
 import { getMedicalRecords, createMedicalRecord, deleteMedicalRecord } from '@/app/actions/medical/records'
 import { getMedicamentos, createMedicamento, toggleMedicamento, deleteMedicamento } from '@/app/actions/medical/medicamentos'
@@ -241,7 +241,16 @@ export function MedicalClient() {
                       </div>
                       <div className="mt-1 space-y-0.5 text-xs text-[var(--text-3)]">
                         {med.dosis && <p>Dosis: {med.dosis}</p>}
-                        {med.frecuencia && <p>Frecuencia: {med.frecuencia}</p>}
+                        {med.frecuencia_horas && <p className="flex items-center gap-1"><Clock size={10} />Cada {med.frecuencia_horas}h</p>}
+                        {med.hora_inicio && <p className="flex items-center gap-1"><Clock size={10} />Inicio: {med.hora_inicio.slice(0, 5)}</p>}
+                        {med.duracion_dias && <p>Duracion: {med.duracion_dias} dias</p>}
+                        {med.proxima_toma && (
+                          <p className="flex items-center gap-1 text-[var(--info)]">
+                            <Bell size={10} />
+                            Proxima toma: {new Date(med.proxima_toma).toLocaleString('es-MX', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        )}
+                        {!med.frecuencia_horas && med.frecuencia && <p>Frecuencia: {med.frecuencia}</p>}
                       </div>
                     </div>
                     <div className="flex gap-1">
@@ -418,20 +427,25 @@ function AddMedSheet({ open, onClose, members, currentUserId }: { open: boolean;
             <input id="dosis" name="dosis" type="text" placeholder="500mg, 1 pastilla..." className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
           </div>
           <div className="space-y-1">
-            <label htmlFor="frecuencia" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Frecuencia</label>
-            <input id="frecuencia" name="frecuencia" type="text" placeholder="Cada 8h, diario..." className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+            <label htmlFor="duracion_dias" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Dias recetados</label>
+            <input id="duracion_dias" name="duracion_dias" type="number" min="1" placeholder="7, 14, 30..." className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
-            <label htmlFor="fecha_inicio" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Inicio</label>
-            <input id="fecha_inicio" name="fecha_inicio" type="date" className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+            <label htmlFor="hora_inicio" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Hora inicio</label>
+            <input id="hora_inicio" name="hora_inicio" type="time" className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
           </div>
           <div className="space-y-1">
-            <label htmlFor="fecha_fin" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Fin (opcional)</label>
-            <input id="fecha_fin" name="fecha_fin" type="date" className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+            <label htmlFor="frecuencia_horas" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Cada (horas)</label>
+            <input id="frecuencia_horas" name="frecuencia_horas" type="number" min="1" max="72" placeholder="8, 12, 24..." className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
           </div>
+        </div>
+
+        <div className="space-y-1">
+          <label htmlFor="fecha_inicio" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Fecha inicio</label>
+          <input id="fecha_inicio" name="fecha_inicio" type="date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
         </div>
 
         <div className="space-y-1">
