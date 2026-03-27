@@ -3,8 +3,9 @@ import { NextResponse } from 'next/server'
 
 export const runtime = 'edge'
 
+// Daily cron — sends today's medication schedule for all households
+
 export async function GET(req: Request) {
-  // Verify cron secret
   const authHeader = req.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -15,47 +16,80 @@ export async function GET(req: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   )
 
-  const now = new Date().toISOString()
+  const today = new Date().toISOString().split('T')[0]
 
-  // Get all active medications where proxima_toma <= now
-  const { data: dueMeds, error } = await supabase
+  // Get all active medications with scheduling info
+  const { data: activeMeds, error } = await supabase
     .from('medicamentos')
     .select('*, profiles(display_name)')
     .eq('activo', true)
-    .not('proxima_toma', 'is', null)
-    .lte('proxima_toma', now)
+    .not('hora_inicio', 'is', null)
+    .not('frecuencia_horas', 'is', null)
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  if (!dueMeds || dueMeds.length === 0) {
+  if (!activeMeds || activeMeds.length === 0) {
     return NextResponse.json({ sent: 0 })
+  }
+
+  // Group by household
+  const byHousehold: Record<string, typeof activeMeds> = {}
+  for (const med of activeMeds) {
+    // Check if treatment is still active (within date range)
+    if (med.fecha_fin && today > med.fecha_fin) {
+      // Auto-deactivate expired medications
+      await supabase
+        .from('medicamentos')
+        .update({ activo: false, proxima_toma: null })
+        .eq('id', med.id)
+      continue
+    }
+    if (med.fecha_inicio && today < med.fecha_inicio) continue
+
+    if (!byHousehold[med.household_id]) byHousehold[med.household_id] = []
+    byHousehold[med.household_id].push(med)
   }
 
   let sent = 0
 
-  for (const med of dueMeds) {
-    // Get household webhook URL
+  for (const [householdId, meds] of Object.entries(byHousehold)) {
     const { data: household } = await supabase
       .from('households')
       .select('discord_webhook_url')
-      .eq('id', med.household_id)
+      .eq('id', householdId)
       .single()
 
-    if (household?.discord_webhook_url) {
-      const memberName = (med.profiles as any)?.display_name ?? 'Miembro'
+    if (!household?.discord_webhook_url) continue
 
+    // Build schedule for each medication
+    const lines: string[] = []
+    for (const med of meds) {
+      const memberName = (med.profiles as any)?.display_name ?? 'Miembro'
+      const horaInicio = (med.hora_inicio as string).slice(0, 5)
+      const frecHoras = med.frecuencia_horas as number
+
+      // Calculate all doses for today
+      const doses: string[] = []
+      const [h, m] = horaInicio.split(':').map(Number)
+      let hour = h
+      let minute = m
+      while (hour < 24) {
+        doses.push(`${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`)
+        hour += frecHoras
+      }
+
+      const dosisText = med.dosis ? ` (${med.dosis})` : ''
+      lines.push(`**${med.nombre}**${dosisText} — ${memberName}\n  Horario: ${doses.join(', ')}`)
+    }
+
+    if (lines.length > 0) {
       const embed = {
-        title: `Hora de tomar: ${med.nombre}`,
-        description: med.dosis ? `Dosis: ${med.dosis}` : undefined,
+        title: 'Medicamentos del dia',
+        description: lines.join('\n\n'),
         color: 0xef4444,
-        fields: [
-          { name: 'Para', value: memberName, inline: true },
-          ...(med.frecuencia_horas ? [{ name: 'Frecuencia', value: `Cada ${med.frecuencia_horas}h`, inline: true }] : []),
-          ...(med.notas ? [{ name: 'Notas', value: med.notas, inline: false }] : []),
-        ],
-        footer: { text: 'Kelsie - Recordatorio de medicamento' },
+        footer: { text: 'Kelsie - Recordatorio diario de medicamentos' },
         timestamp: new Date().toISOString(),
       }
 
@@ -66,36 +100,9 @@ export async function GET(req: Request) {
           body: JSON.stringify({ embeds: [embed] }),
         })
         sent++
-      } catch {
-        // best-effort
-      }
-    }
-
-    // Calculate next dose
-    const frecHoras = med.frecuencia_horas as number
-    const nextDose = new Date(med.proxima_toma as string)
-    nextDose.setTime(nextDose.getTime() + frecHoras * 3600000)
-
-    // Check if treatment has ended
-    let shouldDeactivate = false
-    if (med.fecha_fin) {
-      const endDate = new Date(med.fecha_fin)
-      endDate.setHours(23, 59, 59, 999)
-      if (nextDose > endDate) shouldDeactivate = true
-    }
-
-    if (shouldDeactivate) {
-      await supabase
-        .from('medicamentos')
-        .update({ activo: false, proxima_toma: null })
-        .eq('id', med.id)
-    } else {
-      await supabase
-        .from('medicamentos')
-        .update({ proxima_toma: nextDose.toISOString() })
-        .eq('id', med.id)
+      } catch { /* best-effort */ }
     }
   }
 
-  return NextResponse.json({ sent, total: dueMeds.length })
+  return NextResponse.json({ sent })
 }
