@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getDashboardMetrics } from '@/app/actions/core/dashboard'
 import {
   Wallet,
   Sparkles,
@@ -7,6 +8,10 @@ import {
   GraduationCap,
   Settings,
   Copy,
+  Flame,
+  Pill,
+  ClipboardList,
+  CheckCircle2,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import Link from 'next/link'
@@ -16,26 +21,34 @@ type ModuleCard = {
   icon: LucideIcon
   color: string
   href: string
+  metricKey?: string
 }
 
 const MODULES: ModuleCard[] = [
   { name: 'Finanzas', icon: Wallet, color: 'var(--mod-finance)', href: '/finance' },
-  { name: 'Tareas hogar', icon: Sparkles, color: 'var(--mod-chores)', href: '/chores' },
-  { name: 'Trabajo', icon: ListChecks, color: 'var(--mod-tasks)', href: '/tasks' },
-  { name: 'Salud', icon: HeartPulse, color: 'var(--mod-medical)', href: '/medical' },
-  { name: 'Estudio', icon: GraduationCap, color: 'var(--mod-studies)', href: '/studies' },
+  { name: 'Tareas hogar', icon: Sparkles, color: 'var(--mod-chores)', href: '/chores', metricKey: 'choresPending' },
+  { name: 'Trabajo', icon: ListChecks, color: 'var(--mod-tasks)', href: '/tasks', metricKey: 'openTasks' },
+  { name: 'Salud', icon: HeartPulse, color: 'var(--mod-medical)', href: '/medical', metricKey: 'activeMeds' },
+  { name: 'Estudio', icon: GraduationCap, color: 'var(--mod-studies)', href: '/studies', metricKey: 'studyStreak' },
   { name: 'Settings', icon: Settings, color: 'var(--text-2)', href: '/settings/household' },
 ]
+
+const METRIC_LABELS: Record<string, string> = {
+  choresPending: 'pendientes',
+  openTasks: 'abiertas',
+  activeMeds: 'activos',
+  studyStreak: 'racha',
+}
 
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('display_name, household_id')
-    .eq('id', user!.id)
-    .single()
+  const [profileRes, metrics] = await Promise.all([
+    supabase.from('profiles').select('display_name, household_id').eq('id', user!.id).single(),
+    getDashboardMetrics(),
+  ])
+  const profile = profileRes.data
 
   let inviteCode: string | null = null
   if (profile?.household_id) {
@@ -59,6 +72,8 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-2 gap-3">
         {MODULES.map((mod) => {
           const Icon = mod.icon
+          const metricValue = mod.metricKey ? metrics[mod.metricKey as keyof typeof metrics] : null
+          const metricLabel = mod.metricKey ? METRIC_LABELS[mod.metricKey] : null
           return (
             <Link
               key={mod.name}
@@ -75,7 +90,14 @@ export default async function DashboardPage() {
               >
                 <Icon size={18} strokeWidth={1.8} />
               </div>
-              <span className="text-sm font-semibold text-primary">{mod.name}</span>
+              <div className="min-w-0">
+                <span className="text-sm font-semibold text-primary">{mod.name}</span>
+                {metricValue !== null && (
+                  <p className="text-[10px] font-mono text-muted">
+                    {metricValue} {metricLabel}
+                  </p>
+                )}
+              </div>
             </Link>
           )
         })}
