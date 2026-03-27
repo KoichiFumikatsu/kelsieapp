@@ -29,8 +29,8 @@ BEGIN
       AND t.due_time IS NOT NULL
       AND t.due_date >= CURRENT_DATE
   LOOP
-    -- Construir timestamp completo de la fecha + hora limite
-    due_ts := (task.due_date::text || 'T' || task.due_time::text)::TIMESTAMPTZ;
+    -- Construir timestamp completo de la fecha + hora limite (en zona horaria Bogota)
+    due_ts := (task.due_date::text || ' ' || task.due_time::text)::TIMESTAMP AT TIME ZONE 'America/Bogota';
 
     -- Definir minutos de anticipacion segun prioridad
     CASE task.prioridad

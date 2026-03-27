@@ -54,17 +54,16 @@ export async function createMedicamento(formData: FormData): Promise<ActionResul
   if (!nombre) return { ok: false, error: 'El nombre es requerido' }
 
   // Calculate proxima_toma from fecha_inicio + hora_inicio
+  // America/Bogota = UTC-5 (Colombia has no DST)
   let proximaToma: string | null = null
   if (fechaInicio && horaInicio && frecuenciaHoras) {
-    const dt = new Date(`${fechaInicio}T${horaInicio}:00`)
-    // If the first dose is already past, advance to the next scheduled dose
+    const dt = new Date(`${fechaInicio}T${horaInicio}:00-05:00`)
     const now = new Date()
     while (dt < now) {
       dt.setTime(dt.getTime() + frecuenciaHoras * 3600000)
     }
-    // Check if past end date (fecha_inicio + duracion_dias)
     if (duracionDias) {
-      const endDate = new Date(fechaInicio)
+      const endDate = new Date(`${fechaInicio}T23:59:59-05:00`)
       endDate.setDate(endDate.getDate() + duracionDias)
       if (dt > endDate) proximaToma = null
       else proximaToma = dt.toISOString()
@@ -152,15 +151,16 @@ export async function updateMedicamento(id: string, formData: FormData): Promise
   if (!nombre) return { ok: false, error: 'El nombre es requerido' }
 
   // Recalculate proxima_toma
+  // America/Bogota = UTC-5 (Colombia has no DST)
   let proximaToma: string | null = null
   if (fechaInicio && horaInicio && frecuenciaHoras) {
-    const dt = new Date(`${fechaInicio}T${horaInicio}:00`)
+    const dt = new Date(`${fechaInicio}T${horaInicio}:00-05:00`)
     const now = new Date()
     while (dt < now) {
       dt.setTime(dt.getTime() + frecuenciaHoras * 3600000)
     }
     if (duracionDias) {
-      const endDate = new Date(fechaInicio)
+      const endDate = new Date(`${fechaInicio}T23:59:59-05:00`)
       endDate.setDate(endDate.getDate() + duracionDias)
       if (dt > endDate) proximaToma = null
       else proximaToma = dt.toISOString()
