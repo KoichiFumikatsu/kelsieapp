@@ -110,9 +110,9 @@ export async function updateQuincena(id: string, formData: FormData): Promise<Ac
 
   const updates: Record<string, unknown> = {}
   const nombre = formData.get('nombre') as string | null
-  const saldoInicial = formData.get('saldo_inicial')
+  const saldoInicial = formData.get('saldo_inicial') as string | null
   if (nombre) updates.nombre = nombre
-  if (saldoInicial) updates.saldo_inicial = Number(saldoInicial)
+  if (saldoInicial !== null && saldoInicial !== '') updates.saldo_inicial = Number(saldoInicial)
 
   const { error } = await supabase
     .from('quincenas')

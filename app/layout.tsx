@@ -15,6 +15,7 @@ const jetBrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Household OS",
   description: "Plataforma de gestión doméstica para parejas",
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({

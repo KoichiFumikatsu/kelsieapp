@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Plus, ChevronDown, Tag, Pencil, Trash2 } from 'lucide-react'
 import { createBrowserClient } from '@supabase/ssr'
 
-import { getActiveQuincena, getQuincenas, createQuincena } from '@/app/actions/finance/quincenas'
+import { getActiveQuincena, getQuincenas, createQuincena, updateQuincena, deleteQuincena } from '@/app/actions/finance/quincenas'
 import { getCategorias, createCategoria, updateCategoria, deleteCategoria } from '@/app/actions/finance/categorias'
 import { getTransacciones } from '@/app/actions/finance/transacciones'
 import { getFinanceKPIs } from '@/app/actions/finance/dashboard'
@@ -38,6 +38,7 @@ export function FinanceClient() {
   const [showQuincenaSelector, setShowQuincenaSelector] = useState(false)
   const [showCategorias, setShowCategorias] = useState(false)
   const [editingCat, setEditingCat] = useState<Categoria | null>(null)
+  const [editingQuincena, setEditingQuincena] = useState<Quincena | null>(null)
 
   const loadData = useCallback(async (quincenaId?: string) => {
     const [qRes, catRes] = await Promise.all([
@@ -244,16 +245,41 @@ export function FinanceClient() {
       <BottomSheet open={showQuincenaSelector} onClose={() => setShowQuincenaSelector(false)} title="Seleccionar quincena">
         <div className="space-y-1">
           {quincenas.map((q) => (
-            <button
+            <div
               key={q.id}
-              onClick={() => { setShowQuincenaSelector(false); loadData(q.id) }}
-              className={`flex w-full items-center justify-between rounded px-3 py-2.5 text-left text-sm transition-colors hover:bg-[var(--surface-2)] ${q.id === active.id ? 'bg-[var(--surface-2)] font-bold' : ''}`}
+              className={`flex items-center justify-between rounded px-3 py-2.5 transition-colors hover:bg-[var(--surface-2)] ${q.id === active.id ? 'bg-[var(--surface-2)] font-bold' : ''}`}
             >
-              <span>{q.nombre}</span>
-              <span className="text-[10px] text-[var(--text-3)]">
-                {formatPeriod(q.fecha_inicio, q.fecha_fin)}
-              </span>
-            </button>
+              <button
+                onClick={() => { setShowQuincenaSelector(false); loadData(q.id) }}
+                className="flex-1 text-left text-sm"
+              >
+                <span>{q.nombre}</span>
+                <span className="ml-2 text-[10px] text-[var(--text-3)]">
+                  {formatPeriod(q.fecha_inicio, q.fecha_fin)}
+                </span>
+              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => { setShowQuincenaSelector(false); setEditingQuincena(q) }}
+                  className="rounded p-1 text-[var(--text-3)] hover:text-[var(--text-1)]"
+                >
+                  <Pencil size={12} />
+                </button>
+                {q.id !== active.id && (
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Eliminar "${q.nombre}"? Se eliminaran todas sus transacciones.`)) return
+                      await deleteQuincena(q.id)
+                      setShowQuincenaSelector(false)
+                      loadData()
+                    }}
+                    className="rounded p-1 text-[var(--text-3)] hover:text-[var(--expense)]"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                )}
+              </div>
+            </div>
           ))}
           <button
             onClick={() => { setShowQuincenaSelector(false); setShowNewQuincena(true) }}
@@ -279,6 +305,12 @@ export function FinanceClient() {
         categoria={editingCat}
         onClose={() => setEditingCat(null)}
         onSaved={() => { setEditingCat(null); loadData(active?.id) }}
+      />
+      <EditQuincenaSheet
+        open={!!editingQuincena}
+        quincena={editingQuincena}
+        onClose={() => setEditingQuincena(null)}
+        onSaved={() => { setEditingQuincena(null); loadData(editingQuincena?.id) }}
       />
     </div>
   )
@@ -431,6 +463,51 @@ function EditCategoriaSheet({ open, categoria, onClose, onSaved }: {
           <div className="flex items-center gap-1">
             <span className="text-sm font-bold text-[var(--text-3)]">$</span>
             <input name="presupuesto_default" type="number" min="0" defaultValue={categoria.presupuesto_default} className="num w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+          </div>
+        </div>
+        <Button type="submit" disabled={pending} className="w-full">
+          {pending ? 'Guardando...' : 'Guardar cambios'}
+        </Button>
+      </form>
+    </BottomSheet>
+  )
+}
+
+/* ── Edit Quincena Sheet ── */
+function EditQuincenaSheet({ open, quincena, onClose, onSaved }: {
+  open: boolean; quincena: Quincena | null; onClose: () => void; onSaved: () => void
+}) {
+  const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!quincena) return
+    setPending(true)
+    setError(null)
+
+    const result = await updateQuincena(quincena.id, new FormData(e.currentTarget))
+    setPending(false)
+
+    if (!result.ok) { setError(result.error); return }
+    onSaved()
+  }
+
+  if (!quincena) return null
+
+  return (
+    <BottomSheet open={open} onClose={onClose} title="Editar quincena">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && <p className="text-xs text-[var(--expense)]">{error}</p>}
+        <div className="space-y-1">
+          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Nombre</label>
+          <input name="nombre" required defaultValue={quincena.nombre} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+        </div>
+        <div className="space-y-1">
+          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Saldo inicial</label>
+          <div className="flex items-center gap-1">
+            <span className="text-sm font-bold text-[var(--text-3)]">$</span>
+            <input name="saldo_inicial" type="number" min="0" required defaultValue={quincena.saldo_inicial} className="num w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
           </div>
         </div>
         <Button type="submit" disabled={pending} className="w-full">

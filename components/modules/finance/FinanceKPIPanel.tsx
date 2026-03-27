@@ -1,7 +1,7 @@
 import { formatCOP } from '@/lib/utils/format'
 import { ProgressBar } from '@/components/ui/Progress'
 import type { FinanceKPIs } from '@/lib/types/modules.types'
-import { TrendingDown, TrendingUp, Wallet } from 'lucide-react'
+import { TrendingDown, TrendingUp, Wallet, PiggyBank, AlertTriangle } from 'lucide-react'
 
 interface FinanceKPIPanelProps {
   kpis: FinanceKPIs
@@ -10,11 +10,21 @@ interface FinanceKPIPanelProps {
 
 export function FinanceKPIPanel({ kpis, className = '' }: FinanceKPIPanelProps) {
   const saldoColor = kpis.saldoActual >= 0 ? 'var(--income)' : 'var(--expense)'
+  const totalPresupuestado = kpis.porCategoria
+    .filter((c) => c.tipo === 'gasto')
+    .reduce((sum, c) => sum + c.previsto, 0)
+  const savingsRate = kpis.totalIngresos > 0
+    ? Math.round(((kpis.totalIngresos - kpis.totalGastos) / kpis.totalIngresos) * 100)
+    : 0
+  const overBudget = kpis.porCategoria.filter((c) => c.tipo === 'gasto' && c.porcentaje > 1)
+  const gastoPct = totalPresupuestado > 0
+    ? Math.round((kpis.totalGastos / totalPresupuestado) * 100)
+    : 0
 
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Top KPIs */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <KPIBox
           label="Saldo"
           value={formatCOP(kpis.saldoActual)}
@@ -33,32 +43,81 @@ export function FinanceKPIPanel({ kpis, className = '' }: FinanceKPIPanelProps) 
           color="var(--expense)"
           icon={<TrendingDown size={14} />}
         />
+        <KPIBox
+          label="Ahorro"
+          value={`${savingsRate}%`}
+          color={savingsRate >= 20 ? 'var(--income)' : savingsRate >= 0 ? 'var(--warn)' : 'var(--expense)'}
+          icon={<PiggyBank size={14} />}
+        />
       </div>
+
+      {/* Budget usage bar */}
+      {totalPresupuestado > 0 && (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-medium text-[var(--text-2)]">Presupuesto total usado</span>
+            <span className="num text-[var(--text-3)]">{gastoPct}%</span>
+          </div>
+          <ProgressBar
+            value={gastoPct / 100}
+            projected={1}
+            color={gastoPct > 100 ? 'var(--expense)' : gastoPct > 80 ? 'var(--warn)' : 'var(--mod-finance)'}
+            height={6}
+          />
+        </div>
+      )}
+
+      {/* Suggestions */}
+      {overBudget.length > 0 && (
+        <div className="flex items-start gap-2 rounded border border-[var(--expense)]/30 bg-[color-mix(in_srgb,var(--expense)_5%,transparent)] p-3">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-[var(--expense)]" />
+          <div className="text-xs text-[var(--text-2)]">
+            <p className="font-medium text-[var(--expense)]">Categorias excedidas:</p>
+            {overBudget.map((c) => (
+              <p key={c.categoriaId}>
+                {c.nombre}: {formatCOP(c.real)} / {formatCOP(c.previsto)} ({Math.round(c.porcentaje * 100)}%)
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+      {savingsRate < 0 && (
+        <p className="text-xs text-[var(--expense)]">Estas gastando mas de lo que ingresas esta quincena.</p>
+      )}
+      {savingsRate >= 0 && savingsRate < 20 && kpis.totalIngresos > 0 && (
+        <p className="text-xs text-[var(--text-3)]">Tu tasa de ahorro es {savingsRate}%. Idealmente deberia ser al menos 20%.</p>
+      )}
+      {savingsRate >= 20 && kpis.totalIngresos > 0 && overBudget.length === 0 && (
+        <p className="text-xs text-[var(--income)]">Buen manejo financiero. Ahorro del {savingsRate}% esta quincena.</p>
+      )}
 
       {/* Per-category bars */}
       {kpis.porCategoria.length > 0 && (
         <div className="space-y-3">
           <p className="section-bar text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">
-            Por categoría
+            Por categoria
           </p>
           {kpis.porCategoria
             .filter((c) => c.tipo === 'gasto')
-            .map((c) => (
-              <div key={c.categoriaId} className="space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-medium text-[var(--text-1)]">{c.nombre}</span>
-                  <span className="num text-[var(--text-3)]">
-                    {formatCOP(c.real)} / {formatCOP(c.previsto)}
-                  </span>
+            .map((c) => {
+              const pct = Math.round(c.porcentaje * 100)
+              return (
+                <div key={c.categoriaId} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium text-[var(--text-1)]">{c.nombre}</span>
+                    <span className="num text-[var(--text-3)]">
+                      {formatCOP(c.real)} / {formatCOP(c.previsto)} <span className={pct > 100 ? 'text-[var(--expense)] font-bold' : ''}>{pct}%</span>
+                    </span>
+                  </div>
+                  <ProgressBar
+                    value={c.porcentaje}
+                    projected={1}
+                    color={c.porcentaje > 1 ? 'var(--expense)' : c.porcentaje > 0.8 ? 'var(--warn)' : 'var(--mod-finance)'}
+                    height={5}
+                  />
                 </div>
-                <ProgressBar
-                  value={c.porcentaje}
-                  projected={1}
-                  color={c.porcentaje > 1 ? 'var(--expense)' : 'var(--mod-finance)'}
-                  height={5}
-                />
-              </div>
-            ))}
+              )
+            })}
         </div>
       )}
     </div>

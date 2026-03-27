@@ -1,15 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { Home, Copy, Check, Bell, RefreshCw } from 'lucide-react'
+import { Home, Copy, Check, Bell, RefreshCw, Users } from 'lucide-react'
 import { useHousehold } from '@/hooks/useHousehold'
 import { updateHousehold } from '@/app/actions/core/households'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 
 export function HouseholdSettingsClient() {
-  const { household, profile, loading } = useHousehold()
+  const { household, profile, members, loading } = useHousehold()
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null)
   const [copied, setCopied] = useState(false)
@@ -117,6 +118,33 @@ export function HouseholdSettingsClient() {
           </p>
         )}
       </form>
+
+      {/* Members */}
+      <Card>
+        <div className="flex items-center gap-2 mb-3">
+          <Users size={14} className="text-[var(--text-3)]" />
+          <p className="text-xs font-semibold uppercase tracking-widest text-[var(--text-3)]">
+            Integrantes
+          </p>
+        </div>
+        <div className="space-y-2">
+          {members.map((m) => (
+            <div key={m.id} className="flex items-center gap-3 rounded border border-[var(--border)] bg-[var(--surface)] p-3">
+              <UserAvatar name={m.display_name} colorHex={m.color_hex} size="md" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-[var(--text-1)]">{m.display_name}</p>
+                <p className="text-[10px] uppercase tracking-widest text-[var(--text-3)]">{m.role === 'owner' ? 'Administrador' : 'Miembro'}</p>
+              </div>
+              {m.id === profile?.id && (
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-[var(--mod-finance)]">Tu</span>
+              )}
+            </div>
+          ))}
+          {members.length < 2 && (
+            <p className="text-xs text-[var(--text-3)]">Invita a tu pareja usando el enlace de abajo.</p>
+          )}
+        </div>
+      </Card>
 
       {/* Invite code */}
       <Card>
