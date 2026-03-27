@@ -80,7 +80,7 @@ export function TasksClient() {
 
   if (loading) {
     return (
-      <div className="space-y-4 p-4">
+      <div className="space-y-4 p-4 md:p-6">
         <div className="h-6 w-40 animate-pulse rounded bg-[var(--surface-2)]" />
         {[1, 2, 3].map((i) => (
           <div key={i} className="h-20 animate-pulse rounded bg-[var(--surface-2)]" />
@@ -90,7 +90,7 @@ export function TasksClient() {
   }
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="space-y-4 p-4 md:p-6">
       {/* Private indicator */}
       <div className="flex items-center gap-2 text-xs text-[var(--text-3)]">
         <Lock size={12} />
@@ -117,6 +117,7 @@ export function TasksClient() {
       </div>
 
       {/* Kanban columns */}
+      <div className="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0 lg:grid-cols-4">
       {COLUMNS.map((col) => {
         const colTasks = tasksByStatus(col.key)
         const collapsed = collapsedCols.has(col.key)
@@ -153,12 +154,12 @@ export function TasksClient() {
           </div>
         )
       })}
+      </div>
 
       {/* FAB */}
       <button
         onClick={() => setShowAdd(true)}
-        className="fixed bottom-20 right-4 flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-transform active:scale-90"
-        style={{ backgroundColor: 'var(--mod-tasks)', color: 'white' }}
+        className="fixed bottom-20 right-4 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--mod-tasks)] text-white shadow-lg transition-transform active:scale-90 md:bottom-6"
       >
         <Plus size={24} />
       </button>

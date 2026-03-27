@@ -67,7 +67,7 @@ export function PermissionsSettingsClient() {
   }
 
   return (
-    <div className="p-4 space-y-6">
+    <div className="p-4 space-y-6 md:p-6">
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="flex h-9 w-9 items-center justify-center rounded bg-[var(--surface-2)]">

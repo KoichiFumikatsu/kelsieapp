@@ -94,7 +94,7 @@ export function FinanceClient() {
 
   if (loading) {
     return (
-      <div className="space-y-4 p-4">
+      <div className="space-y-4 p-4 md:p-6">
         <div className="h-6 w-40 animate-pulse rounded bg-[var(--surface-2)]" />
         <div className="grid grid-cols-3 gap-2">
           {[1, 2, 3].map((i) => (
@@ -132,7 +132,7 @@ export function FinanceClient() {
   }
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="space-y-4 p-4 md:p-6">
       {/* Quincena selector */}
       <button
         onClick={() => setShowQuincenaSelector(true)}
@@ -169,7 +169,7 @@ export function FinanceClient() {
       {/* FAB */}
       <button
         onClick={() => setShowAddTx(true)}
-        className="fixed bottom-20 right-4 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--mod-finance)] text-white shadow-lg transition-transform hover:scale-105 active:scale-95 sm:right-[calc(50%-215px+16px)]"
+        className="fixed bottom-20 right-4 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--mod-finance)] text-white shadow-lg transition-transform hover:scale-105 active:scale-95 md:bottom-6"
         aria-label="Nueva transacción"
       >
         <Plus size={22} strokeWidth={2.2} />

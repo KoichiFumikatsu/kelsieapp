@@ -61,15 +61,15 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="p-4 space-y-6">
+    <div className="p-4 space-y-6 md:p-6 lg:p-8">
       {/* Greeting — clean, no emoji */}
       <div>
         <p className="text-xs font-medium uppercase tracking-widest text-muted">Bienvenido</p>
-        <h1 className="mt-1 text-xl font-bold text-primary">{profile?.display_name}</h1>
+        <h1 className="mt-1 text-xl font-bold text-primary md:text-2xl">{profile?.display_name}</h1>
       </div>
 
       {/* Module grid — Arknights operator-card style */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3">
         {MODULES.map((mod) => {
           const Icon = mod.icon
           const metricValue = mod.metricKey ? metrics[mod.metricKey as keyof typeof metrics] : null

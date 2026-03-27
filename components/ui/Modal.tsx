@@ -78,13 +78,13 @@ export function BottomSheet({ open, onClose, title, children }: BottomSheetProps
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm md:items-center" onClick={onClose}>
       <div
         ref={sheetRef}
         onClick={(e) => e.stopPropagation()}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
-        className="w-full max-w-[430px] animate-slide-up rounded-t-lg border border-b-0 border-[var(--border)] bg-[var(--surface)]"
+        className="w-full max-w-[430px] animate-slide-up rounded-t-lg border border-b-0 border-[var(--border)] bg-[var(--surface)] md:rounded-lg md:border-b"
       >
         {/* Drag handle */}
         <div className="flex justify-center py-2">

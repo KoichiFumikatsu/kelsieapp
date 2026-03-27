@@ -62,7 +62,7 @@ export function MedicalClient() {
 
   if (loading) {
     return (
-      <div className="space-y-4 p-4">
+      <div className="space-y-4 p-4 md:p-6">
         <div className="h-6 w-40 animate-pulse rounded bg-[var(--surface-2)]" />
         {[1, 2, 3].map((i) => (
           <div key={i} className="h-20 animate-pulse rounded bg-[var(--surface-2)]" />
@@ -72,7 +72,7 @@ export function MedicalClient() {
   }
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="space-y-4 p-4 md:p-6">
       {/* Private indicator */}
       <div className="flex items-center gap-2 text-xs text-[var(--text-3)]">
         <Lock size={12} />
@@ -237,8 +237,7 @@ export function MedicalClient() {
       {/* FAB */}
       <button
         onClick={() => tab === 'timeline' ? setShowAddRecord(true) : setShowAddMed(true)}
-        className="fixed bottom-20 right-4 flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-transform active:scale-90"
-        style={{ backgroundColor: 'var(--mod-medical)', color: 'white' }}
+        className="fixed bottom-20 right-4 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--mod-medical)] text-white shadow-lg transition-transform active:scale-90 md:bottom-6"
       >
         <Plus size={24} />
       </button>

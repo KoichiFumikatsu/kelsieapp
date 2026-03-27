@@ -30,7 +30,7 @@ export function BottomNav() {
   const pathname = usePathname()
 
   return (
-    <nav className="sticky bottom-0 z-10 flex h-14 items-center justify-around glass">
+    <nav className="sticky bottom-0 z-10 flex h-14 items-center justify-around glass md:hidden">
       {NAV_ITEMS.map((item) => {
         const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
         const Icon = item.icon
