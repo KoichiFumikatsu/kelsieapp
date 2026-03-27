@@ -120,3 +120,38 @@ body {
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
+
+/* ── Animations ── */
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes pulse-expand {
+  0%   { transform: scale(1); opacity: 1; }
+  50%  { transform: scale(1.15); opacity: 0.7; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes slide-out-right {
+  from { transform: translateX(0); opacity: 1; }
+  to   { transform: translateX(100%); opacity: 0; }
+}
+@keyframes float-up {
+  0%   { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(-24px); opacity: 0; }
+}
+
+.animate-slide-up     { animation: slide-up 300ms ease-out; }
+.animate-fade-in      { animation: fade-in 200ms ease-out; }
+.animate-pulse-expand { animation: pulse-expand 400ms ease-out; }
+.animate-slide-out    { animation: slide-out-right 250ms ease-in forwards; }
+.animate-float-up     { animation: float-up 600ms ease-out forwards; }
+
+/* Private module indicator */
+.private-indicator {
+  border-style: dashed;
+  border-color: var(--text-3);
+}
