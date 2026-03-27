@@ -97,6 +97,41 @@ export async function updateGoalStatus(id: string, status: StudyGoalStatus): Pro
   return { ok: true, data: data as StudyGoal }
 }
 
+export async function updateStudyGoal(id: string, formData: FormData): Promise<ActionResult<null>> {
+  const ctx = await getCtx()
+  if (!ctx?.householdId) return { ok: false, error: 'Sin hogar asignado' }
+
+  const updates: Record<string, unknown> = {}
+  const titulo = formData.get('titulo') as string | null
+  const descripcion = formData.get('descripcion') as string | null
+  const categoria = formData.get('categoria') as string | null
+  const plataforma = formData.get('plataforma') as string | null
+  const url = formData.get('url') as string | null
+  const totalUnidades = formData.get('total_unidades') as string | null
+  const fechaInicio = formData.get('fecha_inicio') as string | null
+  const fechaMeta = formData.get('fecha_meta') as string | null
+  const userId = formData.get('user_id') as string | null
+
+  if (titulo) updates.titulo = titulo
+  if (descripcion !== null) updates.descripcion = descripcion || null
+  if (categoria) updates.categoria = categoria
+  if (plataforma !== null) updates.plataforma = plataforma || null
+  if (url !== null) updates.url = url || null
+  if (totalUnidades) updates.total_unidades = Number(totalUnidades)
+  if (fechaInicio !== null) updates.fecha_inicio = fechaInicio || null
+  if (fechaMeta !== null) updates.fecha_meta = fechaMeta || null
+  if (userId) updates.user_id = userId
+
+  const { error } = await ctx.supabase
+    .from('study_goals')
+    .update(updates)
+    .eq('id', id)
+    .eq('household_id', ctx.householdId)
+
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, data: null }
+}
+
 export async function deleteStudyGoal(id: string): Promise<ActionResult<null>> {
   const ctx = await getCtx()
   if (!ctx?.householdId) return { ok: false, error: 'Sin hogar asignado' }

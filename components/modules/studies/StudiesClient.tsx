@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, GraduationCap, Timer, Trash2, ExternalLink, Users } from 'lucide-react'
+import { Plus, GraduationCap, Timer, Trash2, ExternalLink, Users, Pencil } from 'lucide-react'
 
-import { getStudyGoals, createStudyGoal, updateGoalStatus, deleteStudyGoal } from '@/app/actions/studies/goals'
+import { getStudyGoals, createStudyGoal, updateGoalStatus, updateStudyGoal, deleteStudyGoal } from '@/app/actions/studies/goals'
 import { createStudySession, getStudyStreak } from '@/app/actions/studies/sessions'
 import { CircularProgress } from '@/components/ui/Progress'
 import { StreakCounter } from '@/components/modules/studies/StreakCounter'
@@ -35,6 +35,7 @@ export function StudiesClient() {
   const [loading, setLoading] = useState(true)
   const [showAddGoal, setShowAddGoal] = useState(false)
   const [sessionGoal, setSessionGoal] = useState<StudyGoal | null>(null)
+  const [editingGoal, setEditingGoal] = useState<StudyGoal | null>(null)
   const { members, profile } = useHousehold()
 
   const loadData = useCallback(async () => {
@@ -131,6 +132,7 @@ export function StudiesClient() {
                   key={goal.id}
                   goal={goal}
                   onSessionClick={() => setSessionGoal(goal)}
+                  onEdit={() => setEditingGoal(goal)}
                   onDelete={() => handleDelete(goal.id)}
                   onTogglePause={() => handleTogglePause(goal)}
                 />
@@ -148,6 +150,7 @@ export function StudiesClient() {
                 <GoalCard
                   key={goal.id}
                   goal={goal}
+                  onEdit={() => setEditingGoal(goal)}
                   onDelete={() => handleDelete(goal.id)}
                   completed
                 />
@@ -168,6 +171,15 @@ export function StudiesClient() {
       {/* Add Goal Sheet */}
       <AddGoalSheet open={showAddGoal} onClose={() => { setShowAddGoal(false); loadData() }} members={members} currentUserId={profile?.id} />
 
+      {/* Edit Goal Sheet */}
+      <EditGoalSheet
+        open={!!editingGoal}
+        goal={editingGoal}
+        onClose={() => setEditingGoal(null)}
+        onSaved={() => { setEditingGoal(null); loadData() }}
+        members={members}
+      />
+
       {/* Session Sheet */}
       {sessionGoal && (
         <AddSessionSheet
@@ -184,12 +196,14 @@ export function StudiesClient() {
 function GoalCard({
   goal,
   onSessionClick,
+  onEdit,
   onDelete,
   onTogglePause,
   completed = false,
 }: {
   goal: StudyGoal
   onSessionClick?: () => void
+  onEdit: () => void
   onDelete: () => void
   onTogglePause?: () => void
   completed?: boolean
@@ -255,6 +269,13 @@ function GoalCard({
               <ExternalLink size={14} />
             </a>
           )}
+          <button
+            onClick={onEdit}
+            className="rounded p-1.5 text-[var(--text-3)] hover:text-[var(--text-1)]"
+            title="Editar"
+          >
+            <Pencil size={14} />
+          </button>
           <button
             onClick={onDelete}
             className="rounded p-1.5 text-[var(--text-3)] hover:text-[var(--expense)]"
@@ -349,6 +370,97 @@ function AddGoalSheet({ open, onClose, members, currentUserId }: { open: boolean
 
         <Button type="submit" disabled={pending} className="w-full">
           {pending ? 'Creando...' : 'Crear meta'}
+        </Button>
+      </form>
+    </BottomSheet>
+  )
+}
+
+/* ── EditGoalSheet ── */
+function EditGoalSheet({ open, goal, onClose, onSaved, members }: {
+  open: boolean; goal: StudyGoal | null; onClose: () => void; onSaved: () => void
+  members: { id: string; display_name: string; color_hex: string }[]
+}) {
+  const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!goal) return
+    setPending(true)
+    setError(null)
+    const form = new FormData(e.currentTarget)
+    const result = await updateStudyGoal(goal.id, form)
+    setPending(false)
+    if (!result.ok) { setError(result.error); return }
+    onSaved()
+  }
+
+  if (!goal) return null
+
+  return (
+    <BottomSheet open={open} onClose={onClose} title="Editar meta">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <p className="rounded border border-[var(--expense)] bg-[color-mix(in_srgb,var(--expense)_8%,transparent)] px-3 py-2 text-xs text-[var(--expense)]">{error}</p>
+        )}
+
+        {members.length > 1 && (
+          <div className="space-y-1">
+            <label htmlFor="edit_user_id" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Miembro</label>
+            <select id="edit_user_id" name="user_id" defaultValue={goal.user_id} className="w-full appearance-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]">
+              {members.map((m) => (
+                <option key={m.id} value={m.id}>{m.display_name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <div className="space-y-1">
+          <label htmlFor="edit_titulo" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Titulo</label>
+          <input id="edit_titulo" name="titulo" type="text" required defaultValue={goal.titulo} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label htmlFor="edit_categoria" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Categoria</label>
+            <select id="edit_categoria" name="categoria" required defaultValue={goal.categoria} className="w-full appearance-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]">
+              <option value="curso">Curso</option>
+              <option value="libro">Libro</option>
+              <option value="certificacion">Certificacion</option>
+              <option value="idioma">Idioma</option>
+              <option value="habilidad">Habilidad</option>
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="edit_total_unidades" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Total unidades</label>
+            <input id="edit_total_unidades" name="total_unidades" type="number" min="1" defaultValue={goal.total_unidades} className="num w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <label htmlFor="edit_plataforma" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Plataforma</label>
+          <input id="edit_plataforma" name="plataforma" type="text" defaultValue={goal.plataforma ?? ''} placeholder="Udemy, Coursera, YouTube..." className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+        </div>
+
+        <div className="space-y-1">
+          <label htmlFor="edit_url" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">URL</label>
+          <input id="edit_url" name="url" type="url" defaultValue={goal.url ?? ''} placeholder="https://..." className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label htmlFor="edit_fecha_inicio" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Inicio</label>
+            <input id="edit_fecha_inicio" name="fecha_inicio" type="date" defaultValue={goal.fecha_inicio ?? ''} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="edit_fecha_meta" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Meta</label>
+            <input id="edit_fecha_meta" name="fecha_meta" type="date" defaultValue={goal.fecha_meta ?? ''} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+          </div>
+        </div>
+
+        <Button type="submit" disabled={pending} className="w-full">
+          {pending ? 'Guardando...' : 'Guardar cambios'}
         </Button>
       </form>
     </BottomSheet>
