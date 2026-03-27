@@ -52,44 +52,16 @@ export async function register(formData: FormData): Promise<ActionResult<null>> 
     return { ok: false, error: 'Error al crear usuario' }
   }
 
-  // 2. Crear household
-  const { data: household, error: householdError } = await supabase
-    .from('households')
-    .insert({ name: householdName })
-    .select('id')
-    .single()
+  // 2. Setup completo via función SECURITY DEFINER (bypass RLS)
+  const { error: setupError } = await supabase.rpc('setup_owner', {
+    p_user_id: authData.user.id,
+    p_display_name: displayName,
+    p_household_name: householdName,
+  })
 
-  if (householdError) {
-    return { ok: false, error: householdError.message }
+  if (setupError) {
+    return { ok: false, error: setupError.message }
   }
-
-  // 3. Vincular profile al household como owner
-  const { error: profileError } = await supabase
-    .from('profiles')
-    .update({
-      household_id: household.id,
-      display_name: displayName,
-      role: 'owner',
-    })
-    .eq('id', authData.user.id)
-
-  if (profileError) {
-    return { ok: false, error: profileError.message }
-  }
-
-  // 4. Crear permisos por defecto (todos los módulos, acceso completo)
-  const modules = ['finance', 'chores', 'tasks', 'medical', 'studies'] as const
-  const permissions = modules.map((mod) => ({
-    household_id: household.id,
-    user_id: authData.user!.id,
-    module: mod,
-    can_view: true,
-    can_edit: true,
-    can_delete: true,
-    can_manage: true,
-  }))
-
-  await supabase.from('module_permissions').insert(permissions)
 
   redirect('/dashboard')
 }
@@ -133,33 +105,16 @@ export async function joinHousehold(formData: FormData): Promise<ActionResult<nu
     return { ok: false, error: 'Error al crear usuario' }
   }
 
-  // 3. Vincular al household como member
-  const { error: profileError } = await supabase
-    .from('profiles')
-    .update({
-      household_id: householdId,
-      display_name: displayName,
-      role: 'member',
-    })
-    .eq('id', authData.user.id)
+  // 3. Setup como member via función SECURITY DEFINER (bypass RLS)
+  const { error: setupError } = await supabase.rpc('setup_member', {
+    p_user_id: authData.user.id,
+    p_display_name: displayName,
+    p_household_id: householdId,
+  })
 
-  if (profileError) {
-    return { ok: false, error: profileError.message }
+  if (setupError) {
+    return { ok: false, error: setupError.message }
   }
-
-  // 4. Crear permisos por defecto (vista y edición, sin delete/manage)
-  const modules = ['finance', 'chores', 'tasks', 'medical', 'studies'] as const
-  const permissions = modules.map((mod) => ({
-    household_id: householdId,
-    user_id: authData.user!.id,
-    module: mod,
-    can_view: true,
-    can_edit: true,
-    can_delete: false,
-    can_manage: false,
-  }))
-
-  await supabase.from('module_permissions').insert(permissions)
 
   redirect('/dashboard')
 }
