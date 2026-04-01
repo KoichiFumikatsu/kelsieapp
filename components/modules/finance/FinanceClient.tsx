@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Plus, ChevronDown, Tag, Pencil, Trash2, Settings } from 'lucide-react'
 import { createBrowserClient } from '@supabase/ssr'
 
-import { getActiveQuincena, getQuincenas, createQuincena, updateQuincena, deleteQuincena } from '@/app/actions/finance/quincenas'
+import { getActiveQuincena, getQuincenas, updateQuincena } from '@/app/actions/finance/quincenas'
 import { getCategorias, createCategoria, updateCategoria, deleteCategoria } from '@/app/actions/finance/categorias'
 import { getTransacciones } from '@/app/actions/finance/transacciones'
 import { getFinanceKPIs, updatePresupuesto } from '@/app/actions/finance/dashboard'
@@ -35,7 +35,6 @@ export function FinanceClient() {
   const [loading, setLoading] = useState(true)
 
   const [showAddTx, setShowAddTx] = useState(false)
-  const [showNewQuincena, setShowNewQuincena] = useState(false)
   const [showNewCategoria, setShowNewCategoria] = useState(false)
   const [showQuincenaSelector, setShowQuincenaSelector] = useState(false)
   const [showCategorias, setShowCategorias] = useState(false)
@@ -57,8 +56,16 @@ export function FinanceClient() {
       q = qRes.data.find((x) => x.id === quincenaId) ?? null
     }
     if (!q) {
+      // Auto-create current period if needed
       const activeRes = await getActiveQuincena()
-      if (activeRes.ok) q = activeRes.data
+      if (activeRes.ok) {
+        q = activeRes.data
+        // Refresh quincenas list if a new one was auto-created
+        if (q && qRes.ok && !qRes.data.find((x) => x.id === q!.id)) {
+          const refreshed = await getQuincenas()
+          if (refreshed.ok) setQuincenas(refreshed.data)
+        }
+      }
     }
 
     setActive(q)
@@ -112,27 +119,11 @@ export function FinanceClient() {
     )
   }
 
-  // No quincena yet — onboarding
+  // No quincena yet — show message (should not happen with auto-create)
   if (!active) {
     return (
       <div className="flex flex-col items-center gap-4 p-8 text-center">
-        <p className="text-sm text-[var(--text-2)]">No hay quincenas creadas aún.</p>
-        <Button onClick={() => setShowNewQuincena(true)}>Nueva quincena</Button>
-        {categorias.length === 0 && (
-          <Button variant="secondary" onClick={() => setShowNewCategoria(true)}>
-            Crear categorías
-          </Button>
-        )}
-        <NewQuincenaSheet
-          open={showNewQuincena}
-          onClose={() => setShowNewQuincena(false)}
-          onCreated={() => loadData()}
-        />
-        <NewCategoriaSheet
-          open={showNewCategoria}
-          onClose={() => setShowNewCategoria(false)}
-          onCreated={() => loadData()}
-        />
+        <p className="text-sm text-[var(--text-2)]">Cargando quincena...</p>
       </div>
     )
   }
@@ -299,43 +290,18 @@ export function FinanceClient() {
                   {formatPeriod(q.fecha_inicio, q.fecha_fin)}
                 </span>
               </button>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => { setShowQuincenaSelector(false); setEditingQuincena(q) }}
-                  className="rounded p-1 text-[var(--text-3)] hover:text-[var(--text-1)]"
-                >
-                  <Pencil size={12} />
-                </button>
-                {q.id !== active.id && (
-                  <button
-                    onClick={async () => {
-                      if (!confirm(`Eliminar "${q.nombre}"? Se eliminaran todas sus transacciones.`)) return
-                      await deleteQuincena(q.id)
-                      setShowQuincenaSelector(false)
-                      loadData()
-                    }}
-                    className="rounded p-1 text-[var(--text-3)] hover:text-[var(--expense)]"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                )}
-              </div>
+              <button
+                onClick={() => { setShowQuincenaSelector(false); setEditingQuincena(q) }}
+                className="rounded p-1 text-[var(--text-3)] hover:text-[var(--text-1)]"
+                title="Editar saldo inicial"
+              >
+                <Pencil size={12} />
+              </button>
             </div>
           ))}
-          <button
-            onClick={() => { setShowQuincenaSelector(false); setShowNewQuincena(true) }}
-            className="mt-2 flex w-full items-center gap-2 rounded px-3 py-2.5 text-sm text-[var(--mod-finance)] hover:bg-[var(--surface-2)]"
-          >
-            <Plus size={14} /> Nueva quincena
-          </button>
         </div>
       </BottomSheet>
 
-      <NewQuincenaSheet
-        open={showNewQuincena}
-        onClose={() => setShowNewQuincena(false)}
-        onCreated={() => loadData()}
-      />
       <NewCategoriaSheet
         open={showNewCategoria}
         onClose={() => setShowNewCategoria(false)}
@@ -354,69 +320,6 @@ export function FinanceClient() {
         onSaved={() => { setEditingQuincena(null); loadData(editingQuincena?.id) }}
       />
     </div>
-  )
-}
-
-/* ── New Quincena Sheet ── */
-function NewQuincenaSheet({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: () => void }) {
-  const [error, setError] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setPending(true)
-    setError(null)
-
-    const result = await createQuincena(new FormData(e.currentTarget))
-    setPending(false)
-
-    if (!result.ok) { setError(result.error); return }
-    onCreated()
-    onClose()
-  }
-
-  // Compute default dates (1-15 or 16-end of month)
-  const today = new Date()
-  const day = today.getDate()
-  const y = today.getFullYear()
-  const m = today.getMonth()
-  const defaultStart = day <= 15
-    ? new Date(y, m, 1).toISOString().split('T')[0]
-    : new Date(y, m, 16).toISOString().split('T')[0]
-  const defaultEnd = day <= 15
-    ? new Date(y, m, 15).toISOString().split('T')[0]
-    : new Date(y, m + 1, 0).toISOString().split('T')[0]
-
-  return (
-    <BottomSheet open={open} onClose={onClose} title="Nueva quincena">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <p className="text-xs text-[var(--expense)]">{error}</p>}
-        <div className="space-y-1">
-          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Nombre</label>
-          <input name="nombre" required defaultValue={`Quincena ${day <= 15 ? '1ra' : '2da'}`} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Inicio</label>
-            <input name="fecha_inicio" type="date" required defaultValue={defaultStart} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
-          </div>
-          <div className="space-y-1">
-            <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Fin</label>
-            <input name="fecha_fin" type="date" required defaultValue={defaultEnd} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
-          </div>
-        </div>
-        <div className="space-y-1">
-          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Saldo inicial</label>
-          <div className="flex items-center gap-1">
-            <span className="text-sm font-bold text-[var(--text-3)]">$</span>
-            <input name="saldo_inicial" type="number" min="0" required className="num w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
-          </div>
-        </div>
-        <Button type="submit" disabled={pending} className="w-full">
-          {pending ? 'Creando...' : 'Crear quincena'}
-        </Button>
-      </form>
-    </BottomSheet>
   )
 }
 
@@ -546,21 +449,14 @@ function EditQuincenaSheet({ open, quincena, onClose, onSaved }: {
           <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Nombre</label>
           <input name="nombre" required defaultValue={quincena.nombre} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Inicio</label>
-            <input name="fecha_inicio" type="date" required defaultValue={quincena.fecha_inicio} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
-          </div>
-          <div className="space-y-1">
-            <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Fin</label>
-            <input name="fecha_fin" type="date" required defaultValue={quincena.fecha_fin} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
-          </div>
-        </div>
+        <p className="text-xs text-[var(--text-3)]">
+          Periodo: {formatPeriod(quincena.fecha_inicio, quincena.fecha_fin)}
+        </p>
         <div className="space-y-1">
           <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Saldo inicial</label>
           <div className="flex items-center gap-1">
             <span className="text-sm font-bold text-[var(--text-3)]">$</span>
-            <input name="saldo_inicial" type="number" min="0" required defaultValue={quincena.saldo_inicial} className="num w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+            <input name="saldo_inicial" type="number" step="any" required defaultValue={quincena.saldo_inicial} className="num w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
           </div>
         </div>
         <Button type="submit" disabled={pending} className="w-full">
