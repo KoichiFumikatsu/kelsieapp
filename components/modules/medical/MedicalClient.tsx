@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, Stethoscope, Pill, Calendar, Building2, UserRound, Trash2, Users, Clock, Bell, Pencil } from 'lucide-react'
 
-import { getMedicalRecords, createMedicalRecord, deleteMedicalRecord } from '@/app/actions/medical/records'
+import { getMedicalRecords, createMedicalRecord, deleteMedicalRecord, updateMedicalRecord } from '@/app/actions/medical/records'
 import { getMedicamentos, createMedicamento, toggleMedicamento, deleteMedicamento, updateMedicamento } from '@/app/actions/medical/medicamentos'
 import { getUpcomingReminders } from '@/app/actions/medical/reminders'
 import { TimelineItem } from '@/components/modules/medical/TimelineItem'
@@ -32,6 +32,7 @@ export function MedicalClient() {
   const [showAddRecord, setShowAddRecord] = useState(false)
   const [showAddMed, setShowAddMed] = useState(false)
   const [editingMed, setEditingMed] = useState<Medicamento | null>(null)
+  const [editingRecord, setEditingRecord] = useState<MedicalRecord | null>(null)
   const { members, profile } = useHousehold()
 
   const loadData = useCallback(async () => {
@@ -196,8 +197,14 @@ export function MedicalClient() {
                         )}
                       </div>
                       <button
+                        onClick={() => setEditingRecord(rec)}
+                        className="ml-2 rounded p-1 text-[var(--text-3)] hover:text-[var(--mod-medical)]"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
                         onClick={() => handleDeleteRecord(rec.id)}
-                        className="ml-2 rounded p-1 text-[var(--text-3)] hover:text-[var(--expense)]"
+                        className="ml-1 rounded p-1 text-[var(--text-3)] hover:text-[var(--expense)]"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -299,7 +306,16 @@ export function MedicalClient() {
       <AddRecordSheet open={showAddRecord} onClose={() => { setShowAddRecord(false); loadData() }} members={members} currentUserId={profile?.id} />
 
       {/* Add Med Sheet */}
-      <AddMedSheet open={showAddMed} onClose={() => { setShowAddMed(false); loadData() }} members={members} currentUserId={profile?.id} />
+      <AddMedSheet open={showAddMed} onClose={() => { setShowAddMed(false); loadData() }} members={members} currentUserId={profile?.id} records={records} />
+
+      {/* Edit Record Sheet */}
+      <EditRecordSheet
+        open={!!editingRecord}
+        record={editingRecord}
+        onClose={() => setEditingRecord(null)}
+        onSaved={() => { setEditingRecord(null); loadData() }}
+        members={members}
+      />
 
       {/* Edit Med Sheet */}
       <EditMedSheet
@@ -309,13 +325,14 @@ export function MedicalClient() {
         onSaved={() => { setEditingMed(null); loadData() }}
         members={members}
         currentUserId={profile?.id}
+        records={records}
       />
     </div>
   )
 }
 
 /* ── AddRecordSheet ── */
-interface MemberProps { members: { id: string; display_name: string; color_hex: string }[]; currentUserId?: string }
+interface MemberProps { members: { id: string; display_name: string; color_hex: string }[]; currentUserId?: string; records?: MedicalRecord[] }
 
 function AddRecordSheet({ open, onClose, members, currentUserId }: { open: boolean; onClose: () => void } & MemberProps) {
   const [error, setError] = useState<string | null>(null)
@@ -401,7 +418,7 @@ function AddRecordSheet({ open, onClose, members, currentUserId }: { open: boole
 }
 
 /* ── AddMedSheet ── */
-function AddMedSheet({ open, onClose, members, currentUserId }: { open: boolean; onClose: () => void } & MemberProps) {
+function AddMedSheet({ open, onClose, members, currentUserId, records = [] }: { open: boolean; onClose: () => void } & MemberProps) {
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -466,6 +483,18 @@ function AddMedSheet({ open, onClose, members, currentUserId }: { open: boolean;
           <input id="fecha_inicio" name="fecha_inicio" type="date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
         </div>
 
+        {records.length > 0 && (
+          <div className="space-y-1">
+            <label htmlFor="record_id" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Historial clinico (opcional)</label>
+            <select id="record_id" name="record_id" className="w-full appearance-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]">
+              <option value="">Sin vincular</option>
+              {records.map((r) => (
+                <option key={r.id} value={r.id}>{r.especialidad ?? r.tipo} — {formatDateShort(r.fecha)}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div className="space-y-1">
           <label htmlFor="notas" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Notas</label>
           <textarea id="notas" name="notas" rows={2} placeholder="Instrucciones especiales..." className="w-full resize-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
@@ -473,6 +502,93 @@ function AddMedSheet({ open, onClose, members, currentUserId }: { open: boolean;
 
         <Button type="submit" disabled={pending} className="w-full">
           {pending ? 'Guardando...' : 'Guardar medicamento'}
+        </Button>
+      </form>
+    </BottomSheet>
+  )
+}
+
+/* ── EditRecordSheet ── */
+function EditRecordSheet({
+  open,
+  record,
+  onClose,
+  onSaved,
+  members,
+}: {
+  open: boolean
+  record: MedicalRecord | null
+  onClose: () => void
+  onSaved: () => void
+  members: { id: string; display_name: string; color_hex: string }[]
+}) {
+  const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
+
+  if (!record) return null
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setPending(true)
+    setError(null)
+    const form = new FormData(e.currentTarget)
+    const result = await updateMedicalRecord(record!.id, form)
+    setPending(false)
+    if (!result.ok) { setError(result.error); return }
+    onSaved()
+  }
+
+  return (
+    <BottomSheet open={open} onClose={onClose} title="Editar registro medico">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <p className="rounded border border-[var(--expense)] bg-[color-mix(in_srgb,var(--expense)_8%,transparent)] px-3 py-2 text-xs text-[var(--expense)]">{error}</p>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label htmlFor="edit_rec_tipo" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Tipo</label>
+            <select id="edit_rec_tipo" name="tipo" required defaultValue={record.tipo} className="w-full appearance-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]">
+              <option value="consulta">Consulta</option>
+              <option value="examen">Examen</option>
+              <option value="vacuna">Vacuna</option>
+              <option value="control">Control</option>
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="edit_rec_fecha" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Fecha</label>
+            <input id="edit_rec_fecha" name="fecha" type="date" required defaultValue={record.fecha} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <label htmlFor="edit_rec_especialidad" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Especialidad</label>
+          <input id="edit_rec_especialidad" name="especialidad" type="text" defaultValue={record.especialidad ?? ''} placeholder="Cardiologia, dermatologia..." className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label htmlFor="edit_rec_doctor" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Doctor</label>
+            <input id="edit_rec_doctor" name="doctor" type="text" defaultValue={record.doctor ?? ''} placeholder="Dr. ..." className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="edit_rec_clinica" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Clinica</label>
+            <input id="edit_rec_clinica" name="clinica" type="text" defaultValue={record.clinica ?? ''} placeholder="Nombre clinica..." className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <label htmlFor="edit_rec_proxima_cita" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Proxima cita (opcional)</label>
+          <input id="edit_rec_proxima_cita" name="proxima_cita" type="date" defaultValue={record.proxima_cita ?? ''} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+        </div>
+
+        <div className="space-y-1">
+          <label htmlFor="edit_rec_notas" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Notas</label>
+          <textarea id="edit_rec_notas" name="notas" rows={2} defaultValue={record.notas ?? ''} placeholder="Observaciones..." className="w-full resize-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+        </div>
+
+        <Button type="submit" disabled={pending} className="w-full">
+          {pending ? 'Guardando...' : 'Guardar cambios'}
         </Button>
       </form>
     </BottomSheet>
@@ -487,6 +603,7 @@ function EditMedSheet({
   onSaved,
   members,
   currentUserId,
+  records = [],
 }: {
   open: boolean
   med: Medicamento | null
@@ -558,6 +675,18 @@ function EditMedSheet({
           <label htmlFor="edit_fecha_inicio" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Fecha inicio</label>
           <input id="edit_fecha_inicio" name="fecha_inicio" type="date" defaultValue={med.fecha_inicio ?? ''} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
         </div>
+
+        {records.length > 0 && (
+          <div className="space-y-1">
+            <label htmlFor="edit_record_id" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Historial clinico (opcional)</label>
+            <select id="edit_record_id" name="record_id" defaultValue={med.record_id ?? ''} className="w-full appearance-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]">
+              <option value="">Sin vincular</option>
+              {records.map((r) => (
+                <option key={r.id} value={r.id}>{r.especialidad ?? r.tipo} — {formatDateShort(r.fecha)}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="space-y-1">
           <label htmlFor="edit_notas" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Notas</label>

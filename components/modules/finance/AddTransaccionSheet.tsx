@@ -46,6 +46,8 @@ export function AddTransaccionSheet({ open, onClose, quincenaId, categorias, mem
 
   const gastos = categorias.filter((c) => c.tipo === 'gasto')
   const ingresos = categorias.filter((c) => c.tipo === 'ingreso')
+  const ahorros = categorias.filter((c) => c.tipo === 'ahorro')
+  const bolsillos = categorias.filter((c) => c.tipo === 'bolsillo')
 
   return (
     <BottomSheet open={open} onClose={onClose} title="Nueva transacción">
@@ -61,14 +63,22 @@ export function AddTransaccionSheet({ open, onClose, quincenaId, categorias, mem
           <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">
             Tipo
           </label>
-          <div className="flex gap-2">
-            <label className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded border border-[var(--border-strong)] px-3 py-2 text-sm font-medium has-[:checked]:border-[var(--expense)] has-[:checked]:bg-[color-mix(in_srgb,var(--expense)_8%,transparent)] has-[:checked]:text-[var(--expense)]">
+          <div className="grid grid-cols-2 gap-2">
+            <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded border border-[var(--border-strong)] px-3 py-2 text-sm font-medium has-[:checked]:border-[var(--expense)] has-[:checked]:bg-[color-mix(in_srgb,var(--expense)_8%,transparent)] has-[:checked]:text-[var(--expense)]">
               <input type="radio" name="tipo" value="gasto" defaultChecked className="sr-only" />
               Gasto
             </label>
-            <label className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded border border-[var(--border-strong)] px-3 py-2 text-sm font-medium has-[:checked]:border-[var(--income)] has-[:checked]:bg-[color-mix(in_srgb,var(--income)_8%,transparent)] has-[:checked]:text-[var(--income)]">
+            <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded border border-[var(--border-strong)] px-3 py-2 text-sm font-medium has-[:checked]:border-[var(--income)] has-[:checked]:bg-[color-mix(in_srgb,var(--income)_8%,transparent)] has-[:checked]:text-[var(--income)]">
               <input type="radio" name="tipo" value="ingreso" className="sr-only" />
               Ingreso
+            </label>
+            <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded border border-[var(--border-strong)] px-3 py-2 text-sm font-medium has-[:checked]:border-[var(--info)] has-[:checked]:bg-[color-mix(in_srgb,var(--info)_8%,transparent)] has-[:checked]:text-[var(--info)]">
+              <input type="radio" name="tipo" value="ahorro" className="sr-only" />
+              Ahorro
+            </label>
+            <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded border border-[var(--border-strong)] px-3 py-2 text-sm font-medium has-[:checked]:border-[var(--mod-finance)] has-[:checked]:bg-[color-mix(in_srgb,var(--mod-finance)_8%,transparent)] has-[:checked]:text-[var(--mod-finance)]">
+              <input type="radio" name="tipo" value="bolsillo" className="sr-only" />
+              Bolsillo
             </label>
           </div>
         </div>
@@ -132,6 +142,20 @@ export function AddTransaccionSheet({ open, onClose, quincenaId, categorias, mem
             {ingresos.length > 0 && (
               <optgroup label="Ingresos">
                 {ingresos.map((c) => (
+                  <option key={c.id} value={c.id}>{c.nombre}</option>
+                ))}
+              </optgroup>
+            )}
+            {ahorros.length > 0 && (
+              <optgroup label="Ahorros">
+                {ahorros.map((c) => (
+                  <option key={c.id} value={c.id}>{c.nombre}</option>
+                ))}
+              </optgroup>
+            )}
+            {bolsillos.length > 0 && (
+              <optgroup label="Bolsillos">
+                {bolsillos.map((c) => (
                   <option key={c.id} value={c.id}>{c.nombre}</option>
                 ))}
               </optgroup>

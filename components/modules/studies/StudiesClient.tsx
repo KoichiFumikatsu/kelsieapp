@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, GraduationCap, Timer, Trash2, ExternalLink, Users, Pencil } from 'lucide-react'
+import { Plus, GraduationCap, Timer, Trash2, ExternalLink, Users, Pencil, Clock } from 'lucide-react'
 
 import { getStudyGoals, createStudyGoal, updateGoalStatus, updateStudyGoal, deleteStudyGoal } from '@/app/actions/studies/goals'
 import { createStudySession, getStudyStreak } from '@/app/actions/studies/sessions'
@@ -237,6 +237,17 @@ function GoalCard({
           <p className="mt-1 text-[10px] text-[var(--text-3)]">
             <span className="num">{goal.unidades_completadas}</span>/{goal.total_unidades} unidades
           </p>
+          {goal.horario && (
+            <p className="mt-0.5 flex items-center gap-1 text-[10px] text-[var(--info)]">
+              <Clock size={10} />
+              {goal.horario.slice(0, 5)}
+              {goal.dias_clase && goal.dias_clase.length > 0 && (
+                <span className="text-[var(--text-3)]">
+                  {' '}· {goal.dias_clase.map(d => d.slice(0, 3)).join(', ')}
+                </span>
+              )}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col gap-1">
@@ -368,6 +379,24 @@ function AddGoalSheet({ open, onClose, members, currentUserId }: { open: boolean
           </div>
         </div>
 
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label htmlFor="horario" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Hora de clase</label>
+            <input id="horario" name="horario" type="time" className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+          </div>
+          <div className="space-y-1">
+            <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Dias de clase</label>
+            <div className="flex flex-wrap gap-1">
+              {['lunes','martes','miercoles','jueves','viernes','sabado','domingo'].map(d => (
+                <label key={d} className="flex cursor-pointer items-center gap-1 rounded border border-[var(--border-strong)] px-1.5 py-1 text-[10px] has-[:checked]:border-[var(--mod-studies)] has-[:checked]:bg-[color-mix(in_srgb,var(--mod-studies)_10%,transparent)] has-[:checked]:text-[var(--mod-studies)]">
+                  <input type="checkbox" name="dias_clase" value={d} className="sr-only" />
+                  {d.slice(0,3)}
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+
         <Button type="submit" disabled={pending} className="w-full">
           {pending ? 'Creando...' : 'Crear meta'}
         </Button>
@@ -456,6 +485,24 @@ function EditGoalSheet({ open, goal, onClose, onSaved, members }: {
           <div className="space-y-1">
             <label htmlFor="edit_fecha_meta" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Meta</label>
             <input id="edit_fecha_meta" name="fecha_meta" type="date" defaultValue={goal.fecha_meta ?? ''} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label htmlFor="edit_horario" className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Hora de clase</label>
+            <input id="edit_horario" name="horario" type="time" defaultValue={goal.horario?.slice(0, 5) ?? ''} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+          </div>
+          <div className="space-y-1">
+            <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Dias de clase</label>
+            <div className="flex flex-wrap gap-1">
+              {['lunes','martes','miercoles','jueves','viernes','sabado','domingo'].map(d => (
+                <label key={d} className="flex cursor-pointer items-center gap-1 rounded border border-[var(--border-strong)] px-1.5 py-1 text-[10px] has-[:checked]:border-[var(--mod-studies)] has-[:checked]:bg-[color-mix(in_srgb,var(--mod-studies)_10%,transparent)] has-[:checked]:text-[var(--mod-studies)]">
+                  <input type="checkbox" name="dias_clase" value={d} defaultChecked={goal.dias_clase?.includes(d as any) ?? false} className="sr-only" />
+                  {d.slice(0,3)}
+                </label>
+              ))}
+            </div>
           </div>
         </div>
 

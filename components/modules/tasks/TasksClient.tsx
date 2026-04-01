@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Lock, GripVertical, Trash2, ChevronDown, ChevronRight, Pencil, AlertTriangle, Calendar, CheckSquare, Square, X, Clock, Repeat } from 'lucide-react'
+import { Plus, Lock, GripVertical, Trash2, ChevronDown, ChevronRight, ChevronLeft, Pencil, AlertTriangle, Calendar, CheckSquare, Square, X, Clock, Repeat, LayoutGrid, CalendarDays } from 'lucide-react'
 
 import { getAllWorkTasks, createWorkTask, updateWorkTask, updateTaskStatus, deleteWorkTask } from '@/app/actions/tasks/tasks'
 import { Button } from '@/components/ui/Button'
@@ -37,6 +37,8 @@ export function TasksClient() {
   const [editingTask, setEditingTask] = useState<WorkTask | null>(null)
   const [quickAdd, setQuickAdd] = useState('')
   const [collapsedCols, setCollapsedCols] = useState<Set<TaskStatus>>(new Set(['cancelled']))
+  const [view, setView] = useState<'kanban' | 'calendar'>('kanban')
+  const [calMonth, setCalMonth] = useState(() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1) })
 
   const loadTasks = useCallback(async () => {
     const result = await getAllWorkTasks()
@@ -163,7 +165,30 @@ export function TasksClient() {
         </button>
       </div>
 
+      {/* View toggle */}
+      <div className="flex items-center gap-1 rounded-md bg-[var(--surface-2)] p-1">
+        <button
+          onClick={() => setView('kanban')}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+            view === 'kanban' ? 'bg-[var(--surface)] text-[var(--text-1)] shadow-sm' : 'text-[var(--text-3)] hover:text-[var(--text-2)]'
+          }`}
+        >
+          <LayoutGrid size={12} />
+          Kanban
+        </button>
+        <button
+          onClick={() => setView('calendar')}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+            view === 'calendar' ? 'bg-[var(--surface)] text-[var(--text-1)] shadow-sm' : 'text-[var(--text-3)] hover:text-[var(--text-2)]'
+          }`}
+        >
+          <CalendarDays size={12} />
+          Calendario
+        </button>
+      </div>
+
       {/* Kanban columns */}
+      {view === 'kanban' && (
       <div className="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0 lg:grid-cols-4">
       {COLUMNS.map((col) => {
         const colTasks = tasksByStatus(col.key)
@@ -203,6 +228,17 @@ export function TasksClient() {
         )
       })}
       </div>
+      )}
+
+      {/* Calendar view */}
+      {view === 'calendar' && (
+        <TaskCalendar
+          tasks={tasks}
+          month={calMonth}
+          onMonthChange={setCalMonth}
+          onEdit={(t) => setEditingTask(t)}
+        />
+      )}
 
       {/* FAB */}
       <button
@@ -607,5 +643,136 @@ function EditTaskSheet({
         </Button>
       </form>
     </BottomSheet>
+  )
+}
+
+/* ── TaskCalendar ── */
+const DIAS_SEMANA = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom']
+
+function TaskCalendar({
+  tasks,
+  month,
+  onMonthChange,
+  onEdit,
+}: {
+  tasks: WorkTask[]
+  month: Date
+  onMonthChange: (d: Date) => void
+  onEdit: (task: WorkTask) => void
+}) {
+  const y = month.getFullYear()
+  const m = month.getMonth()
+  const firstDay = new Date(y, m, 1)
+  const lastDay = new Date(y, m + 1, 0)
+  // Monday = 0
+  const startOffset = (firstDay.getDay() + 6) % 7
+  const daysInMonth = lastDay.getDate()
+
+  const cells: (number | null)[] = []
+  for (let i = 0; i < startOffset; i++) cells.push(null)
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+  // Pad to full weeks
+  while (cells.length % 7 !== 0) cells.push(null)
+
+  // Group tasks by due_date
+  const tasksByDate: Record<string, WorkTask[]> = {}
+  for (const t of tasks) {
+    if (!t.due_date) continue
+    const key = t.due_date
+    if (!tasksByDate[key]) tasksByDate[key] = []
+    tasksByDate[key].push(t)
+  }
+
+  const today = new Date()
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+
+  const monthLabel = firstDay.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })
+
+  return (
+    <div className="space-y-2">
+      {/* Navigation */}
+      <div className="flex items-center justify-between">
+        <button onClick={() => onMonthChange(new Date(y, m - 1, 1))} className="rounded p-1.5 text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]">
+          <ChevronLeft size={16} />
+        </button>
+        <span className="text-sm font-semibold capitalize text-[var(--text-1)]">{monthLabel}</span>
+        <button onClick={() => onMonthChange(new Date(y, m + 1, 1))} className="rounded p-1.5 text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]">
+          <ChevronRight size={16} />
+        </button>
+      </div>
+
+      {/* Header */}
+      <div className="grid grid-cols-7 gap-px">
+        {DIAS_SEMANA.map((d) => (
+          <div key={d} className="py-1 text-center text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">
+            {d}
+          </div>
+        ))}
+      </div>
+
+      {/* Days grid */}
+      <div className="grid grid-cols-7 gap-px rounded border border-[var(--border)] bg-[var(--border)]">
+        {cells.map((day, idx) => {
+          if (day === null) {
+            return <div key={idx} className="min-h-[60px] bg-[var(--surface-2)]" />
+          }
+          const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+          const dayTasks = tasksByDate[dateStr] ?? []
+          const isToday = dateStr === todayStr
+
+          return (
+            <div
+              key={idx}
+              className={`min-h-[60px] bg-[var(--surface)] p-1 ${isToday ? 'ring-1 ring-inset ring-[var(--mod-tasks)]' : ''}`}
+            >
+              <p className={`text-[10px] font-medium ${isToday ? 'text-[var(--mod-tasks)]' : 'text-[var(--text-3)]'}`}>
+                {day}
+              </p>
+              <div className="mt-0.5 space-y-0.5">
+                {dayTasks.slice(0, 3).map((t) => {
+                  const isDone = t.status === 'done' || t.status === 'cancelled'
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => onEdit(t)}
+                      className={`block w-full truncate rounded px-1 py-0.5 text-left text-[9px] font-medium leading-tight ${isDone ? 'line-through opacity-50' : ''}`}
+                      style={{
+                        backgroundColor: `color-mix(in srgb, ${PRIORITY_COLORS[t.prioridad]} 12%, transparent)`,
+                        color: PRIORITY_COLORS[t.prioridad],
+                      }}
+                      title={t.titulo}
+                    >
+                      {t.titulo}
+                    </button>
+                  )
+                })}
+                {dayTasks.length > 3 && (
+                  <p className="text-[8px] text-[var(--text-3)]">+{dayTasks.length - 3} mas</p>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Tasks without due date */}
+      {tasks.filter((t) => !t.due_date && t.status !== 'done' && t.status !== 'cancelled').length > 0 && (
+        <div className="space-y-1">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">Sin fecha</p>
+          {tasks
+            .filter((t) => !t.due_date && t.status !== 'done' && t.status !== 'cancelled')
+            .map((t) => (
+              <button
+                key={t.id}
+                onClick={() => onEdit(t)}
+                className="flex w-full items-center gap-2 rounded border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-left text-xs"
+              >
+                <span className="inline-block h-2 w-2 rounded-full" style={{ background: PRIORITY_COLORS[t.prioridad] }} />
+                <span className="truncate text-[var(--text-1)]">{t.titulo}</span>
+              </button>
+            ))}
+        </div>
+      )}
+    </div>
   )
 }

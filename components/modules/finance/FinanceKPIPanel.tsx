@@ -2,7 +2,7 @@ import { formatCOP } from '@/lib/utils/format'
 import { ProgressBar } from '@/components/ui/Progress'
 import { DonutChart, HBarChart } from '@/components/ui/Charts'
 import type { FinanceKPIs } from '@/lib/types/modules.types'
-import { TrendingDown, TrendingUp, Wallet, PiggyBank, AlertTriangle } from 'lucide-react'
+import { TrendingDown, TrendingUp, Wallet, PiggyBank, AlertTriangle, Landmark, FolderHeart } from 'lucide-react'
 
 const CHART_COLORS = [
   '#6366f1', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6',
@@ -20,7 +20,7 @@ export function FinanceKPIPanel({ kpis, className = '' }: FinanceKPIPanelProps) 
     .filter((c) => c.tipo === 'gasto')
     .reduce((sum, c) => sum + c.previsto, 0)
   const savingsRate = kpis.totalIngresos > 0
-    ? Math.round(((kpis.totalIngresos - kpis.totalGastos) / kpis.totalIngresos) * 100)
+    ? Math.round(((kpis.totalIngresos - kpis.totalGastos - kpis.totalAhorros - kpis.totalBolsillos) / kpis.totalIngresos) * 100)
     : 0
   const overBudget = kpis.porCategoria.filter((c) => c.tipo === 'gasto' && c.porcentaje > 1)
   const gastoPct = totalPresupuestado > 0
@@ -30,7 +30,7 @@ export function FinanceKPIPanel({ kpis, className = '' }: FinanceKPIPanelProps) 
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Top KPIs */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         <KPIBox
           label="Saldo"
           value={formatCOP(kpis.saldoActual)}
@@ -49,8 +49,24 @@ export function FinanceKPIPanel({ kpis, className = '' }: FinanceKPIPanelProps) 
           color="var(--expense)"
           icon={<TrendingDown size={14} />}
         />
+        {kpis.totalAhorros > 0 && (
+          <KPIBox
+            label="Ahorros"
+            value={formatCOP(kpis.totalAhorros)}
+            color="var(--info)"
+            icon={<Landmark size={14} />}
+          />
+        )}
+        {kpis.totalBolsillos > 0 && (
+          <KPIBox
+            label="Bolsillos"
+            value={formatCOP(kpis.totalBolsillos)}
+            color="var(--mod-finance)"
+            icon={<FolderHeart size={14} />}
+          />
+        )}
         <KPIBox
-          label="Ahorro"
+          label="Libre"
           value={`${savingsRate}%`}
           color={savingsRate >= 20 ? 'var(--income)' : savingsRate >= 0 ? 'var(--warn)' : 'var(--expense)'}
           icon={<PiggyBank size={14} />}

@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, ChevronDown, Tag, Pencil, Trash2 } from 'lucide-react'
+import { Plus, ChevronDown, Tag, Pencil, Trash2, Settings } from 'lucide-react'
 import { createBrowserClient } from '@supabase/ssr'
 
 import { getActiveQuincena, getQuincenas, createQuincena, updateQuincena, deleteQuincena } from '@/app/actions/finance/quincenas'
 import { getCategorias, createCategoria, updateCategoria, deleteCategoria } from '@/app/actions/finance/categorias'
 import { getTransacciones } from '@/app/actions/finance/transacciones'
-import { getFinanceKPIs } from '@/app/actions/finance/dashboard'
+import { getFinanceKPIs, updatePresupuesto } from '@/app/actions/finance/dashboard'
 import { FinanceKPIPanel } from '@/components/modules/finance/FinanceKPIPanel'
 import { TransaccionList } from '@/components/modules/finance/TransaccionList'
 import { AddTransaccionSheet } from '@/components/modules/finance/AddTransaccionSheet'
@@ -41,6 +41,7 @@ export function FinanceClient() {
   const [showCategorias, setShowCategorias] = useState(false)
   const [editingCat, setEditingCat] = useState<Categoria | null>(null)
   const [editingQuincena, setEditingQuincena] = useState<Quincena | null>(null)
+  const [showPresupuestos, setShowPresupuestos] = useState(false)
 
   const loadData = useCallback(async (quincenaId?: string) => {
     const [qRes, catRes] = await Promise.all([
@@ -195,7 +196,7 @@ export function FinanceClient() {
                 className="flex items-center justify-between rounded border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5"
               >
                 <div className="flex items-center gap-2">
-                  <span className={`inline-block h-2 w-2 rounded-full ${cat.tipo === 'gasto' ? 'bg-[var(--expense)]' : 'bg-[var(--income)]'}`} />
+                  <span className={`inline-block h-2 w-2 rounded-full ${cat.tipo === 'gasto' ? 'bg-[var(--expense)]' : cat.tipo === 'ingreso' ? 'bg-[var(--income)]' : cat.tipo === 'ahorro' ? 'bg-[var(--info)]' : 'bg-[var(--mod-finance)]'}`} />
                   <span className="text-sm font-medium text-[var(--text-1)]">{cat.nombre}</span>
                   {cat.presupuesto_default > 0 && (
                     <span className="num text-[10px] text-[var(--text-3)]">
@@ -223,6 +224,42 @@ export function FinanceClient() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* Presupuesto per quincena */}
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <button
+            onClick={() => setShowPresupuestos(!showPresupuestos)}
+            className="section-bar text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]"
+            style={{ '--accent': 'var(--mod-finance)' } as React.CSSProperties}
+          >
+            <span className="flex items-center gap-1.5">
+              <Settings size={12} />
+              Presupuesto esta quincena
+              <ChevronDown size={12} className={`transition-transform ${showPresupuestos ? 'rotate-180' : ''}`} />
+            </span>
+          </button>
+        </div>
+        {showPresupuestos && kpis && (
+          <div className="space-y-1">
+            {kpis.porCategoria.map((cat) => (
+              <PresupuestoRow
+                key={cat.categoriaId}
+                categoriaId={cat.categoriaId}
+                nombre={cat.nombre}
+                tipo={cat.tipo}
+                previsto={cat.previsto}
+                real={cat.real}
+                quincenaId={active.id}
+                onSaved={() => loadData(active.id)}
+              />
+            ))}
+            {kpis.porCategoria.length === 0 && (
+              <p className="py-3 text-center text-xs text-[var(--text-3)]">Sin presupuestos. Crea categorias primero.</p>
+            )}
           </div>
         )}
       </div>
@@ -415,6 +452,8 @@ function NewCategoriaSheet({ open, onClose, onCreated }: { open: boolean; onClos
           <select name="tipo" required className="w-full appearance-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]">
             <option value="gasto">Gasto</option>
             <option value="ingreso">Ingreso</option>
+            <option value="ahorro">Ahorro</option>
+            <option value="bolsillo">Bolsillo</option>
           </select>
         </div>
         <div className="space-y-1">
@@ -529,5 +568,84 @@ function EditQuincenaSheet({ open, quincena, onClose, onSaved }: {
         </Button>
       </form>
     </BottomSheet>
+  )
+}
+
+/* ── PresupuestoRow ── */
+function PresupuestoRow({
+  categoriaId,
+  nombre,
+  tipo,
+  previsto,
+  real,
+  quincenaId,
+  onSaved,
+}: {
+  categoriaId: string
+  nombre: string
+  tipo: string
+  previsto: number
+  real: number
+  quincenaId: string
+  onSaved: () => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(String(previsto))
+  const [saving, setSaving] = useState(false)
+
+  async function save() {
+    const num = Number(value)
+    if (isNaN(num) || num < 0) return
+    setSaving(true)
+    await updatePresupuesto(quincenaId, categoriaId, num)
+    setSaving(false)
+    setEditing(false)
+    onSaved()
+  }
+
+  const pct = previsto > 0 ? Math.round((real / previsto) * 100) : 0
+  const colorMap: Record<string, string> = {
+    gasto: 'var(--expense)',
+    ingreso: 'var(--income)',
+    ahorro: 'var(--info)',
+    bolsillo: 'var(--mod-finance)',
+  }
+  const dotColor = colorMap[tipo] ?? 'var(--text-3)'
+
+  return (
+    <div className="flex items-center gap-2 rounded border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
+      <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: dotColor }} />
+      <span className="flex-1 truncate text-sm text-[var(--text-1)]">{nombre}</span>
+      {editing ? (
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-[var(--text-3)]">$</span>
+          <input
+            type="number"
+            min="0"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false) }}
+            className="num w-24 rounded border border-[var(--border-strong)] bg-[var(--surface)] px-2 py-1 text-right text-xs outline-none focus:border-[var(--text-1)]"
+            autoFocus
+          />
+          <button onClick={save} disabled={saving} className="rounded px-2 py-1 text-[10px] font-semibold text-[var(--mod-finance)] hover:bg-[var(--surface-2)]">
+            OK
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => { setValue(String(previsto)); setEditing(true) }}
+          className="flex items-center gap-2 text-right"
+        >
+          <span className="num text-xs text-[var(--text-3)]">
+            {previsto > 0 ? `${pct}%` : '—'}
+          </span>
+          <span className="num text-xs font-medium text-[var(--text-2)]">
+            ${previsto.toLocaleString()}
+          </span>
+          <Pencil size={10} className="text-[var(--text-3)]" />
+        </button>
+      )}
+    </div>
   )
 }

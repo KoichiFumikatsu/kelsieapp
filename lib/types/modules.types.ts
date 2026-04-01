@@ -22,11 +22,13 @@ export interface Quincena {
   updated_at: string
 }
 
+export type CategoriaType = 'gasto' | 'ingreso' | 'ahorro' | 'bolsillo'
+
 export interface Categoria {
   id: string
   household_id: string
   nombre: string
-  tipo: 'gasto' | 'ingreso'
+  tipo: CategoriaType
   presupuesto_default: number
   icono: string
   orden: number
@@ -46,7 +48,7 @@ export interface Transaccion {
   categoria_id: string
   user_id: string
   household_id: string
-  tipo: 'gasto' | 'ingreso'
+  tipo: 'gasto' | 'ingreso' | 'ahorro' | 'bolsillo'
   fecha: string
   importe: number
   descripcion: string | null
@@ -67,6 +69,8 @@ export interface FinanceKPIs {
   saldoInicial: number
   totalIngresos: number
   totalGastos: number
+  totalAhorros: number
+  totalBolsillos: number
   saldoActual: number
   porCategoria: {
     categoriaId: string
@@ -209,6 +213,7 @@ export interface Medicamento {
   frecuencia_horas: number | null
   duracion_dias: number | null
   proxima_toma: string | null
+  record_id: string | null
   created_at: string
 }
 
@@ -218,6 +223,8 @@ export interface Medicamento {
 
 export type StudyCategory = 'curso' | 'libro' | 'certificacion' | 'idioma' | 'habilidad'
 export type StudyGoalStatus = 'not_started' | 'in_progress' | 'completed' | 'paused'
+
+export type DiaSemana = 'lunes' | 'martes' | 'miercoles' | 'jueves' | 'viernes' | 'sabado' | 'domingo'
 
 export interface StudyGoal {
   id: string
@@ -232,6 +239,8 @@ export interface StudyGoal {
   unidades_completadas: number
   fecha_inicio: string | null
   fecha_meta: string | null
+  horario: string | null
+  dias_clase: DiaSemana[] | null
   status: StudyGoalStatus
   notify_on_milestone: boolean
   created_at: string

@@ -43,6 +43,7 @@ export async function createMedicamento(formData: FormData): Promise<ActionResul
   const fechaFin = (formData.get('fecha_fin') as string) || null
   const notas = (formData.get('notas') as string) || null
   const selectedUserId = (formData.get('user_id') as string) || ctx.userId
+  const recordId = (formData.get('record_id') as string) || null
 
   // New scheduling fields
   const horaInicio = (formData.get('hora_inicio') as string) || null
@@ -95,6 +96,7 @@ export async function createMedicamento(formData: FormData): Promise<ActionResul
       frecuencia_horas: frecuenciaHoras,
       duracion_dias: duracionDias,
       proxima_toma: proximaToma,
+      record_id: recordId || null,
     })
     .select()
     .single()
@@ -143,6 +145,7 @@ export async function updateMedicamento(id: string, formData: FormData): Promise
   const selectedUserId = (formData.get('user_id') as string) || ctx.userId
   const fechaInicio = (formData.get('fecha_inicio') as string) || null
   const horaInicio = (formData.get('hora_inicio') as string) || null
+  const recordId = (formData.get('record_id') as string) || null
   const frecuenciaHorasRaw = formData.get('frecuencia_horas') as string
   const frecuenciaHoras = frecuenciaHorasRaw ? parseInt(frecuenciaHorasRaw, 10) : null
   const duracionDiasRaw = formData.get('duracion_dias') as string
@@ -189,6 +192,7 @@ export async function updateMedicamento(id: string, formData: FormData): Promise
       frecuencia_horas: frecuenciaHoras,
       duracion_dias: duracionDias,
       proxima_toma: proximaToma,
+      record_id: recordId || null,
     })
     .eq('id', id)
     .eq('household_id', ctx.householdId)

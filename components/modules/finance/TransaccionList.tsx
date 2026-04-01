@@ -19,7 +19,21 @@ export function TransaccionList({ transacciones, className = '' }: TransaccionLi
   return (
     <div className={`space-y-1 ${className}`}>
       {transacciones.map((t) => {
-        const isGasto = t.tipo === 'gasto'
+        const colorMap: Record<string, string> = {
+          gasto: 'var(--expense)',
+          ingreso: 'var(--income)',
+          ahorro: 'var(--info)',
+          bolsillo: 'var(--mod-finance)',
+        }
+        const signMap: Record<string, string> = {
+          gasto: '−',
+          ingreso: '+',
+          ahorro: '−',
+          bolsillo: '−',
+        }
+        const color = colorMap[t.tipo] ?? 'var(--text-1)'
+        const sign = signMap[t.tipo] ?? ''
+
         return (
           <div
             key={t.id}
@@ -45,9 +59,9 @@ export function TransaccionList({ transacciones, className = '' }: TransaccionLi
             {/* Amount */}
             <span
               className="num shrink-0 text-sm font-bold"
-              style={{ color: isGasto ? 'var(--expense)' : 'var(--income)' }}
+              style={{ color }}
             >
-              {isGasto ? '−' : '+'}{formatCOP(t.importe)}
+              {sign}{formatCOP(t.importe)}
             </span>
           </div>
         )

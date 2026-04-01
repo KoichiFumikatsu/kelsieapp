@@ -30,7 +30,7 @@ export async function createTransaccion(formData: FormData): Promise<ActionResul
 
   const quincenaId = formData.get('quincena_id') as string
   const categoriaId = formData.get('categoria_id') as string
-  const tipo = formData.get('tipo') as 'gasto' | 'ingreso'
+  const tipo = formData.get('tipo') as 'gasto' | 'ingreso' | 'ahorro' | 'bolsillo'
   const importe = Number(formData.get('importe'))
   const descripcion = (formData.get('descripcion') as string) || null
   const fecha = (formData.get('fecha') as string) || new Date().toISOString().split('T')[0]

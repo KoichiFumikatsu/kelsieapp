@@ -35,6 +35,14 @@ export async function getFinanceKPIs(quincenaId: string): Promise<ActionResult<F
     .filter((t) => t.tipo === 'gasto')
     .reduce((sum, t) => sum + Number(t.importe), 0)
 
+  const totalAhorros = (transacciones ?? [])
+    .filter((t) => t.tipo === 'ahorro')
+    .reduce((sum, t) => sum + Number(t.importe), 0)
+
+  const totalBolsillos = (transacciones ?? [])
+    .filter((t) => t.tipo === 'bolsillo')
+    .reduce((sum, t) => sum + Number(t.importe), 0)
+
   // Group real amounts by category
   const realByCategoria: Record<string, number> = {}
   for (const t of transacciones ?? []) {
@@ -61,7 +69,9 @@ export async function getFinanceKPIs(quincenaId: string): Promise<ActionResult<F
       saldoInicial: Number(quincena.saldo_inicial),
       totalIngresos,
       totalGastos,
-      saldoActual: Number(quincena.saldo_inicial) + totalIngresos - totalGastos,
+      totalAhorros,
+      totalBolsillos,
+      saldoActual: Number(quincena.saldo_inicial) + totalIngresos - totalGastos - totalAhorros - totalBolsillos,
       porCategoria,
     },
   }

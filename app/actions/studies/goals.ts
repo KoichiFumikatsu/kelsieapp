@@ -56,6 +56,9 @@ export async function createStudyGoal(formData: FormData): Promise<ActionResult<
   const fechaInicio = (formData.get('fecha_inicio') as string) || null
   const fechaMeta = (formData.get('fecha_meta') as string) || null
   const selectedUserId = (formData.get('user_id') as string) || ctx.userId
+  const horario = (formData.get('horario') as string) || null
+  const diasClaseRaw = formData.getAll('dias_clase') as string[]
+  const diasClase = diasClaseRaw.length > 0 ? diasClaseRaw : null
 
   if (!titulo || !categoria) return { ok: false, error: 'Titulo y categoria son requeridos' }
 
@@ -72,6 +75,8 @@ export async function createStudyGoal(formData: FormData): Promise<ActionResult<
       total_unidades: totalUnidades,
       fecha_inicio: fechaInicio || null,
       fecha_meta: fechaMeta || null,
+      horario: horario || null,
+      dias_clase: diasClase,
       status: 'not_started',
     })
     .select()
@@ -111,6 +116,8 @@ export async function updateStudyGoal(id: string, formData: FormData): Promise<A
   const fechaInicio = formData.get('fecha_inicio') as string | null
   const fechaMeta = formData.get('fecha_meta') as string | null
   const userId = formData.get('user_id') as string | null
+  const horario = formData.get('horario') as string | null
+  const diasClaseRaw = formData.getAll('dias_clase') as string[]
 
   if (titulo) updates.titulo = titulo
   if (descripcion !== null) updates.descripcion = descripcion || null
@@ -121,6 +128,8 @@ export async function updateStudyGoal(id: string, formData: FormData): Promise<A
   if (fechaInicio !== null) updates.fecha_inicio = fechaInicio || null
   if (fechaMeta !== null) updates.fecha_meta = fechaMeta || null
   if (userId) updates.user_id = userId
+  if (horario !== null) updates.horario = horario || null
+  updates.dias_clase = diasClaseRaw.length > 0 ? diasClaseRaw : null
 
   const { error } = await ctx.supabase
     .from('study_goals')
