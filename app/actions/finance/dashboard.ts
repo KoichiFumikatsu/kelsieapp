@@ -1,25 +1,26 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import type { ActionResult, FinanceKPIs, PresupuestoConCategoria } from '@/lib/types/modules.types'
+import type { ActionResult, FinanceKPIs } from '@/lib/types/modules.types'
 
 export async function getFinanceKPIs(quincenaId: string): Promise<ActionResult<FinanceKPIs>> {
   const supabase = await createClient()
 
-  // Get quincena
+  // Get quincena + household
   const { data: quincena, error: qErr } = await supabase
     .from('quincenas')
-    .select('saldo_inicial')
+    .select('saldo_inicial, household_id')
     .eq('id', quincenaId)
     .single()
 
   if (qErr || !quincena) return { ok: false, error: qErr?.message ?? 'Quincena no encontrada' }
 
-  // Get presupuestos with category info
-  const { data: presupuestos } = await supabase
-    .from('presupuesto_quincena')
-    .select('*, categorias(nombre, icono, tipo)')
-    .eq('quincena_id', quincenaId) as { data: PresupuestoConCategoria[] | null }
+  // Get categorias directly (budget comes from presupuesto_default)
+  const { data: categorias } = await supabase
+    .from('categorias')
+    .select('id, nombre, icono, tipo, presupuesto_default')
+    .eq('household_id', quincena.household_id)
+    .order('orden')
 
   // Get all transactions for this quincena
   const { data: transacciones } = await supabase
@@ -49,14 +50,14 @@ export async function getFinanceKPIs(quincenaId: string): Promise<ActionResult<F
     realByCategoria[t.categoria_id] = (realByCategoria[t.categoria_id] ?? 0) + Number(t.importe)
   }
 
-  const porCategoria = (presupuestos ?? []).map((p) => {
-    const real = realByCategoria[p.categoria_id] ?? 0
-    const previsto = Number(p.monto_previsto)
+  const porCategoria = (categorias ?? []).map((c) => {
+    const real = realByCategoria[c.id] ?? 0
+    const previsto = Number(c.presupuesto_default)
     return {
-      categoriaId: p.categoria_id,
-      nombre: p.categorias?.nombre ?? '?',
-      icono: p.categorias?.icono ?? 'circle',
-      tipo: p.categorias?.tipo ?? 'gasto',
+      categoriaId: c.id,
+      nombre: c.nombre,
+      icono: c.icono ?? 'circle',
+      tipo: c.tipo,
       previsto,
       real,
       porcentaje: previsto > 0 ? real / previsto : 0,
@@ -75,22 +76,4 @@ export async function getFinanceKPIs(quincenaId: string): Promise<ActionResult<F
       porCategoria,
     },
   }
-}
-
-export async function updatePresupuesto(
-  quincenaId: string,
-  categoriaId: string,
-  montoPrevisto: number,
-): Promise<ActionResult<null>> {
-  const supabase = await createClient()
-
-  const { error } = await supabase
-    .from('presupuesto_quincena')
-    .upsert(
-      { quincena_id: quincenaId, categoria_id: categoriaId, monto_previsto: montoPrevisto },
-      { onConflict: 'quincena_id,categoria_id' },
-    )
-
-  if (error) return { ok: false, error: error.message }
-  return { ok: true, data: null }
 }

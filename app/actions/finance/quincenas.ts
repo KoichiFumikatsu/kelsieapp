@@ -149,22 +149,6 @@ export async function ensureQuincena(year: number, month: number, half: 1 | 2): 
 
   if (error) return { ok: false, error: error.message }
 
-  // Copy presupuestos default
-  const { data: categorias } = await ctx.supabase
-    .from('categorias')
-    .select('id, presupuesto_default')
-    .eq('household_id', ctx.householdId)
-
-  if (categorias && categorias.length > 0) {
-    await ctx.supabase.from('presupuesto_quincena').insert(
-      categorias.map((c) => ({
-        quincena_id: data.id,
-        categoria_id: c.id,
-        monto_previsto: c.presupuesto_default,
-      })),
-    )
-  }
-
   return { ok: true, data: data as Quincena }
 }
 

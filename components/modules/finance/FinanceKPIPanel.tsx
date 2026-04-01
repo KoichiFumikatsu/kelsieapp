@@ -26,51 +26,73 @@ export function FinanceKPIPanel({ kpis, className = '' }: FinanceKPIPanelProps) 
   const gastoPct = totalPresupuestado > 0
     ? Math.round((kpis.totalGastos / totalPresupuestado) * 100)
     : 0
+  const hasGastos = kpis.porCategoria.filter((c) => c.tipo === 'gasto' && c.real > 0).length > 0
 
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* Top KPIs */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        <KPIBox
-          label="Saldo"
-          value={formatCOP(kpis.saldoActual)}
-          color={saldoColor}
-          icon={<Wallet size={14} />}
-        />
-        <KPIBox
-          label="Ingresos"
-          value={formatCOP(kpis.totalIngresos)}
-          color="var(--income)"
-          icon={<TrendingUp size={14} />}
-        />
-        <KPIBox
-          label="Gastos"
-          value={formatCOP(kpis.totalGastos)}
-          color="var(--expense)"
-          icon={<TrendingDown size={14} />}
-        />
-        {kpis.totalAhorros > 0 && (
+      {/* Cards + Donut side by side on md+ */}
+      <div className="flex flex-col gap-4 md:flex-row">
+        {/* Left: KPI cards */}
+        <div className="grid flex-1 grid-cols-2 gap-2 self-start">
           <KPIBox
-            label="Ahorros"
-            value={formatCOP(kpis.totalAhorros)}
-            color="var(--info)"
-            icon={<Landmark size={14} />}
+            label="Saldo"
+            value={formatCOP(kpis.saldoActual)}
+            color={saldoColor}
+            icon={<Wallet size={14} />}
           />
-        )}
-        {kpis.totalBolsillos > 0 && (
           <KPIBox
-            label="Bolsillos"
-            value={formatCOP(kpis.totalBolsillos)}
-            color="var(--mod-finance)"
-            icon={<FolderHeart size={14} />}
+            label="Ingresos"
+            value={formatCOP(kpis.totalIngresos)}
+            color="var(--income)"
+            icon={<TrendingUp size={14} />}
           />
+          <KPIBox
+            label="Gastos"
+            value={formatCOP(kpis.totalGastos)}
+            color="var(--expense)"
+            icon={<TrendingDown size={14} />}
+          />
+          <KPIBox
+            label="Libre"
+            value={`${savingsRate}%`}
+            color={savingsRate >= 20 ? 'var(--income)' : savingsRate >= 0 ? 'var(--warn)' : 'var(--expense)'}
+            icon={<PiggyBank size={14} />}
+          />
+          {kpis.totalAhorros > 0 && (
+            <KPIBox
+              label="Ahorros"
+              value={formatCOP(kpis.totalAhorros)}
+              color="var(--info)"
+              icon={<Landmark size={14} />}
+            />
+          )}
+          {kpis.totalBolsillos > 0 && (
+            <KPIBox
+              label="Bolsillos"
+              value={formatCOP(kpis.totalBolsillos)}
+              color="var(--mod-finance)"
+              icon={<FolderHeart size={14} />}
+            />
+          )}
+        </div>
+
+        {/* Right: Donut chart */}
+        {hasGastos && (
+          <div className="flex w-full flex-col items-center justify-center md:w-52">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">
+              Distribucion
+            </p>
+            <DonutChart
+              segments={kpis.porCategoria
+                .filter((c) => c.tipo === 'gasto' && c.real > 0)
+                .map((c, i) => ({
+                  label: c.nombre,
+                  value: c.real,
+                  color: CHART_COLORS[i % CHART_COLORS.length],
+                }))}
+            />
+          </div>
         )}
-        <KPIBox
-          label="Libre"
-          value={`${savingsRate}%`}
-          color={savingsRate >= 20 ? 'var(--income)' : savingsRate >= 0 ? 'var(--warn)' : 'var(--expense)'}
-          icon={<PiggyBank size={14} />}
-        />
       </div>
 
       {/* Budget usage bar */}
@@ -113,31 +135,15 @@ export function FinanceKPIPanel({ kpis, className = '' }: FinanceKPIPanelProps) 
         <p className="text-xs text-[var(--income)]">Buen manejo financiero. Ahorro del {savingsRate}% esta quincena.</p>
       )}
 
-      {/* Per-category charts */}
-      {kpis.porCategoria.filter((c) => c.tipo === 'gasto' && c.real > 0).length > 0 && (
-        <div className="space-y-4">
-          <p className="section-bar text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">
-            Distribucion de gastos
-          </p>
-
-          {/* Donut chart — spending distribution */}
-          <DonutChart
-            segments={kpis.porCategoria
-              .filter((c) => c.tipo === 'gasto' && c.real > 0)
-              .map((c, i) => ({
-                label: c.nombre,
-                value: c.real,
-                color: CHART_COLORS[i % CHART_COLORS.length],
-              }))}
-          />
-
-          {/* Horizontal bar chart — budget vs actual */}
+      {/* Presupuesto vs real bar chart */}
+      {kpis.porCategoria.filter((c) => c.tipo === 'gasto' && c.previsto > 0).length > 0 && (
+        <div className="space-y-2">
           <p className="section-bar text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">
             Presupuesto vs real
           </p>
           <HBarChart
             bars={kpis.porCategoria
-              .filter((c) => c.tipo === 'gasto')
+              .filter((c) => c.tipo === 'gasto' && c.previsto > 0)
               .map((c, i) => ({
                 label: c.nombre,
                 value: c.real,

@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, ChevronDown, Tag, Pencil, Trash2, Settings } from 'lucide-react'
+import { Plus, ChevronDown, Tag, Pencil, Trash2 } from 'lucide-react'
 import { createBrowserClient } from '@supabase/ssr'
 
 import { getActiveQuincena, getQuincenas, updateQuincena } from '@/app/actions/finance/quincenas'
 import { getCategorias, createCategoria, updateCategoria, deleteCategoria } from '@/app/actions/finance/categorias'
 import { getTransacciones } from '@/app/actions/finance/transacciones'
-import { getFinanceKPIs, updatePresupuesto } from '@/app/actions/finance/dashboard'
+import { getFinanceKPIs } from '@/app/actions/finance/dashboard'
 import { FinanceKPIPanel } from '@/components/modules/finance/FinanceKPIPanel'
 import { TransaccionList } from '@/components/modules/finance/TransaccionList'
 import { AddTransaccionSheet } from '@/components/modules/finance/AddTransaccionSheet'
@@ -40,7 +40,6 @@ export function FinanceClient() {
   const [showCategorias, setShowCategorias] = useState(false)
   const [editingCat, setEditingCat] = useState<Categoria | null>(null)
   const [editingQuincena, setEditingQuincena] = useState<Quincena | null>(null)
-  const [showPresupuestos, setShowPresupuestos] = useState(false)
 
   const loadData = useCallback(async (quincenaId?: string) => {
     const [qRes, catRes] = await Promise.all([
@@ -194,6 +193,11 @@ export function FinanceClient() {
                       ${cat.presupuesto_default.toLocaleString()}
                     </span>
                   )}
+                  {cat.assigned_to && members.length > 0 && (
+                    <span className="text-[10px] text-[var(--text-3)]">
+                      {members.find((m) => m.id === cat.assigned_to)?.display_name ?? ''}
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-1">
                   <button
@@ -215,42 +219,6 @@ export function FinanceClient() {
                 </div>
               </div>
             ))}
-          </div>
-        )}
-      </div>
-
-      {/* Presupuesto per quincena */}
-      <div>
-        <div className="mb-2 flex items-center justify-between">
-          <button
-            onClick={() => setShowPresupuestos(!showPresupuestos)}
-            className="section-bar text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]"
-            style={{ '--accent': 'var(--mod-finance)' } as React.CSSProperties}
-          >
-            <span className="flex items-center gap-1.5">
-              <Settings size={12} />
-              Presupuesto esta quincena
-              <ChevronDown size={12} className={`transition-transform ${showPresupuestos ? 'rotate-180' : ''}`} />
-            </span>
-          </button>
-        </div>
-        {showPresupuestos && kpis && (
-          <div className="space-y-1">
-            {kpis.porCategoria.map((cat) => (
-              <PresupuestoRow
-                key={cat.categoriaId}
-                categoriaId={cat.categoriaId}
-                nombre={cat.nombre}
-                tipo={cat.tipo}
-                previsto={cat.previsto}
-                real={cat.real}
-                quincenaId={active.id}
-                onSaved={() => loadData(active.id)}
-              />
-            ))}
-            {kpis.porCategoria.length === 0 && (
-              <p className="py-3 text-center text-xs text-[var(--text-3)]">Sin presupuestos. Crea categorias primero.</p>
-            )}
           </div>
         )}
       </div>
@@ -306,12 +274,14 @@ export function FinanceClient() {
         open={showNewCategoria}
         onClose={() => setShowNewCategoria(false)}
         onCreated={() => loadData(active?.id)}
+        members={members}
       />
       <EditCategoriaSheet
         open={!!editingCat}
         categoria={editingCat}
         onClose={() => setEditingCat(null)}
         onSaved={() => { setEditingCat(null); loadData(active?.id) }}
+        members={members}
       />
       <EditQuincenaSheet
         open={!!editingQuincena}
@@ -324,7 +294,7 @@ export function FinanceClient() {
 }
 
 /* ── New Categoría Sheet ── */
-function NewCategoriaSheet({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: () => void }) {
+function NewCategoriaSheet({ open, onClose, onCreated, members }: { open: boolean; onClose: () => void; onCreated: () => void; members: { id: string; display_name: string }[] }) {
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -360,11 +330,20 @@ function NewCategoriaSheet({ open, onClose, onCreated }: { open: boolean; onClos
           </select>
         </div>
         <div className="space-y-1">
-          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Presupuesto default</label>
+          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Presupuesto</label>
           <div className="flex items-center gap-1">
             <span className="text-sm font-bold text-[var(--text-3)]">$</span>
             <input name="presupuesto_default" type="number" min="0" defaultValue="0" className="num w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
           </div>
+        </div>
+        <div className="space-y-1">
+          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Asignar a</label>
+          <select name="assigned_to" className="w-full appearance-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]">
+            <option value="">Compartida</option>
+            {members.map((m) => (
+              <option key={m.id} value={m.id}>{m.display_name}</option>
+            ))}
+          </select>
         </div>
         <Button type="submit" disabled={pending} className="w-full">
           {pending ? 'Creando...' : 'Agregar categoría'}
@@ -375,8 +354,8 @@ function NewCategoriaSheet({ open, onClose, onCreated }: { open: boolean; onClos
 }
 
 /* ── Edit Categoría Sheet ── */
-function EditCategoriaSheet({ open, categoria, onClose, onSaved }: {
-  open: boolean; categoria: Categoria | null; onClose: () => void; onSaved: () => void
+function EditCategoriaSheet({ open, categoria, onClose, onSaved, members }: {
+  open: boolean; categoria: Categoria | null; onClose: () => void; onSaved: () => void; members: { id: string; display_name: string }[]
 }) {
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -405,11 +384,20 @@ function EditCategoriaSheet({ open, categoria, onClose, onSaved }: {
           <input name="nombre" required defaultValue={categoria.nombre} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
         </div>
         <div className="space-y-1">
-          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Presupuesto default</label>
+          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Presupuesto</label>
           <div className="flex items-center gap-1">
             <span className="text-sm font-bold text-[var(--text-3)]">$</span>
             <input name="presupuesto_default" type="number" min="0" defaultValue={categoria.presupuesto_default} className="num w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
           </div>
+        </div>
+        <div className="space-y-1">
+          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Asignar a</label>
+          <select name="assigned_to" defaultValue={categoria.assigned_to ?? ''} className="w-full appearance-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]">
+            <option value="">Compartida</option>
+            {members.map((m) => (
+              <option key={m.id} value={m.id}>{m.display_name}</option>
+            ))}
+          </select>
         </div>
         <Button type="submit" disabled={pending} className="w-full">
           {pending ? 'Guardando...' : 'Guardar cambios'}
@@ -464,84 +452,5 @@ function EditQuincenaSheet({ open, quincena, onClose, onSaved }: {
         </Button>
       </form>
     </BottomSheet>
-  )
-}
-
-/* ── PresupuestoRow ── */
-function PresupuestoRow({
-  categoriaId,
-  nombre,
-  tipo,
-  previsto,
-  real,
-  quincenaId,
-  onSaved,
-}: {
-  categoriaId: string
-  nombre: string
-  tipo: string
-  previsto: number
-  real: number
-  quincenaId: string
-  onSaved: () => void
-}) {
-  const [editing, setEditing] = useState(false)
-  const [value, setValue] = useState(String(previsto))
-  const [saving, setSaving] = useState(false)
-
-  async function save() {
-    const num = Number(value)
-    if (isNaN(num) || num < 0) return
-    setSaving(true)
-    await updatePresupuesto(quincenaId, categoriaId, num)
-    setSaving(false)
-    setEditing(false)
-    onSaved()
-  }
-
-  const pct = previsto > 0 ? Math.round((real / previsto) * 100) : 0
-  const colorMap: Record<string, string> = {
-    gasto: 'var(--expense)',
-    ingreso: 'var(--income)',
-    ahorro: 'var(--info)',
-    bolsillo: 'var(--mod-finance)',
-  }
-  const dotColor = colorMap[tipo] ?? 'var(--text-3)'
-
-  return (
-    <div className="flex items-center gap-2 rounded border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
-      <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: dotColor }} />
-      <span className="flex-1 truncate text-sm text-[var(--text-1)]">{nombre}</span>
-      {editing ? (
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-[var(--text-3)]">$</span>
-          <input
-            type="number"
-            min="0"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false) }}
-            className="num w-24 rounded border border-[var(--border-strong)] bg-[var(--surface)] px-2 py-1 text-right text-xs outline-none focus:border-[var(--text-1)]"
-            autoFocus
-          />
-          <button onClick={save} disabled={saving} className="rounded px-2 py-1 text-[10px] font-semibold text-[var(--mod-finance)] hover:bg-[var(--surface-2)]">
-            OK
-          </button>
-        </div>
-      ) : (
-        <button
-          onClick={() => { setValue(String(previsto)); setEditing(true) }}
-          className="flex items-center gap-2 text-right"
-        >
-          <span className="num text-xs text-[var(--text-3)]">
-            {previsto > 0 ? `${pct}%` : '—'}
-          </span>
-          <span className="num text-xs font-medium text-[var(--text-2)]">
-            ${previsto.toLocaleString()}
-          </span>
-          <Pencil size={10} className="text-[var(--text-3)]" />
-        </button>
-      )}
-    </div>
   )
 }

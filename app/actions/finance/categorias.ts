@@ -37,6 +37,7 @@ export async function createCategoria(formData: FormData): Promise<ActionResult<
   const tipo = formData.get('tipo') as 'gasto' | 'ingreso'
   const presupuestoDefault = Number(formData.get('presupuesto_default') || 0)
   const icono = (formData.get('icono') as string) || 'circle'
+  const assignedTo = (formData.get('assigned_to') as string) || null
 
   if (!nombre || !tipo) return { ok: false, error: 'Nombre y tipo son requeridos' }
 
@@ -55,6 +56,7 @@ export async function createCategoria(formData: FormData): Promise<ActionResult<
       presupuesto_default: presupuestoDefault,
       icono,
       orden: (count ?? 0) + 1,
+      assigned_to: assignedTo || null,
     })
     .select()
     .single()
@@ -70,10 +72,12 @@ export async function updateCategoria(id: string, formData: FormData): Promise<A
   const nombre = formData.get('nombre') as string | null
   const presupuestoDefault = formData.get('presupuesto_default')
   const icono = formData.get('icono') as string | null
+  const assignedTo = formData.get('assigned_to') as string | null
 
   if (nombre) updates.nombre = nombre
   if (presupuestoDefault != null) updates.presupuesto_default = Number(presupuestoDefault)
   if (icono) updates.icono = icono
+  if (formData.has('assigned_to')) updates.assigned_to = assignedTo || null
 
   const { error } = await supabase.from('categorias').update(updates).eq('id', id)
   if (error) return { ok: false, error: error.message }

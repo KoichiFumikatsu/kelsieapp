@@ -32,6 +32,7 @@ export interface Categoria {
   presupuesto_default: number
   icono: string
   orden: number
+  assigned_to: string | null
   created_at: string
 }
 
