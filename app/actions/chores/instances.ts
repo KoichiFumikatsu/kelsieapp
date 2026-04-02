@@ -159,9 +159,11 @@ export async function generateTodayInstances(): Promise<ActionResult<number>> {
   return { ok: true, data: toCreate.length }
 }
 
-export async function completeChore(instanceId: string): Promise<ActionResult<ChoreInstance>> {
+export async function completeChore(instanceId: string, completedByUserId?: string): Promise<ActionResult<ChoreInstance>> {
   const ctx = await getHouseholdCtx()
   if (!ctx?.householdId) return { ok: false, error: 'Sin hogar asignado' }
+
+  const doneBy = completedByUserId ?? ctx.userId
 
   // Get instance + template puntos
   const { data: instance } = await ctx.supabase
@@ -180,7 +182,7 @@ export async function completeChore(instanceId: string): Promise<ActionResult<Ch
     .update({
       status: 'done',
       completed_at: new Date().toISOString(),
-      completed_by: ctx.userId,
+      completed_by: doneBy,
       puntos_earned: puntos,
     })
     .eq('id', instanceId)
@@ -193,7 +195,7 @@ export async function completeChore(instanceId: string): Promise<ActionResult<Ch
   // Log reward
   await ctx.supabase.from('reward_log').insert({
     household_id: ctx.householdId,
-    user_id: ctx.userId,
+    user_id: doneBy,
     puntos,
     razon: `Completó tarea`,
   })
