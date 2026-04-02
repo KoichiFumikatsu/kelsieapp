@@ -4,14 +4,15 @@ import type { TransaccionConCategoria } from '@/lib/types/modules.types'
 
 interface TransaccionListProps {
   transacciones: TransaccionConCategoria[]
+  onEdit?: (t: TransaccionConCategoria) => void
   className?: string
 }
 
-export function TransaccionList({ transacciones, className = '' }: TransaccionListProps) {
+export function TransaccionList({ transacciones, onEdit, className = '' }: TransaccionListProps) {
   if (transacciones.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-[var(--text-3)]">
-        Sin transacciones aún
+        Sin transacciones aun
       </p>
     )
   }
@@ -26,18 +27,20 @@ export function TransaccionList({ transacciones, className = '' }: TransaccionLi
           bolsillo: 'var(--mod-finance)',
         }
         const signMap: Record<string, string> = {
-          gasto: '−',
+          gasto: '\u2212',
           ingreso: '+',
-          ahorro: '−',
-          bolsillo: '−',
+          ahorro: '\u2212',
+          bolsillo: '\u2212',
         }
         const color = colorMap[t.tipo] ?? 'var(--text-1)'
         const sign = signMap[t.tipo] ?? ''
 
         return (
-          <div
+          <button
             key={t.id}
-            className="flex items-center gap-3 rounded px-2 py-2.5 transition-colors hover:bg-[var(--surface-2)]"
+            type="button"
+            onClick={() => onEdit?.(t)}
+            className="flex w-full items-center gap-3 rounded px-2 py-2.5 text-left transition-colors hover:bg-[var(--surface-2)]"
           >
             {/* User avatar */}
             <UserAvatar
@@ -49,10 +52,10 @@ export function TransaccionList({ transacciones, className = '' }: TransaccionLi
             {/* Info */}
             <div className="flex-1 min-w-0">
               <p className="truncate text-sm font-medium text-[var(--text-1)]">
-                {t.descripcion || t.categorias?.nombre || 'Transacción'}
+                {t.descripcion || t.categorias?.nombre || 'Transaccion'}
               </p>
               <p className="text-[10px] text-[var(--text-3)]">
-                {t.categorias?.nombre} · {formatDateShort(t.fecha)}
+                {t.categorias?.nombre} \u00b7 {formatDateShort(t.fecha)}
               </p>
             </div>
 
@@ -63,7 +66,7 @@ export function TransaccionList({ transacciones, className = '' }: TransaccionLi
             >
               {sign}{formatCOP(t.importe)}
             </span>
-          </div>
+          </button>
         )
       })}
     </div>

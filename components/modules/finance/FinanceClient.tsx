@@ -1,13 +1,12 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import { Plus, ChevronDown, Tag, Pencil, Trash2 } from 'lucide-react'
+import { Plus, ChevronDown, ChevronLeft, ChevronRight, Tag, Pencil, Trash2 } from 'lucide-react'
 import { createBrowserClient } from '@supabase/ssr'
 
-import { getActiveQuincena, getQuincenas, updateQuincena } from '@/app/actions/finance/quincenas'
+import { getActiveQuincena, getQuincenas, updateQuincena, ensureQuincena } from '@/app/actions/finance/quincenas'
 import { getCategorias, createCategoria, updateCategoria, deleteCategoria } from '@/app/actions/finance/categorias'
-import { getTransacciones } from '@/app/actions/finance/transacciones'
+import { getTransacciones, updateTransaccion, deleteTransaccion } from '@/app/actions/finance/transacciones'
 import { getFinanceKPIs } from '@/app/actions/finance/dashboard'
 import { FinanceKPIPanel } from '@/components/modules/finance/FinanceKPIPanel'
 import { TransaccionList } from '@/components/modules/finance/TransaccionList'
@@ -24,7 +23,6 @@ import type {
 } from '@/lib/types/modules.types'
 
 export function FinanceClient() {
-  const router = useRouter()
   const { members, profile } = useHousehold()
 
   const [quincenas, setQuincenas] = useState<Quincena[]>([])
@@ -36,10 +34,10 @@ export function FinanceClient() {
 
   const [showAddTx, setShowAddTx] = useState(false)
   const [showNewCategoria, setShowNewCategoria] = useState(false)
-  const [showQuincenaSelector, setShowQuincenaSelector] = useState(false)
   const [showCategorias, setShowCategorias] = useState(false)
   const [editingCat, setEditingCat] = useState<Categoria | null>(null)
   const [editingQuincena, setEditingQuincena] = useState<Quincena | null>(null)
+  const [editingTx, setEditingTx] = useState<TransaccionConCategoria | null>(null)
 
   const loadData = useCallback(async (quincenaId?: string) => {
     const [qRes, catRes] = await Promise.all([
@@ -55,11 +53,9 @@ export function FinanceClient() {
       q = qRes.data.find((x) => x.id === quincenaId) ?? null
     }
     if (!q) {
-      // Auto-create current period if needed
       const activeRes = await getActiveQuincena()
       if (activeRes.ok) {
         q = activeRes.data
-        // Refresh quincenas list if a new one was auto-created
         if (q && qRes.ok && !qRes.data.find((x) => x.id === q!.id)) {
           const refreshed = await getQuincenas()
           if (refreshed.ok) setQuincenas(refreshed.data)
@@ -79,6 +75,23 @@ export function FinanceClient() {
     }
 
     setLoading(false)
+  }, [])
+
+  /** Navigate to a specific period (auto-creates if needed) */
+  const navigateToPeriod = useCallback(async (year: number, month: number, half: 1 | 2) => {
+    const res = await ensureQuincena(year, month, half)
+    if (res.ok && res.data) {
+      // Refresh list and load the target period
+      const refreshed = await getQuincenas()
+      if (refreshed.ok) setQuincenas(refreshed.data)
+      setActive(res.data)
+      const [txRes, kpiRes] = await Promise.all([
+        getTransacciones(res.data.id),
+        getFinanceKPIs(res.data.id),
+      ])
+      if (txRes.ok) setTransacciones(txRes.data)
+      if (kpiRes.ok) setKPIs(kpiRes.data)
+    }
   }, [])
 
   useEffect(() => {
@@ -129,17 +142,12 @@ export function FinanceClient() {
 
   return (
     <div className="space-y-4 p-4 md:p-6">
-      {/* Quincena selector */}
-      <button
-        onClick={() => setShowQuincenaSelector(true)}
-        className="flex items-center gap-1.5 text-sm font-bold text-[var(--text-1)]"
-      >
-        {active.nombre}
-        <span className="text-[10px] text-[var(--text-3)]">
-          {formatPeriod(active.fecha_inicio, active.fecha_fin)}
-        </span>
-        <ChevronDown size={14} className="text-[var(--text-3)]" />
-      </button>
+      {/* Quincena period navigator */}
+      <QuincenaNavigator
+        active={active}
+        onNavigate={navigateToPeriod}
+        onEdit={() => setEditingQuincena(active)}
+      />
 
       {/* KPIs */}
       {kpis && <FinanceKPIPanel kpis={kpis} />}
@@ -151,7 +159,7 @@ export function FinanceClient() {
             Transacciones
           </p>
         </div>
-        <TransaccionList transacciones={transacciones} />
+        <TransaccionList transacciones={transacciones} onEdit={(t) => setEditingTx(t)} />
       </div>
 
       {/* Categories section */}
@@ -242,33 +250,15 @@ export function FinanceClient() {
         currentUserId={profile?.id}
       />
 
-      <BottomSheet open={showQuincenaSelector} onClose={() => setShowQuincenaSelector(false)} title="Seleccionar quincena">
-        <div className="space-y-1">
-          {quincenas.map((q) => (
-            <div
-              key={q.id}
-              className={`flex items-center justify-between rounded px-3 py-2.5 transition-colors hover:bg-[var(--surface-2)] ${q.id === active.id ? 'bg-[var(--surface-2)] font-bold' : ''}`}
-            >
-              <button
-                onClick={() => { setShowQuincenaSelector(false); loadData(q.id) }}
-                className="flex-1 text-left text-sm"
-              >
-                <span>{q.nombre}</span>
-                <span className="ml-2 text-[10px] text-[var(--text-3)]">
-                  {formatPeriod(q.fecha_inicio, q.fecha_fin)}
-                </span>
-              </button>
-              <button
-                onClick={() => { setShowQuincenaSelector(false); setEditingQuincena(q) }}
-                className="rounded p-1 text-[var(--text-3)] hover:text-[var(--text-1)]"
-                title="Editar saldo inicial"
-              >
-                <Pencil size={12} />
-              </button>
-            </div>
-          ))}
-        </div>
-      </BottomSheet>
+      <EditTransaccionSheet
+        open={!!editingTx}
+        transaccion={editingTx}
+        categorias={categorias}
+        members={members}
+        onClose={() => setEditingTx(null)}
+        onSaved={() => { setEditingTx(null); loadData(active.id) }}
+        onDeleted={() => { setEditingTx(null); loadData(active.id) }}
+      />
 
       <NewCategoriaSheet
         open={showNewCategoria}
@@ -450,6 +440,198 @@ function EditQuincenaSheet({ open, quincena, onClose, onSaved }: {
         <Button type="submit" disabled={pending} className="w-full">
           {pending ? 'Guardando...' : 'Guardar cambios'}
         </Button>
+      </form>
+    </BottomSheet>
+  )
+}
+
+/* ── Quincena Period Navigator ── */
+function QuincenaNavigator({ active, onNavigate, onEdit }: {
+  active: Quincena
+  onNavigate: (year: number, month: number, half: 1 | 2) => void
+  onEdit: () => void
+}) {
+  // Parse current period from fecha_inicio
+  const [y, m, d] = active.fecha_inicio.split('-').map(Number)
+  const half: 1 | 2 = d === 1 ? 1 : 2
+
+  function goPrev() {
+    if (half === 1) {
+      // Go to previous month 2da
+      const pm = m === 1 ? 12 : m - 1
+      const py = m === 1 ? y - 1 : y
+      onNavigate(py, pm, 2)
+    } else {
+      onNavigate(y, m, 1)
+    }
+  }
+
+  function goNext() {
+    if (half === 2) {
+      // Go to next month 1ra
+      const nm = m === 12 ? 1 : m + 1
+      const ny = m === 12 ? y + 1 : y
+      onNavigate(ny, nm, 1)
+    } else {
+      onNavigate(y, m, 2)
+    }
+  }
+
+  const monthName = new Date(y, m - 1, 1)
+    .toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })
+
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        onClick={goPrev}
+        className="rounded p-1 text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]"
+        aria-label="Quincena anterior"
+      >
+        <ChevronLeft size={18} />
+      </button>
+      <div className="flex-1 text-center">
+        <p className="text-sm font-bold text-[var(--text-1)]">
+          {half === 1 ? '1ra' : '2da'} quincena
+        </p>
+        <p className="text-[10px] capitalize text-[var(--text-3)]">
+          {monthName} · {formatPeriod(active.fecha_inicio, active.fecha_fin)}
+        </p>
+      </div>
+      <button
+        onClick={goNext}
+        className="rounded p-1 text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]"
+        aria-label="Quincena siguiente"
+      >
+        <ChevronRight size={18} />
+      </button>
+      <button
+        onClick={onEdit}
+        className="rounded p-1 text-[var(--text-3)] hover:text-[var(--text-1)]"
+        title="Editar saldo inicial"
+      >
+        <Pencil size={12} />
+      </button>
+    </div>
+  )
+}
+
+/* ── Edit Transaccion Sheet ── */
+function EditTransaccionSheet({ open, transaccion, categorias, members, onClose, onSaved, onDeleted }: {
+  open: boolean
+  transaccion: TransaccionConCategoria | null
+  categorias: Categoria[]
+  members: { id: string; display_name: string }[]
+  onClose: () => void
+  onSaved: () => void
+  onDeleted: () => void
+}) {
+  const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!transaccion) return
+    setPending(true)
+    setError(null)
+
+    const result = await updateTransaccion(transaccion.id, new FormData(e.currentTarget))
+    setPending(false)
+
+    if (!result.ok) { setError(result.error); return }
+    onSaved()
+  }
+
+  async function handleDelete() {
+    if (!transaccion) return
+    if (!confirm('Eliminar esta transaccion?')) return
+    await deleteTransaccion(transaccion.id)
+    onDeleted()
+  }
+
+  if (!transaccion) return null
+
+  const gastos = categorias.filter((c) => c.tipo === 'gasto')
+  const ingresos = categorias.filter((c) => c.tipo === 'ingreso')
+  const ahorros = categorias.filter((c) => c.tipo === 'ahorro')
+  const bolsillos = categorias.filter((c) => c.tipo === 'bolsillo')
+
+  return (
+    <BottomSheet open={open} onClose={onClose} title="Editar transaccion">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && <p className="text-xs text-[var(--expense)]">{error}</p>}
+
+        {/* Tipo */}
+        <div className="space-y-1">
+          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Tipo</label>
+          <div className="grid grid-cols-2 gap-2">
+            {(['gasto', 'ingreso', 'ahorro', 'bolsillo'] as const).map((tipo) => {
+              const colorVar: Record<string, string> = { gasto: '--expense', ingreso: '--income', ahorro: '--info', bolsillo: '--mod-finance' }
+              return (
+                <label key={tipo} className={`flex cursor-pointer items-center justify-center rounded border border-[var(--border-strong)] px-3 py-2 text-sm font-medium capitalize has-[:checked]:border-[var(${colorVar[tipo]})] has-[:checked]:bg-[color-mix(in_srgb,var(${colorVar[tipo]})_8%,transparent)] has-[:checked]:text-[var(${colorVar[tipo]})]`}>
+                  <input type="radio" name="tipo" value={tipo} defaultChecked={transaccion.tipo === tipo} className="sr-only" />
+                  {tipo}
+                </label>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Importe */}
+        <div className="space-y-1">
+          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Importe</label>
+          <div className="flex items-center gap-1">
+            <span className="text-sm font-bold text-[var(--text-3)]">$</span>
+            <input name="importe" type="number" min="1" required defaultValue={transaccion.importe} className="num w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+          </div>
+        </div>
+
+        {/* Miembro */}
+        {members.length > 1 && (
+          <div className="space-y-1">
+            <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Miembro</label>
+            <select name="user_id" defaultValue={transaccion.user_id} className="w-full appearance-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]">
+              {members.map((m) => (
+                <option key={m.id} value={m.id}>{m.display_name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Categoria */}
+        <div className="space-y-1">
+          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Categoria</label>
+          <select name="categoria_id" required defaultValue={transaccion.categoria_id} className="w-full appearance-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]">
+            {gastos.length > 0 && <optgroup label="Gastos">{gastos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</optgroup>}
+            {ingresos.length > 0 && <optgroup label="Ingresos">{ingresos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</optgroup>}
+            {ahorros.length > 0 && <optgroup label="Ahorros">{ahorros.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</optgroup>}
+            {bolsillos.length > 0 && <optgroup label="Bolsillos">{bolsillos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</optgroup>}
+          </select>
+        </div>
+
+        {/* Descripcion */}
+        <div className="space-y-1">
+          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Descripcion</label>
+          <input name="descripcion" type="text" defaultValue={transaccion.descripcion ?? ''} placeholder="Opcional" className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none placeholder:text-[var(--text-3)] focus:border-[var(--text-1)]" />
+        </div>
+
+        {/* Fecha */}
+        <div className="space-y-1">
+          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Fecha</label>
+          <input name="fecha" type="date" defaultValue={transaccion.fecha} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+        </div>
+
+        <div className="flex gap-2">
+          <Button type="submit" disabled={pending} className="flex-1">
+            {pending ? 'Guardando...' : 'Guardar'}
+          </Button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            className="rounded border border-[var(--expense)] px-4 py-2 text-sm font-medium text-[var(--expense)] hover:bg-[color-mix(in_srgb,var(--expense)_8%,transparent)]"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
       </form>
     </BottomSheet>
   )

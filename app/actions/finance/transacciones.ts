@@ -65,3 +65,26 @@ export async function deleteTransaccion(id: string): Promise<ActionResult<null>>
   if (error) return { ok: false, error: error.message }
   return { ok: true, data: null }
 }
+
+export async function updateTransaccion(id: string, formData: FormData): Promise<ActionResult<null>> {
+  const supabase = await createClient()
+
+  const updates: Record<string, unknown> = {}
+  const categoriaId = formData.get('categoria_id') as string | null
+  const tipo = formData.get('tipo') as string | null
+  const importe = formData.get('importe') as string | null
+  const descripcion = formData.get('descripcion') as string | null
+  const fecha = formData.get('fecha') as string | null
+  const userId = formData.get('user_id') as string | null
+
+  if (categoriaId) updates.categoria_id = categoriaId
+  if (tipo) updates.tipo = tipo
+  if (importe) updates.importe = Number(importe)
+  if (formData.has('descripcion')) updates.descripcion = descripcion || null
+  if (fecha) updates.fecha = fecha
+  if (userId) updates.user_id = userId
+
+  const { error } = await supabase.from('transacciones').update(updates).eq('id', id)
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, data: null }
+}
