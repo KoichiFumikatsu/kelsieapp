@@ -140,6 +140,14 @@ export function FinanceClient() {
     )
   }
 
+  // Determine active half from fecha_inicio
+  const activeHalf: 1 | 2 = new Date(active.fecha_inicio + 'T12:00:00').getDate() === 1 ? 1 : 2
+
+  // Filter categories to those matching the active half (or null = both)
+  const filteredCategorias = categorias.filter(
+    (c) => c.quincena_half === null || c.quincena_half === activeHalf
+  )
+
   return (
     <div className="space-y-4 p-4 md:p-6">
       {/* Quincena period navigator */}
@@ -185,10 +193,10 @@ export function FinanceClient() {
         </div>
         {showCategorias && (
           <div className="space-y-1">
-            {categorias.length === 0 && (
-              <p className="py-3 text-center text-xs text-[var(--text-3)]">Sin categorías. Crea una para empezar.</p>
+            {filteredCategorias.length === 0 && (
+              <p className="py-3 text-center text-xs text-[var(--text-3)]">Sin categorías para esta quincena.</p>
             )}
-            {categorias.map((cat) => (
+            {filteredCategorias.map((cat) => (
               <div
                 key={cat.id}
                 className="flex items-center justify-between rounded border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5"
@@ -204,6 +212,11 @@ export function FinanceClient() {
                   {cat.assigned_to && members.length > 0 && (
                     <span className="text-[10px] text-[var(--text-3)]">
                       {members.find((m) => m.id === cat.assigned_to)?.display_name ?? ''}
+                    </span>
+                  )}
+                  {cat.quincena_half && (
+                    <span className="rounded bg-[var(--surface-2)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--text-3)]">
+                      Q{cat.quincena_half}
                     </span>
                   )}
                 </div>
@@ -245,7 +258,7 @@ export function FinanceClient() {
         open={showAddTx}
         onClose={() => { setShowAddTx(false); loadData(active.id) }}
         quincenaId={active.id}
-        categorias={categorias}
+        categorias={filteredCategorias}
         members={members}
         currentUserId={profile?.id}
       />
@@ -253,7 +266,7 @@ export function FinanceClient() {
       <EditTransaccionSheet
         open={!!editingTx}
         transaccion={editingTx}
-        categorias={categorias}
+        categorias={filteredCategorias}
         members={members}
         onClose={() => setEditingTx(null)}
         onSaved={() => { setEditingTx(null); loadData(active.id) }}
@@ -265,6 +278,7 @@ export function FinanceClient() {
         onClose={() => setShowNewCategoria(false)}
         onCreated={() => loadData(active?.id)}
         members={members}
+        activeHalf={activeHalf}
       />
       <EditCategoriaSheet
         open={!!editingCat}
@@ -272,6 +286,7 @@ export function FinanceClient() {
         onClose={() => setEditingCat(null)}
         onSaved={() => { setEditingCat(null); loadData(active?.id) }}
         members={members}
+        activeHalf={activeHalf}
       />
       <EditQuincenaSheet
         open={!!editingQuincena}
@@ -284,7 +299,7 @@ export function FinanceClient() {
 }
 
 /* ── New Categoría Sheet ── */
-function NewCategoriaSheet({ open, onClose, onCreated, members }: { open: boolean; onClose: () => void; onCreated: () => void; members: { id: string; display_name: string }[] }) {
+function NewCategoriaSheet({ open, onClose, onCreated, members, activeHalf }: { open: boolean; onClose: () => void; onCreated: () => void; members: { id: string; display_name: string }[]; activeHalf: 1 | 2 }) {
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -335,6 +350,14 @@ function NewCategoriaSheet({ open, onClose, onCreated, members }: { open: boolea
             ))}
           </select>
         </div>
+        <div className="space-y-1">
+          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Quincena</label>
+          <select name="quincena_half" defaultValue={String(activeHalf)} className="w-full appearance-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]">
+            <option value="">Ambas</option>
+            <option value="1">Solo 1ra quincena</option>
+            <option value="2">Solo 2da quincena</option>
+          </select>
+        </div>
         <Button type="submit" disabled={pending} className="w-full">
           {pending ? 'Creando...' : 'Agregar categoría'}
         </Button>
@@ -344,8 +367,8 @@ function NewCategoriaSheet({ open, onClose, onCreated, members }: { open: boolea
 }
 
 /* ── Edit Categoría Sheet ── */
-function EditCategoriaSheet({ open, categoria, onClose, onSaved, members }: {
-  open: boolean; categoria: Categoria | null; onClose: () => void; onSaved: () => void; members: { id: string; display_name: string }[]
+function EditCategoriaSheet({ open, categoria, onClose, onSaved, members, activeHalf }: {
+  open: boolean; categoria: Categoria | null; onClose: () => void; onSaved: () => void; members: { id: string; display_name: string }[]; activeHalf: 1 | 2
 }) {
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -387,6 +410,14 @@ function EditCategoriaSheet({ open, categoria, onClose, onSaved, members }: {
             {members.map((m) => (
               <option key={m.id} value={m.id}>{m.display_name}</option>
             ))}
+          </select>
+        </div>
+        <div className="space-y-1">
+          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Quincena</label>
+          <select name="quincena_half" defaultValue={categoria.quincena_half != null ? String(categoria.quincena_half) : ''} className="w-full appearance-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]">
+            <option value="">Ambas</option>
+            <option value="1">Solo 1ra quincena</option>
+            <option value="2">Solo 2da quincena</option>
           </select>
         </div>
         <Button type="submit" disabled={pending} className="w-full">

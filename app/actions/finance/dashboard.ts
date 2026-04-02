@@ -15,12 +15,27 @@ export async function getFinanceKPIs(quincenaId: string): Promise<ActionResult<F
 
   if (qErr || !quincena) return { ok: false, error: qErr?.message ?? 'Quincena no encontrada' }
 
-  // Get categorias directly (budget comes from presupuesto_default)
-  const { data: categorias } = await supabase
+  // Get quincena dates to determine half
+  const { data: qDates } = await supabase
+    .from('quincenas')
+    .select('fecha_inicio')
+    .eq('id', quincenaId)
+    .single()
+
+  const half = qDates ? (new Date(qDates.fecha_inicio + 'T12:00:00').getDate() === 1 ? 1 : 2) : null
+
+  // Get categorias filtered by quincena_half (null = both halves)
+  let catQuery = supabase
     .from('categorias')
     .select('id, nombre, icono, tipo, presupuesto_default')
     .eq('household_id', quincena.household_id)
     .order('orden')
+
+  if (half) {
+    catQuery = catQuery.or(`quincena_half.is.null,quincena_half.eq.${half}`)
+  }
+
+  const { data: categorias } = await catQuery
 
   // Get all transactions for this quincena
   const { data: transacciones } = await supabase

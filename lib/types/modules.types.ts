@@ -33,6 +33,7 @@ export interface Categoria {
   icono: string
   orden: number
   assigned_to: string | null
+  quincena_half: 1 | 2 | null
   created_at: string
 }
 
