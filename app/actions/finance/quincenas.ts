@@ -87,16 +87,6 @@ export async function ensureQuincena(year: number, month: number, half: 1 | 2): 
 
   const meta = quincenaMeta(year, month, half)
 
-  // Check if already exists
-  const { data: existing } = await ctx.supabase
-    .from('quincenas')
-    .select('*')
-    .eq('household_id', ctx.householdId)
-    .eq('fecha_inicio', meta.fecha_inicio)
-    .maybeSingle()
-
-  if (existing) return { ok: true, data: existing as Quincena }
-
   // Calculate saldo from previous quincena's ending balance
   const prev = prevPeriod(year, month, half)
   const prevMeta = quincenaMeta(prev.year, prev.month, prev.half)
@@ -111,7 +101,6 @@ export async function ensureQuincena(year: number, month: number, half: 1 | 2): 
     .maybeSingle()
 
   if (prevQ) {
-    // Get transactions for the previous quincena to calculate ending saldo
     const { data: txs } = await ctx.supabase
       .from('transacciones')
       .select('tipo, importe')
@@ -123,6 +112,25 @@ export async function ensureQuincena(year: number, month: number, half: 1 | 2): 
     const bolsillos = (txs ?? []).filter((t) => t.tipo === 'bolsillo').reduce((s, t) => s + Number(t.importe), 0)
 
     saldoInicial = Number(prevQ.saldo_inicial) + ingresos - gastos - ahorros - bolsillos
+  }
+
+  // Check if already exists — update saldo_inicial from previous period
+  const { data: existing } = await ctx.supabase
+    .from('quincenas')
+    .select('*')
+    .eq('household_id', ctx.householdId)
+    .eq('fecha_inicio', meta.fecha_inicio)
+    .maybeSingle()
+
+  if (existing) {
+    if (prevQ && Number(existing.saldo_inicial) !== saldoInicial) {
+      await ctx.supabase
+        .from('quincenas')
+        .update({ saldo_inicial: saldoInicial })
+        .eq('id', existing.id)
+      return { ok: true, data: { ...existing, saldo_inicial: saldoInicial } as Quincena }
+    }
+    return { ok: true, data: existing as Quincena }
   }
 
   // Mark all previous as not active
