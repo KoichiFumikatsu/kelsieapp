@@ -2,7 +2,7 @@ import { formatCOP } from '@/lib/utils/format'
 import { ProgressBar } from '@/components/ui/Progress'
 import { DonutChart, HBarChart } from '@/components/ui/Charts'
 import type { FinanceKPIs } from '@/lib/types/modules.types'
-import { TrendingDown, TrendingUp, Wallet, PiggyBank, AlertTriangle, Landmark, FolderHeart } from 'lucide-react'
+import { TrendingDown, TrendingUp, Wallet, PiggyBank, AlertTriangle, Landmark, FolderHeart, CreditCard } from 'lucide-react'
 
 const CHART_COLORS = [
   '#6366f1', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6',
@@ -72,6 +72,14 @@ export function FinanceKPIPanel({ kpis, className = '' }: FinanceKPIPanelProps) 
               value={formatCOP(kpis.totalBolsillos)}
               color="var(--mod-finance)"
               icon={<FolderHeart size={14} />}
+            />
+          )}
+          {kpis.totalCredito > 0 && (
+            <KPIBox
+              label="Credito"
+              value={formatCOP(kpis.totalCredito)}
+              color="var(--credit)"
+              icon={<CreditCard size={14} />}
             />
           )}
         </div>

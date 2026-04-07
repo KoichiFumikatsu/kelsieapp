@@ -202,7 +202,7 @@ export function FinanceClient() {
                 className="flex items-center justify-between rounded border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5"
               >
                 <div className="flex items-center gap-2">
-                  <span className={`inline-block h-2 w-2 rounded-full ${cat.tipo === 'gasto' ? 'bg-[var(--expense)]' : cat.tipo === 'ingreso' ? 'bg-[var(--income)]' : cat.tipo === 'ahorro' ? 'bg-[var(--info)]' : 'bg-[var(--mod-finance)]'}`} />
+                  <span className={`inline-block h-2 w-2 rounded-full ${cat.tipo === 'gasto' ? 'bg-[var(--expense)]' : cat.tipo === 'ingreso' ? 'bg-[var(--income)]' : cat.tipo === 'ahorro' ? 'bg-[var(--info)]' : cat.tipo === 'credito' ? 'bg-[var(--credit)]' : 'bg-[var(--mod-finance)]'}`} />
                   <span className="text-sm font-medium text-[var(--text-1)]">{cat.nombre}</span>
                   {cat.presupuesto_default > 0 && (
                     <span className="num text-[10px] text-[var(--text-3)]">
@@ -332,6 +332,7 @@ function NewCategoriaSheet({ open, onClose, onCreated, members, activeHalf }: { 
             <option value="ingreso">Ingreso</option>
             <option value="ahorro">Ahorro</option>
             <option value="bolsillo">Bolsillo</option>
+            <option value="credito">Credito</option>
           </select>
         </div>
         <div className="space-y-1">
@@ -585,6 +586,7 @@ function EditTransaccionSheet({ open, transaccion, categorias, members, onClose,
   const ingresos = categorias.filter((c) => c.tipo === 'ingreso')
   const ahorros = categorias.filter((c) => c.tipo === 'ahorro')
   const bolsillos = categorias.filter((c) => c.tipo === 'bolsillo')
+  const creditos = categorias.filter((c) => c.tipo === 'credito')
 
   return (
     <BottomSheet open={open} onClose={onClose} title="Editar transaccion">
@@ -594,9 +596,9 @@ function EditTransaccionSheet({ open, transaccion, categorias, members, onClose,
         {/* Tipo */}
         <div className="space-y-1">
           <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Tipo</label>
-          <div className="grid grid-cols-2 gap-2">
-            {(['gasto', 'ingreso', 'ahorro', 'bolsillo'] as const).map((tipo) => {
-              const colorVar: Record<string, string> = { gasto: '--expense', ingreso: '--income', ahorro: '--info', bolsillo: '--mod-finance' }
+          <div className="grid grid-cols-3 gap-2">
+            {(['gasto', 'ingreso', 'ahorro', 'bolsillo', 'credito'] as const).map((tipo) => {
+              const colorVar: Record<string, string> = { gasto: '--expense', ingreso: '--income', ahorro: '--info', bolsillo: '--mod-finance', credito: '--credit' }
               return (
                 <label key={tipo} className={`flex cursor-pointer items-center justify-center rounded border border-[var(--border-strong)] px-3 py-2 text-sm font-medium capitalize has-[:checked]:border-[var(${colorVar[tipo]})] has-[:checked]:bg-[color-mix(in_srgb,var(${colorVar[tipo]})_8%,transparent)] has-[:checked]:text-[var(${colorVar[tipo]})]`}>
                   <input type="radio" name="tipo" value={tipo} defaultChecked={transaccion.tipo === tipo} className="sr-only" />
@@ -636,6 +638,7 @@ function EditTransaccionSheet({ open, transaccion, categorias, members, onClose,
             {ingresos.length > 0 && <optgroup label="Ingresos">{ingresos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</optgroup>}
             {ahorros.length > 0 && <optgroup label="Ahorros">{ahorros.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</optgroup>}
             {bolsillos.length > 0 && <optgroup label="Bolsillos">{bolsillos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</optgroup>}
+            {creditos.length > 0 && <optgroup label="Credito">{creditos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</optgroup>}
           </select>
         </div>
 

@@ -22,7 +22,7 @@ export interface Quincena {
   updated_at: string
 }
 
-export type CategoriaType = 'gasto' | 'ingreso' | 'ahorro' | 'bolsillo'
+export type CategoriaType = 'gasto' | 'ingreso' | 'ahorro' | 'bolsillo' | 'credito'
 
 export interface Categoria {
   id: string
@@ -50,7 +50,7 @@ export interface Transaccion {
   categoria_id: string
   user_id: string
   household_id: string
-  tipo: 'gasto' | 'ingreso' | 'ahorro' | 'bolsillo'
+  tipo: 'gasto' | 'ingreso' | 'ahorro' | 'bolsillo' | 'credito'
   fecha: string
   importe: number
   descripcion: string | null
@@ -73,6 +73,7 @@ export interface FinanceKPIs {
   totalGastos: number
   totalAhorros: number
   totalBolsillos: number
+  totalCredito: number
   saldoActual: number
   porCategoria: {
     categoriaId: string
