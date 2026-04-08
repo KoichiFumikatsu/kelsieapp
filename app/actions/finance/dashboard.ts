@@ -103,20 +103,20 @@ export async function getFinanceKPIs(quincenaId: string): Promise<ActionResult<F
     .reduce((s, t) => s + Number(t.importe), 0)
   const deudaCreditoAcumulada = acumCredito - acumPago
 
-  // Credit cut date — 18th of each month
-  const fechaInicio = new Date(quincena.fecha_inicio + 'T12:00:00')
-  const isFirstHalf = fechaInicio.getDate() === 1
-  let corteYear = fechaInicio.getFullYear()
-  let corteMes = fechaInicio.getMonth() // 0-indexed
-  if (!isFirstHalf) {
+  // Credit cut date — 18th of each month, based on today
+  // If today <= 18th, the cut date is the 18th of this month
+  // If today > 18th, the cut date is the 18th of next month
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Bogota' }))
+  now.setHours(0, 0, 0, 0)
+  let corteYear = now.getFullYear()
+  let corteMes = now.getMonth() // 0-indexed
+  if (now.getDate() > 18) {
     corteMes += 1
     if (corteMes > 11) { corteMes = 0; corteYear++ }
   }
   const fechaCorteCredito = `${corteYear}-${String(corteMes + 1).padStart(2, '0')}-18`
 
-  // Days until cut from today (America/Bogota)
-  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Bogota' }))
-  now.setHours(0, 0, 0, 0)
+  // Days until cut from today
   const corteDate = new Date(fechaCorteCredito + 'T00:00:00')
   const diasParaCorte = Math.round((corteDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
 
