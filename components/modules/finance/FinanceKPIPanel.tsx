@@ -1,7 +1,10 @@
+'use client'
+
+import { useState } from 'react'
 import { formatCOP } from '@/lib/utils/format'
 import { ProgressBar } from '@/components/ui/Progress'
 import type { FinanceKPIs } from '@/lib/types/modules.types'
-import { TrendingDown, TrendingUp, Wallet, PiggyBank, AlertTriangle, Landmark, FolderHeart, CreditCard, BadgeDollarSign } from 'lucide-react'
+import { TrendingDown, TrendingUp, Wallet, PiggyBank, AlertTriangle, Landmark, FolderHeart, CreditCard, BadgeDollarSign, ChevronDown } from 'lucide-react'
 
 const CHART_COLORS = [
   '#6366f1', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6',
@@ -14,6 +17,7 @@ interface FinanceKPIPanelProps {
 }
 
 export function FinanceKPIPanel({ kpis, className = '' }: FinanceKPIPanelProps) {
+  const [showPresupuesto, setShowPresupuesto] = useState(false)
   const saldoColor = kpis.saldoActual >= 0 ? 'var(--income)' : 'var(--expense)'
   const totalPresupuestado = kpis.porCategoria
     .filter((c) => c.tipo === 'gasto')
@@ -182,10 +186,15 @@ export function FinanceKPIPanel({ kpis, className = '' }: FinanceKPIPanelProps) 
         const maxVal = Math.max(...cats.map((c) => Math.max(c.real, c.previsto)), 1)
         return (
           <div className="space-y-1.5">
-            <p className="section-bar text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">
+            <button
+              onClick={() => setShowPresupuesto(!showPresupuesto)}
+              className="section-bar flex w-full items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]"
+              style={{ '--accent': 'var(--mod-finance)' } as React.CSSProperties}
+            >
               Presupuesto vs real
-            </p>
-            {cats.map((c, i) => {
+              <ChevronDown size={12} className={`transition-transform ${showPresupuesto ? 'rotate-180' : ''}`} />
+            </button>
+            {showPresupuesto && cats.map((c, i) => {
               const pctReal = (c.real / maxVal) * 100
               const pctPrev = (c.previsto / maxVal) * 100
               const over = c.porcentaje > 1

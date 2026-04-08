@@ -35,6 +35,7 @@ export function FinanceClient() {
   const [showAddTx, setShowAddTx] = useState(false)
   const [showNewCategoria, setShowNewCategoria] = useState(false)
   const [showCategorias, setShowCategorias] = useState(false)
+  const [showTransacciones, setShowTransacciones] = useState(true)
   const [editingCat, setEditingCat] = useState<Categoria | null>(null)
   const [editingQuincena, setEditingQuincena] = useState<Quincena | null>(null)
   const [editingTx, setEditingTx] = useState<TransaccionConCategoria | null>(null)
@@ -163,11 +164,20 @@ export function FinanceClient() {
       {/* Transactions */}
       <div>
         <div className="mb-2 flex items-center justify-between">
-          <p className="section-bar text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]" style={{ '--accent': 'var(--mod-finance)' } as React.CSSProperties}>
-            Transacciones
-          </p>
+          <button
+            onClick={() => setShowTransacciones(!showTransacciones)}
+            className="section-bar text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]"
+            style={{ '--accent': 'var(--mod-finance)' } as React.CSSProperties}
+          >
+            <span className="flex items-center gap-1.5">
+              Transacciones ({transacciones.length})
+              <ChevronDown size={12} className={`transition-transform ${showTransacciones ? 'rotate-180' : ''}`} />
+            </span>
+          </button>
         </div>
-        <TransaccionList transacciones={transacciones} onEdit={(t) => setEditingTx(t)} />
+        {showTransacciones && (
+          <TransaccionList transacciones={transacciones} onEdit={(t) => setEditingTx(t)} pageSize={10} />
+        )}
       </div>
 
       {/* Categories section */}
