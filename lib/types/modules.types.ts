@@ -76,6 +76,9 @@ export interface FinanceKPIs {
   totalCredito: number
   totalPagoCredito: number
   saldoActual: number
+  deudaCreditoAcumulada: number
+  fechaCorteCredito: string
+  diasParaCorte: number
   porCategoria: {
     categoriaId: string
     nombre: string

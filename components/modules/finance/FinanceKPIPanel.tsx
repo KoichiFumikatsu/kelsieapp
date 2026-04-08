@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { formatCOP } from '@/lib/utils/format'
 import { ProgressBar } from '@/components/ui/Progress'
 import type { FinanceKPIs } from '@/lib/types/modules.types'
-import { TrendingDown, TrendingUp, Wallet, PiggyBank, AlertTriangle, Landmark, FolderHeart, CreditCard, BadgeDollarSign, ChevronDown } from 'lucide-react'
+import { TrendingDown, TrendingUp, Wallet, PiggyBank, AlertTriangle, Landmark, FolderHeart, CreditCard, BadgeDollarSign, ChevronDown, CalendarClock } from 'lucide-react'
 
 const CHART_COLORS = [
   '#6366f1', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6',
@@ -127,15 +127,64 @@ export function FinanceKPIPanel({ kpis, className = '' }: FinanceKPIPanelProps) 
         )
       })()}
 
-      {/* Credit balance */}
-      {kpis.totalCredito > 0 && (() => {
-        const deuda = kpis.totalCredito - kpis.totalPagoCredito
+      {/* Credit balance — accumulated across all quincenas */}
+      {(kpis.deudaCreditoAcumulada !== 0 || kpis.totalCredito > 0) && (() => {
+        const deuda = kpis.deudaCreditoAcumulada
+        const dias = kpis.diasParaCorte
+        const corte = kpis.fechaCorteCredito
+        const corteLabel = new Date(corte + 'T12:00:00').toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })
+        const isUrgent = deuda > 0 && dias >= 0 && dias <= 5
+        const isWarning = deuda > 0 && dias > 5 && dias <= 15
         return (
-          <div className="flex items-center justify-between rounded border border-[var(--credit)]/20 bg-[color-mix(in_srgb,var(--credit)_5%,transparent)] px-3 py-2">
-            <span className="text-xs font-medium text-[var(--text-2)]">Deuda tarjeta</span>
-            <span className={`num text-sm font-bold ${deuda > 0 ? 'text-[var(--credit)]' : 'text-[var(--income)]'}`}>
-              {deuda <= 0 ? 'Pagada' : formatCOP(deuda)}
-            </span>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between rounded border border-[var(--credit)]/20 bg-[color-mix(in_srgb,var(--credit)_5%,transparent)] px-3 py-2">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-xs font-medium text-[var(--text-2)]">Deuda tarjeta (acumulada)</span>
+                {kpis.totalCredito > 0 && (
+                  <span className="num text-[10px] text-[var(--text-3)]">
+                    Esta 15na: {formatCOP(kpis.totalCredito)} usado / {formatCOP(kpis.totalPagoCredito)} pagado
+                  </span>
+                )}
+              </div>
+              <span className={`num text-sm font-bold ${deuda > 0 ? 'text-[var(--credit)]' : 'text-[var(--income)]'}`}>
+                {deuda <= 0 ? 'Pagada' : formatCOP(deuda)}
+              </span>
+            </div>
+            {deuda > 0 && (
+              <div className={`flex items-start gap-2 rounded border p-3 ${
+                isUrgent
+                  ? 'border-[var(--expense)]/30 bg-[color-mix(in_srgb,var(--expense)_5%,transparent)]'
+                  : isWarning
+                    ? 'border-[var(--warn)]/30 bg-[color-mix(in_srgb,var(--warn)_5%,transparent)]'
+                    : 'border-[var(--credit)]/20 bg-[color-mix(in_srgb,var(--credit)_3%,transparent)]'
+              }`}>
+                <CalendarClock size={14} className={`mt-0.5 shrink-0 ${
+                  isUrgent ? 'text-[var(--expense)]' : isWarning ? 'text-[var(--warn)]' : 'text-[var(--credit)]'
+                }`} />
+                <div className="text-xs text-[var(--text-2)]">
+                  {isUrgent && (
+                    <p className="font-bold text-[var(--expense)]">
+                      {dias === 0 ? 'Fecha de corte HOY' : `Corte en ${dias} dia${dias > 1 ? 's' : ''}`} ({corteLabel})
+                    </p>
+                  )}
+                  {isWarning && (
+                    <p className="font-medium text-[var(--warn)]">
+                      Corte en {dias} dias ({corteLabel}) — Deuda pendiente: {formatCOP(deuda)}
+                    </p>
+                  )}
+                  {!isUrgent && !isWarning && dias > 0 && (
+                    <p className="text-[var(--text-3)]">
+                      Proximo corte: {corteLabel} ({dias} dias)
+                    </p>
+                  )}
+                  {dias < 0 && (
+                    <p className="font-medium text-[var(--expense)]">
+                      Corte fue el {corteLabel} — Deuda sin pagar: {formatCOP(deuda)}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )
       })()}

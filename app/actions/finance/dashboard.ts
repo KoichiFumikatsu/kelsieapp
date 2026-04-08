@@ -9,20 +9,13 @@ export async function getFinanceKPIs(quincenaId: string): Promise<ActionResult<F
   // Get quincena + household
   const { data: quincena, error: qErr } = await supabase
     .from('quincenas')
-    .select('saldo_inicial, household_id')
+    .select('saldo_inicial, household_id, fecha_inicio, fecha_fin')
     .eq('id', quincenaId)
     .single()
 
   if (qErr || !quincena) return { ok: false, error: qErr?.message ?? 'Quincena no encontrada' }
 
-  // Get quincena dates to determine half
-  const { data: qDates } = await supabase
-    .from('quincenas')
-    .select('fecha_inicio')
-    .eq('id', quincenaId)
-    .single()
-
-  const half = qDates ? (new Date(qDates.fecha_inicio + 'T12:00:00').getDate() === 1 ? 1 : 2) : null
+  const half = new Date(quincena.fecha_inicio + 'T12:00:00').getDate() === 1 ? 1 : 2
 
   // Get categorias filtered by quincena_half (null = both halves)
   let catQuery = supabase
@@ -87,6 +80,46 @@ export async function getFinanceKPIs(quincenaId: string): Promise<ActionResult<F
     }
   })
 
+  // Accumulated credit debt across all quincenas up to this one
+  const { data: prevQIds } = await supabase
+    .from('quincenas')
+    .select('id')
+    .eq('household_id', quincena.household_id)
+    .lte('fecha_inicio', quincena.fecha_inicio)
+
+  const allQIds = (prevQIds ?? []).map((q) => q.id)
+
+  const { data: allCreditTxs } = await supabase
+    .from('transacciones')
+    .select('tipo, importe')
+    .in('quincena_id', allQIds)
+    .in('tipo', ['credito', 'pago_credito'])
+
+  const acumCredito = (allCreditTxs ?? [])
+    .filter((t) => t.tipo === 'credito')
+    .reduce((s, t) => s + Number(t.importe), 0)
+  const acumPago = (allCreditTxs ?? [])
+    .filter((t) => t.tipo === 'pago_credito')
+    .reduce((s, t) => s + Number(t.importe), 0)
+  const deudaCreditoAcumulada = acumCredito - acumPago
+
+  // Credit cut date — 18th of each month
+  const fechaInicio = new Date(quincena.fecha_inicio + 'T12:00:00')
+  const isFirstHalf = fechaInicio.getDate() === 1
+  let corteYear = fechaInicio.getFullYear()
+  let corteMes = fechaInicio.getMonth() // 0-indexed
+  if (!isFirstHalf) {
+    corteMes += 1
+    if (corteMes > 11) { corteMes = 0; corteYear++ }
+  }
+  const fechaCorteCredito = `${corteYear}-${String(corteMes + 1).padStart(2, '0')}-18`
+
+  // Days until cut from today (America/Bogota)
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Bogota' }))
+  now.setHours(0, 0, 0, 0)
+  const corteDate = new Date(fechaCorteCredito + 'T00:00:00')
+  const diasParaCorte = Math.round((corteDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+
   return {
     ok: true,
     data: {
@@ -98,6 +131,9 @@ export async function getFinanceKPIs(quincenaId: string): Promise<ActionResult<F
       totalCredito,
       totalPagoCredito,
       saldoActual: Number(quincena.saldo_inicial) + totalIngresos - totalGastos - totalAhorros - totalBolsillos - totalPagoCredito,
+      deudaCreditoAcumulada,
+      fechaCorteCredito,
+      diasParaCorte,
       porCategoria,
     },
   }
