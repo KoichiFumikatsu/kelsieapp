@@ -49,6 +49,7 @@ export function AddTransaccionSheet({ open, onClose, quincenaId, categorias, mem
   const ahorros = categorias.filter((c) => c.tipo === 'ahorro')
   const bolsillos = categorias.filter((c) => c.tipo === 'bolsillo')
   const creditos = categorias.filter((c) => c.tipo === 'credito')
+  const pagosCredito = categorias.filter((c) => c.tipo === 'pago_credito')
 
   return (
     <BottomSheet open={open} onClose={onClose} title="Nueva transacción">
@@ -84,6 +85,10 @@ export function AddTransaccionSheet({ open, onClose, quincenaId, categorias, mem
             <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded border border-[var(--border-strong)] px-3 py-2 text-sm font-medium has-[:checked]:border-[var(--credit)] has-[:checked]:bg-[color-mix(in_srgb,var(--credit)_8%,transparent)] has-[:checked]:text-[var(--credit)]">
               <input type="radio" name="tipo" value="credito" className="sr-only" />
               Credito
+            </label>
+            <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded border border-[var(--border-strong)] px-3 py-2 text-[11px] font-medium has-[:checked]:border-[var(--credit)] has-[:checked]:bg-[color-mix(in_srgb,var(--credit)_8%,transparent)] has-[:checked]:text-[var(--credit)]">
+              <input type="radio" name="tipo" value="pago_credito" className="sr-only" />
+              Pago TC
             </label>
           </div>
         </div>
@@ -168,6 +173,13 @@ export function AddTransaccionSheet({ open, onClose, quincenaId, categorias, mem
             {creditos.length > 0 && (
               <optgroup label="Credito">
                 {creditos.map((c) => (
+                  <option key={c.id} value={c.id}>{c.nombre}</option>
+                ))}
+              </optgroup>
+            )}
+            {pagosCredito.length > 0 && (
+              <optgroup label="Pago credito">
+                {pagosCredito.map((c) => (
                   <option key={c.id} value={c.id}>{c.nombre}</option>
                 ))}
               </optgroup>

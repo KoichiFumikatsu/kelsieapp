@@ -2,7 +2,7 @@ import { formatCOP } from '@/lib/utils/format'
 import { ProgressBar } from '@/components/ui/Progress'
 import { DonutChart, HBarChart } from '@/components/ui/Charts'
 import type { FinanceKPIs } from '@/lib/types/modules.types'
-import { TrendingDown, TrendingUp, Wallet, PiggyBank, AlertTriangle, Landmark, FolderHeart, CreditCard } from 'lucide-react'
+import { TrendingDown, TrendingUp, Wallet, PiggyBank, AlertTriangle, Landmark, FolderHeart, CreditCard, BadgeDollarSign } from 'lucide-react'
 
 const CHART_COLORS = [
   '#6366f1', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6',
@@ -20,7 +20,7 @@ export function FinanceKPIPanel({ kpis, className = '' }: FinanceKPIPanelProps) 
     .filter((c) => c.tipo === 'gasto')
     .reduce((sum, c) => sum + c.previsto, 0)
   const savingsRate = kpis.totalIngresos > 0
-    ? Math.round(((kpis.totalIngresos - kpis.totalGastos - kpis.totalAhorros - kpis.totalBolsillos) / kpis.totalIngresos) * 100)
+    ? Math.round(((kpis.totalIngresos - kpis.totalGastos - kpis.totalAhorros - kpis.totalBolsillos - kpis.totalPagoCredito) / kpis.totalIngresos) * 100)
     : 0
   const overBudget = kpis.porCategoria.filter((c) => c.tipo === 'gasto' && c.porcentaje > 1)
   const gastoPct = totalPresupuestado > 0
@@ -76,10 +76,18 @@ export function FinanceKPIPanel({ kpis, className = '' }: FinanceKPIPanelProps) 
           )}
           {kpis.totalCredito > 0 && (
             <KPIBox
-              label="Credito"
+              label="Credito usado"
               value={formatCOP(kpis.totalCredito)}
               color="var(--credit)"
               icon={<CreditCard size={14} />}
+            />
+          )}
+          {kpis.totalPagoCredito > 0 && (
+            <KPIBox
+              label="Pago credito"
+              value={formatCOP(kpis.totalPagoCredito)}
+              color="var(--credit)"
+              icon={<BadgeDollarSign size={14} />}
             />
           )}
         </div>
@@ -102,6 +110,19 @@ export function FinanceKPIPanel({ kpis, className = '' }: FinanceKPIPanelProps) 
           </div>
         )}
       </div>
+
+      {/* Credit balance */}
+      {kpis.totalCredito > 0 && (() => {
+        const deuda = kpis.totalCredito - kpis.totalPagoCredito
+        return (
+          <div className="flex items-center justify-between rounded border border-[var(--credit)]/20 bg-[color-mix(in_srgb,var(--credit)_5%,transparent)] px-3 py-2">
+            <span className="text-xs font-medium text-[var(--text-2)]">Deuda tarjeta</span>
+            <span className={`num text-sm font-bold ${deuda > 0 ? 'text-[var(--credit)]' : 'text-[var(--income)]'}`}>
+              {deuda <= 0 ? 'Pagada' : formatCOP(deuda)}
+            </span>
+          </div>
+        )
+      })()}
 
       {/* Budget usage bar */}
       {totalPresupuestado > 0 && (

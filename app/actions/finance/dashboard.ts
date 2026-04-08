@@ -63,6 +63,10 @@ export async function getFinanceKPIs(quincenaId: string): Promise<ActionResult<F
     .filter((t) => t.tipo === 'credito')
     .reduce((sum, t) => sum + Number(t.importe), 0)
 
+  const totalPagoCredito = (transacciones ?? [])
+    .filter((t) => t.tipo === 'pago_credito')
+    .reduce((sum, t) => sum + Number(t.importe), 0)
+
   // Group real amounts by category
   const realByCategoria: Record<string, number> = {}
   for (const t of transacciones ?? []) {
@@ -92,7 +96,8 @@ export async function getFinanceKPIs(quincenaId: string): Promise<ActionResult<F
       totalAhorros,
       totalBolsillos,
       totalCredito,
-      saldoActual: Number(quincena.saldo_inicial) + totalIngresos - totalGastos - totalAhorros - totalBolsillos,
+      totalPagoCredito,
+      saldoActual: Number(quincena.saldo_inicial) + totalIngresos - totalGastos - totalAhorros - totalBolsillos - totalPagoCredito,
       porCategoria,
     },
   }
