@@ -1,6 +1,5 @@
 import { formatCOP } from '@/lib/utils/format'
 import { ProgressBar } from '@/components/ui/Progress'
-import { DonutChart, HBarChart } from '@/components/ui/Charts'
 import type { FinanceKPIs } from '@/lib/types/modules.types'
 import { TrendingDown, TrendingUp, Wallet, PiggyBank, AlertTriangle, Landmark, FolderHeart, CreditCard, BadgeDollarSign } from 'lucide-react'
 
@@ -30,10 +29,8 @@ export function FinanceKPIPanel({ kpis, className = '' }: FinanceKPIPanelProps) 
 
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* Cards + Donut side by side on md+ */}
-      <div className="flex flex-col gap-4 md:flex-row">
-        {/* Left: KPI cards */}
-        <div className="grid flex-1 grid-cols-2 gap-2 self-start">
+      {/* Cards */}
+      <div className="grid grid-cols-2 gap-2">
           <KPIBox
             label="Saldo"
             value={formatCOP(kpis.saldoActual)}
@@ -90,26 +87,41 @@ export function FinanceKPIPanel({ kpis, className = '' }: FinanceKPIPanelProps) 
               icon={<BadgeDollarSign size={14} />}
             />
           )}
-        </div>
-
-        {/* Right: Donut chart */}
-        {hasGastos && (
-          <div className="flex w-full flex-col items-center justify-center md:w-52">
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">
-              Distribucion
-            </p>
-            <DonutChart
-              segments={kpis.porCategoria
-                .filter((c) => c.tipo === 'gasto' && c.real > 0)
-                .map((c, i) => ({
-                  label: c.nombre,
-                  value: c.real,
-                  color: CHART_COLORS[i % CHART_COLORS.length],
-                }))}
-            />
-          </div>
-        )}
       </div>
+
+      {/* Distribution stacked bar */}
+      {hasGastos && (() => {
+        const gastosCats = kpis.porCategoria.filter((c) => c.tipo === 'gasto' && c.real > 0)
+        const total = gastosCats.reduce((s, c) => s + c.real, 0)
+        if (total === 0) return null
+        return (
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)]">Distribucion gastos</p>
+            <div className="flex h-3 w-full overflow-hidden rounded-full bg-[var(--surface-2)]">
+              {gastosCats.map((c, i) => (
+                <div
+                  key={c.categoriaId}
+                  className="h-full transition-all duration-500"
+                  style={{
+                    width: `${(c.real / total) * 100}%`,
+                    backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
+                  }}
+                  title={`${c.nombre}: ${formatCOP(c.real)}`}
+                />
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+              {gastosCats.map((c, i) => (
+                <div key={c.categoriaId} className="flex items-center gap-1 text-[10px]">
+                  <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                  <span className="text-[var(--text-2)]">{c.nombre}</span>
+                  <span className="num text-[var(--text-3)]">{Math.round((c.real / total) * 100)}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Credit balance */}
       {kpis.totalCredito > 0 && (() => {
@@ -164,25 +176,38 @@ export function FinanceKPIPanel({ kpis, className = '' }: FinanceKPIPanelProps) 
         <p className="text-xs text-[var(--income)]">Buen manejo financiero. Ahorro del {savingsRate}% esta quincena.</p>
       )}
 
-      {/* Presupuesto vs real bar chart */}
-      {kpis.porCategoria.filter((c) => c.tipo === 'gasto' && c.previsto > 0).length > 0 && (
-        <div className="space-y-2">
-          <p className="section-bar text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">
-            Presupuesto vs real
-          </p>
-          <HBarChart
-            bars={kpis.porCategoria
-              .filter((c) => c.tipo === 'gasto' && c.previsto > 0)
-              .map((c, i) => ({
-                label: c.nombre,
-                value: c.real,
-                max: c.previsto,
-                color: c.porcentaje > 1 ? 'var(--expense)' : c.porcentaje > 0.8 ? 'var(--warn)' : CHART_COLORS[i % CHART_COLORS.length],
-              }))}
-            formatValue={formatCOP}
-          />
-        </div>
-      )}
+      {/* Presupuesto vs real — compact bars */}
+      {kpis.porCategoria.filter((c) => c.tipo === 'gasto' && c.previsto > 0).length > 0 && (() => {
+        const cats = kpis.porCategoria.filter((c) => c.tipo === 'gasto' && c.previsto > 0)
+        const maxVal = Math.max(...cats.map((c) => Math.max(c.real, c.previsto)), 1)
+        return (
+          <div className="space-y-1.5">
+            <p className="section-bar text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">
+              Presupuesto vs real
+            </p>
+            {cats.map((c, i) => {
+              const pctReal = (c.real / maxVal) * 100
+              const pctPrev = (c.previsto / maxVal) * 100
+              const over = c.porcentaje > 1
+              const barColor = over ? 'var(--expense)' : c.porcentaje > 0.8 ? 'var(--warn)' : CHART_COLORS[i % CHART_COLORS.length]
+              return (
+                <div key={c.categoriaId} className="flex items-center gap-2">
+                  <span className="w-20 shrink-0 truncate text-[10px] font-medium text-[var(--text-2)]">{c.nombre}</span>
+                  <div className="relative h-2.5 flex-1 overflow-hidden rounded-full bg-[var(--surface-2)]">
+                    {pctPrev < 100 && (
+                      <div className="absolute top-0 h-full w-px bg-[var(--text-3)] opacity-40" style={{ left: `${Math.min(pctPrev, 100)}%` }} />
+                    )}
+                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(pctReal, 100)}%`, backgroundColor: barColor }} />
+                  </div>
+                  <span className={`num w-20 shrink-0 text-right text-[10px] ${over ? 'font-bold text-[var(--expense)]' : 'text-[var(--text-3)]'}`}>
+                    {formatCOP(c.real)}/{formatCOP(c.previsto)}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        )
+      })()}
     </div>
   )
 }
