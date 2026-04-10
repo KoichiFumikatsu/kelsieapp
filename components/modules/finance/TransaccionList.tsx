@@ -36,12 +36,18 @@ export function TransaccionList({ transacciones, onEdit, className = '', pageSiz
           ingreso: 'var(--income)',
           ahorro: 'var(--info)',
           bolsillo: 'var(--mod-finance)',
+          credito: 'var(--credit)',
+          pago_credito: 'var(--credit)',
+          uso_bolsillo: 'var(--mod-finance)',
         }
         const signMap: Record<string, string> = {
           gasto: '\u2212',
           ingreso: '+',
           ahorro: '\u2212',
           bolsillo: '\u2212',
+          credito: '+',
+          pago_credito: '\u2212',
+          uso_bolsillo: '+',
         }
         const color = colorMap[t.tipo] ?? 'var(--text-1)'
         const sign = signMap[t.tipo] ?? ''

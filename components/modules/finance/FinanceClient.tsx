@@ -363,6 +363,7 @@ function NewCategoriaSheet({ open, onClose, onCreated, members, activeHalf }: { 
             <option value="bolsillo">Bolsillo</option>
             <option value="credito">Credito</option>
             <option value="pago_credito">Pago credito</option>
+            <option value="uso_bolsillo">Uso bolsillo</option>
           </select>
         </div>
         <div className="space-y-1">
@@ -618,6 +619,7 @@ function EditTransaccionSheet({ open, transaccion, categorias, members, onClose,
   const bolsillos = categorias.filter((c) => c.tipo === 'bolsillo')
   const creditos = categorias.filter((c) => c.tipo === 'credito')
   const pagosCredito = categorias.filter((c) => c.tipo === 'pago_credito')
+  const usosBolsillo = categorias.filter((c) => c.tipo === 'uso_bolsillo')
 
   return (
     <BottomSheet open={open} onClose={onClose} title="Editar transaccion">
@@ -628,9 +630,9 @@ function EditTransaccionSheet({ open, transaccion, categorias, members, onClose,
         <div className="space-y-1">
           <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Tipo</label>
           <div className="grid grid-cols-3 gap-2">
-            {(['gasto', 'ingreso', 'ahorro', 'bolsillo', 'credito', 'pago_credito'] as const).map((tipo) => {
-              const colorVar: Record<string, string> = { gasto: '--expense', ingreso: '--income', ahorro: '--info', bolsillo: '--mod-finance', credito: '--credit', pago_credito: '--credit' }
-              const labels: Record<string, string> = { gasto: 'Gasto', ingreso: 'Ingreso', ahorro: 'Ahorro', bolsillo: 'Bolsillo', credito: 'Credito', pago_credito: 'Pago TC' }
+            {(['gasto', 'ingreso', 'ahorro', 'bolsillo', 'credito', 'pago_credito', 'uso_bolsillo'] as const).map((tipo) => {
+              const colorVar: Record<string, string> = { gasto: '--expense', ingreso: '--income', ahorro: '--info', bolsillo: '--mod-finance', credito: '--credit', pago_credito: '--credit', uso_bolsillo: '--mod-finance' }
+              const labels: Record<string, string> = { gasto: 'Gasto', ingreso: 'Ingreso', ahorro: 'Ahorro', bolsillo: 'Bolsillo', credito: 'Credito', pago_credito: 'Pago TC', uso_bolsillo: 'Uso Bols.' }
               return (
                 <label key={tipo} className={`flex cursor-pointer items-center justify-center rounded border border-[var(--border-strong)] px-3 py-2 text-[11px] font-medium has-[:checked]:border-[var(${colorVar[tipo]})] has-[:checked]:bg-[color-mix(in_srgb,var(${colorVar[tipo]})_8%,transparent)] has-[:checked]:text-[var(${colorVar[tipo]})]`}>
                   <input type="radio" name="tipo" value={tipo} defaultChecked={transaccion.tipo === tipo} className="sr-only" />
@@ -672,6 +674,7 @@ function EditTransaccionSheet({ open, transaccion, categorias, members, onClose,
             {bolsillos.length > 0 && <optgroup label="Bolsillos">{bolsillos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</optgroup>}
             {creditos.length > 0 && <optgroup label="Credito">{creditos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</optgroup>}
             {pagosCredito.length > 0 && <optgroup label="Pago credito">{pagosCredito.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</optgroup>}
+            {usosBolsillo.length > 0 && <optgroup label="Uso bolsillo">{usosBolsillo.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</optgroup>}
           </select>
         </div>
 
@@ -728,6 +731,9 @@ function computeFilteredKPIs(
   const totalPagoCredito = txs
     .filter((t) => t.tipo === 'pago_credito')
     .reduce((s, t) => s + Number(t.importe), 0)
+  const totalUsoBolsillo = txs
+    .filter((t) => t.tipo === 'uso_bolsillo')
+    .reduce((s, t) => s + Number(t.importe), 0)
 
   const realByCategoria: Record<string, number> = {}
   for (const t of txs) {
@@ -754,10 +760,12 @@ function computeFilteredKPIs(
     totalGastos,
     totalAhorros,
     totalBolsillos,
+    totalUsoBolsillo,
     totalCredito,
     totalPagoCredito,
     saldoActual: totalIngresos - totalGastos - totalAhorros - totalBolsillos - totalPagoCredito,
     deudaCreditoAcumulada: originalKPIs.deudaCreditoAcumulada,
+    saldoBolsillosAcumulado: originalKPIs.saldoBolsillosAcumulado,
     fechaCorteCredito: originalKPIs.fechaCorteCredito,
     diasParaCorte: originalKPIs.diasParaCorte,
     porCategoria,

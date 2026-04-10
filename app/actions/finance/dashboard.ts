@@ -52,6 +52,10 @@ export async function getFinanceKPIs(quincenaId: string): Promise<ActionResult<F
     .filter((t) => t.tipo === 'bolsillo')
     .reduce((sum, t) => sum + Number(t.importe), 0)
 
+  const totalUsoBolsillo = (transacciones ?? [])
+    .filter((t) => t.tipo === 'uso_bolsillo')
+    .reduce((sum, t) => sum + Number(t.importe), 0)
+
   const totalCredito = (transacciones ?? [])
     .filter((t) => t.tipo === 'credito')
     .reduce((sum, t) => sum + Number(t.importe), 0)
@@ -80,7 +84,7 @@ export async function getFinanceKPIs(quincenaId: string): Promise<ActionResult<F
     }
   })
 
-  // Accumulated credit debt across all quincenas up to this one
+  // Accumulated credit debt and bolsillo balance across all quincenas up to this one
   const { data: prevQIds } = await supabase
     .from('quincenas')
     .select('id')
@@ -89,19 +93,27 @@ export async function getFinanceKPIs(quincenaId: string): Promise<ActionResult<F
 
   const allQIds = (prevQIds ?? []).map((q) => q.id)
 
-  const { data: allCreditTxs } = await supabase
+  const { data: allAccumTxs } = await supabase
     .from('transacciones')
     .select('tipo, importe')
     .in('quincena_id', allQIds)
-    .in('tipo', ['credito', 'pago_credito'])
+    .in('tipo', ['credito', 'pago_credito', 'bolsillo', 'uso_bolsillo'])
 
-  const acumCredito = (allCreditTxs ?? [])
+  const acumCredito = (allAccumTxs ?? [])
     .filter((t) => t.tipo === 'credito')
     .reduce((s, t) => s + Number(t.importe), 0)
-  const acumPago = (allCreditTxs ?? [])
+  const acumPago = (allAccumTxs ?? [])
     .filter((t) => t.tipo === 'pago_credito')
     .reduce((s, t) => s + Number(t.importe), 0)
   const deudaCreditoAcumulada = acumCredito - acumPago
+
+  const acumBolsillo = (allAccumTxs ?? [])
+    .filter((t) => t.tipo === 'bolsillo')
+    .reduce((s, t) => s + Number(t.importe), 0)
+  const acumUsoBolsillo = (allAccumTxs ?? [])
+    .filter((t) => t.tipo === 'uso_bolsillo')
+    .reduce((s, t) => s + Number(t.importe), 0)
+  const saldoBolsillosAcumulado = acumBolsillo - acumUsoBolsillo
 
   // Credit cut date — 18th of each month, based on today
   // If today <= 18th, the cut date is the 18th of this month
@@ -128,10 +140,12 @@ export async function getFinanceKPIs(quincenaId: string): Promise<ActionResult<F
       totalGastos,
       totalAhorros,
       totalBolsillos,
+      totalUsoBolsillo,
       totalCredito,
       totalPagoCredito,
       saldoActual: Number(quincena.saldo_inicial) + totalIngresos - totalGastos - totalAhorros - totalBolsillos - totalPagoCredito,
       deudaCreditoAcumulada,
+      saldoBolsillosAcumulado,
       fechaCorteCredito,
       diasParaCorte,
       porCategoria,

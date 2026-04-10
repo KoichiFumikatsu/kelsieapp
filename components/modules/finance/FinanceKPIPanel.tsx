@@ -92,6 +92,14 @@ export function FinanceKPIPanel({ kpis, isFiltered = false, className = '' }: Fi
               icon={<BadgeDollarSign size={14} />}
             />
           )}
+          {kpis.totalUsoBolsillo > 0 && (
+            <KPIBox
+              label="Uso bolsillo"
+              value={formatCOP(kpis.totalUsoBolsillo)}
+              color="var(--mod-finance)"
+              icon={<FolderHeart size={14} />}
+            />
+          )}
       </div>
 
       {/* Distribution stacked bar */}
@@ -186,6 +194,28 @@ export function FinanceKPIPanel({ kpis, isFiltered = false, className = '' }: Fi
                 </div>
               </div>
             )}
+          </div>
+        )
+      })()}
+
+      {/* Bolsillo balance — accumulated across all quincenas */}
+      {(kpis.saldoBolsillosAcumulado !== 0 || kpis.totalBolsillos > 0) && (() => {
+        const saldo = kpis.saldoBolsillosAcumulado
+        return (
+          <div className="flex items-center justify-between rounded border border-[var(--mod-finance)]/20 bg-[color-mix(in_srgb,var(--mod-finance)_5%,transparent)] px-3 py-2">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-xs font-medium text-[var(--text-2)]">
+                Bolsillos (acumulado){isFiltered && <span className="text-[var(--text-3)]"> (hogar)</span>}
+              </span>
+              {(kpis.totalBolsillos > 0 || kpis.totalUsoBolsillo > 0) && (
+                <span className="num text-[10px] text-[var(--text-3)]">
+                  Esta 15na: {formatCOP(kpis.totalBolsillos)} guardado / {formatCOP(kpis.totalUsoBolsillo)} usado
+                </span>
+              )}
+            </div>
+            <span className={`num text-sm font-bold ${saldo > 0 ? 'text-[var(--mod-finance)]' : 'text-[var(--text-3)]'}`}>
+              {saldo <= 0 ? '$0' : formatCOP(saldo)}
+            </span>
           </div>
         )
       })()}
