@@ -39,6 +39,7 @@ export function FinanceClient() {
   const [editingCat, setEditingCat] = useState<Categoria | null>(null)
   const [editingQuincena, setEditingQuincena] = useState<Quincena | null>(null)
   const [editingTx, setEditingTx] = useState<TransaccionConCategoria | null>(null)
+  const [filterUserId, setFilterUserId] = useState<string | null>(null)
 
   const loadData = useCallback(async (quincenaId?: string) => {
     const [qRes, catRes] = await Promise.all([
@@ -149,6 +150,15 @@ export function FinanceClient() {
     (c) => c.quincena_half === null || c.quincena_half === activeHalf
   )
 
+  // Per-member filtering
+  const filteredTransacciones = filterUserId
+    ? transacciones.filter((t) => t.user_id === filterUserId)
+    : transacciones
+
+  const filteredKPIs = filterUserId && kpis
+    ? computeFilteredKPIs(filteredTransacciones, filteredCategorias, kpis)
+    : kpis
+
   return (
     <div className="space-y-4 p-4 md:p-6">
       {/* Quincena period navigator */}
@@ -158,8 +168,17 @@ export function FinanceClient() {
         onEdit={() => setEditingQuincena(active)}
       />
 
+      {/* Per-member filter */}
+      {members.length > 1 && (
+        <MemberFilter
+          members={members}
+          selected={filterUserId}
+          onChange={setFilterUserId}
+        />
+      )}
+
       {/* KPIs */}
-      {kpis && <FinanceKPIPanel kpis={kpis} />}
+      {filteredKPIs && <FinanceKPIPanel kpis={filteredKPIs} isFiltered={!!filterUserId} />}
 
       {/* Transactions */}
       <div>
@@ -170,13 +189,13 @@ export function FinanceClient() {
             style={{ '--accent': 'var(--mod-finance)' } as React.CSSProperties}
           >
             <span className="flex items-center gap-1.5">
-              Transacciones ({transacciones.length})
+              Transacciones ({filteredTransacciones.length})
               <ChevronDown size={12} className={`transition-transform ${showTransacciones ? 'rotate-180' : ''}`} />
             </span>
           </button>
         </div>
         {showTransacciones && (
-          <TransaccionList transacciones={transacciones} onEdit={(t) => setEditingTx(t)} pageSize={10} />
+          <TransaccionList transacciones={filteredTransacciones} onEdit={(t) => setEditingTx(t)} pageSize={10} />
         )}
       </div>
 
@@ -682,5 +701,105 @@ function EditTransaccionSheet({ open, transaccion, categorias, members, onClose,
         </div>
       </form>
     </BottomSheet>
+  )
+}
+
+/* ── Compute KPIs from filtered transactions (client-side) ── */
+function computeFilteredKPIs(
+  txs: TransaccionConCategoria[],
+  categorias: Categoria[],
+  originalKPIs: FinanceKPIs,
+): FinanceKPIs {
+  const totalIngresos = txs
+    .filter((t) => t.tipo === 'ingreso')
+    .reduce((s, t) => s + Number(t.importe), 0)
+  const totalGastos = txs
+    .filter((t) => t.tipo === 'gasto')
+    .reduce((s, t) => s + Number(t.importe), 0)
+  const totalAhorros = txs
+    .filter((t) => t.tipo === 'ahorro')
+    .reduce((s, t) => s + Number(t.importe), 0)
+  const totalBolsillos = txs
+    .filter((t) => t.tipo === 'bolsillo')
+    .reduce((s, t) => s + Number(t.importe), 0)
+  const totalCredito = txs
+    .filter((t) => t.tipo === 'credito')
+    .reduce((s, t) => s + Number(t.importe), 0)
+  const totalPagoCredito = txs
+    .filter((t) => t.tipo === 'pago_credito')
+    .reduce((s, t) => s + Number(t.importe), 0)
+
+  const realByCategoria: Record<string, number> = {}
+  for (const t of txs) {
+    realByCategoria[t.categoria_id] = (realByCategoria[t.categoria_id] ?? 0) + Number(t.importe)
+  }
+
+  const porCategoria = categorias.map((c) => {
+    const real = realByCategoria[c.id] ?? 0
+    const previsto = Number(c.presupuesto_default)
+    return {
+      categoriaId: c.id,
+      nombre: c.nombre,
+      icono: c.icono ?? 'circle',
+      tipo: c.tipo,
+      previsto,
+      real,
+      porcentaje: previsto > 0 ? real / previsto : 0,
+    }
+  })
+
+  return {
+    saldoInicial: 0,
+    totalIngresos,
+    totalGastos,
+    totalAhorros,
+    totalBolsillos,
+    totalCredito,
+    totalPagoCredito,
+    saldoActual: totalIngresos - totalGastos - totalAhorros - totalBolsillos - totalPagoCredito,
+    deudaCreditoAcumulada: originalKPIs.deudaCreditoAcumulada,
+    fechaCorteCredito: originalKPIs.fechaCorteCredito,
+    diasParaCorte: originalKPIs.diasParaCorte,
+    porCategoria,
+  }
+}
+
+/* ── Member Filter Chips ── */
+function MemberFilter({ members, selected, onChange }: {
+  members: { id: string; display_name: string; color_hex: string }[]
+  selected: string | null
+  onChange: (userId: string | null) => void
+}) {
+  return (
+    <div className="flex items-center gap-1 rounded-lg bg-[var(--surface-2)] p-1">
+      <button
+        onClick={() => onChange(null)}
+        className={`flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+          selected === null
+            ? 'bg-[var(--surface)] text-[var(--text-1)] shadow-sm'
+            : 'text-[var(--text-3)] hover:text-[var(--text-2)]'
+        }`}
+      >
+        Todos
+      </button>
+      {members.map((m) => (
+        <button
+          key={m.id}
+          onClick={() => onChange(m.id)}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+            selected === m.id
+              ? 'bg-[var(--surface)] shadow-sm'
+              : 'text-[var(--text-3)] hover:text-[var(--text-2)]'
+          }`}
+          style={selected === m.id ? { color: m.color_hex } : undefined}
+        >
+          <span
+            className="inline-block h-2 w-2 shrink-0 rounded-full"
+            style={{ backgroundColor: m.color_hex }}
+          />
+          {m.display_name}
+        </button>
+      ))}
+    </div>
   )
 }

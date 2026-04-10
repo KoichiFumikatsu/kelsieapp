@@ -13,10 +13,11 @@ const CHART_COLORS = [
 
 interface FinanceKPIPanelProps {
   kpis: FinanceKPIs
+  isFiltered?: boolean
   className?: string
 }
 
-export function FinanceKPIPanel({ kpis, className = '' }: FinanceKPIPanelProps) {
+export function FinanceKPIPanel({ kpis, isFiltered = false, className = '' }: FinanceKPIPanelProps) {
   const [showPresupuesto, setShowPresupuesto] = useState(false)
   const saldoColor = kpis.saldoActual >= 0 ? 'var(--income)' : 'var(--expense)'
   const totalPresupuestado = kpis.porCategoria
@@ -36,7 +37,7 @@ export function FinanceKPIPanel({ kpis, className = '' }: FinanceKPIPanelProps) 
       {/* Cards */}
       <div className="grid grid-cols-2 gap-2">
           <KPIBox
-            label="Saldo"
+            label={isFiltered ? "Balance personal" : "Saldo"}
             value={formatCOP(kpis.saldoActual)}
             color={saldoColor}
             icon={<Wallet size={14} />}
@@ -139,7 +140,7 @@ export function FinanceKPIPanel({ kpis, className = '' }: FinanceKPIPanelProps) 
           <div className="space-y-2">
             <div className="flex items-center justify-between rounded border border-[var(--credit)]/20 bg-[color-mix(in_srgb,var(--credit)_5%,transparent)] px-3 py-2">
               <div className="flex flex-col gap-0.5">
-                <span className="text-xs font-medium text-[var(--text-2)]">Deuda tarjeta (acumulada)</span>
+                <span className="text-xs font-medium text-[var(--text-2)]">Deuda tarjeta (acumulada){isFiltered && <span className="text-[var(--text-3)]"> (hogar)</span>}</span>
                 {kpis.totalCredito > 0 && (
                   <span className="num text-[10px] text-[var(--text-3)]">
                     Esta 15na: {formatCOP(kpis.totalCredito)} usado / {formatCOP(kpis.totalPagoCredito)} pagado
