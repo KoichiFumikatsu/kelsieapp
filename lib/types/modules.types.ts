@@ -90,6 +90,11 @@ export interface FinanceKPIs {
     real: number
     porcentaje: number
   }[]
+  acumuladoPorMiembro: Record<string, {
+    balance: number
+    deudaCredito: number
+    saldoBolsillos: number
+  }>
 }
 
 // =============================================

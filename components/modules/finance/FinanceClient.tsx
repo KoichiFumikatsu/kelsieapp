@@ -156,7 +156,7 @@ export function FinanceClient() {
     : transacciones
 
   const filteredKPIs = filterUserId && kpis
-    ? computeFilteredKPIs(filteredTransacciones, filteredCategorias, kpis)
+    ? computeFilteredKPIs(filteredTransacciones, filteredCategorias, kpis, filterUserId)
     : kpis
 
   return (
@@ -712,6 +712,7 @@ function computeFilteredKPIs(
   txs: TransaccionConCategoria[],
   categorias: Categoria[],
   originalKPIs: FinanceKPIs,
+  userId: string,
 ): FinanceKPIs {
   const totalIngresos = txs
     .filter((t) => t.tipo === 'ingreso')
@@ -754,6 +755,8 @@ function computeFilteredKPIs(
     }
   })
 
+  const memberAccum = originalKPIs.acumuladoPorMiembro[userId]
+
   return {
     saldoInicial: 0,
     totalIngresos,
@@ -763,12 +766,13 @@ function computeFilteredKPIs(
     totalUsoBolsillo,
     totalCredito,
     totalPagoCredito,
-    saldoActual: totalIngresos - totalGastos - totalAhorros - totalBolsillos - totalPagoCredito,
-    deudaCreditoAcumulada: originalKPIs.deudaCreditoAcumulada,
-    saldoBolsillosAcumulado: originalKPIs.saldoBolsillosAcumulado,
+    saldoActual: memberAccum?.balance ?? (totalIngresos - totalGastos - totalAhorros - totalBolsillos - totalPagoCredito),
+    deudaCreditoAcumulada: memberAccum?.deudaCredito ?? 0,
+    saldoBolsillosAcumulado: memberAccum?.saldoBolsillos ?? 0,
     fechaCorteCredito: originalKPIs.fechaCorteCredito,
     diasParaCorte: originalKPIs.diasParaCorte,
     porCategoria,
+    acumuladoPorMiembro: originalKPIs.acumuladoPorMiembro,
   }
 }
 

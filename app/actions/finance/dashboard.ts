@@ -84,7 +84,7 @@ export async function getFinanceKPIs(quincenaId: string): Promise<ActionResult<F
     }
   })
 
-  // Accumulated credit debt and bolsillo balance across all quincenas up to this one
+  // Accumulated totals across all quincenas up to this one
   const { data: prevQIds } = await supabase
     .from('quincenas')
     .select('id')
@@ -95,25 +95,28 @@ export async function getFinanceKPIs(quincenaId: string): Promise<ActionResult<F
 
   const { data: allAccumTxs } = await supabase
     .from('transacciones')
-    .select('tipo, importe')
+    .select('tipo, importe, user_id')
     .in('quincena_id', allQIds)
-    .in('tipo', ['credito', 'pago_credito', 'bolsillo', 'uso_bolsillo'])
 
-  const acumCredito = (allAccumTxs ?? [])
-    .filter((t) => t.tipo === 'credito')
-    .reduce((s, t) => s + Number(t.importe), 0)
-  const acumPago = (allAccumTxs ?? [])
-    .filter((t) => t.tipo === 'pago_credito')
-    .reduce((s, t) => s + Number(t.importe), 0)
-  const deudaCreditoAcumulada = acumCredito - acumPago
+  const txList = allAccumTxs ?? []
+  const sumByTipo = (list: typeof txList, tipo: string) =>
+    list.filter((t) => t.tipo === tipo).reduce((s, t) => s + Number(t.importe), 0)
 
-  const acumBolsillo = (allAccumTxs ?? [])
-    .filter((t) => t.tipo === 'bolsillo')
-    .reduce((s, t) => s + Number(t.importe), 0)
-  const acumUsoBolsillo = (allAccumTxs ?? [])
-    .filter((t) => t.tipo === 'uso_bolsillo')
-    .reduce((s, t) => s + Number(t.importe), 0)
-  const saldoBolsillosAcumulado = acumBolsillo - acumUsoBolsillo
+  // Household-level accumulated
+  const deudaCreditoAcumulada = sumByTipo(txList, 'credito') - sumByTipo(txList, 'pago_credito')
+  const saldoBolsillosAcumulado = sumByTipo(txList, 'bolsillo') - sumByTipo(txList, 'uso_bolsillo')
+
+  // Per-member accumulated breakdowns
+  const userIds = [...new Set(txList.map((t) => t.user_id))]
+  const acumuladoPorMiembro: Record<string, { balance: number; deudaCredito: number; saldoBolsillos: number }> = {}
+  for (const uid of userIds) {
+    const ut = txList.filter((t) => t.user_id === uid)
+    acumuladoPorMiembro[uid] = {
+      balance: sumByTipo(ut, 'ingreso') - sumByTipo(ut, 'gasto') - sumByTipo(ut, 'ahorro') - sumByTipo(ut, 'bolsillo') - sumByTipo(ut, 'pago_credito'),
+      deudaCredito: sumByTipo(ut, 'credito') - sumByTipo(ut, 'pago_credito'),
+      saldoBolsillos: sumByTipo(ut, 'bolsillo') - sumByTipo(ut, 'uso_bolsillo'),
+    }
+  }
 
   // Credit cut date — 18th of each month, based on today
   // If today <= 18th, the cut date is the 18th of this month
@@ -149,6 +152,7 @@ export async function getFinanceKPIs(quincenaId: string): Promise<ActionResult<F
       fechaCorteCredito,
       diasParaCorte,
       porCategoria,
+      acumuladoPorMiembro,
     },
   }
 }
