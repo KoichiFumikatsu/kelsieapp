@@ -36,15 +36,15 @@ export async function createTransaccion(formData: FormData): Promise<ActionResul
   const fecha = (formData.get('fecha') as string) || new Date().toISOString().split('T')[0]
   const selectedUserId = (formData.get('user_id') as string) || user.id
 
-  if (!quincenaId || !categoriaId || !tipo || !importe) {
-    return { ok: false, error: 'Campos requeridos: quincena, categoría, tipo, importe' }
+  if (!quincenaId || !tipo || !importe) {
+    return { ok: false, error: 'Campos requeridos: quincena, tipo, importe' }
   }
 
   const { data, error } = await supabase
     .from('transacciones')
     .insert({
       quincena_id: quincenaId,
-      categoria_id: categoriaId,
+      categoria_id: categoriaId || null,
       user_id: selectedUserId,
       household_id: profile.household_id,
       tipo,
