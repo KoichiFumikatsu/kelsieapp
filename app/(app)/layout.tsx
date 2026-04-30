@@ -2,21 +2,14 @@ import { Header } from '@/components/layout/Header'
 import { BottomNav } from '@/components/layout/BottomNav'
 import { SideNav } from '@/components/layout/SideNav'
 
-export default function AppLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen bg-base">
-      {/* Sidebar — desktop only */}
+    <div className="flex min-h-screen" style={{ background: 'var(--bg)' }}>
       <SideNav />
-
-      {/* Main content area */}
-      <div className="flex flex-1 flex-col md:ml-56">
+      {/* Offset matches sidebar: 72px tablet, 220px desktop */}
+      <div className="relative z-10 flex flex-1 flex-col sm:ml-[72px] lg:ml-[220px]">
         <Header />
-        <main className="mx-auto w-full max-w-4xl flex-1 overflow-y-auto">{children}</main>
-        {/* Bottom nav — mobile only */}
+        <main className="flex-1 pb-[70px] sm:pb-0">{children}</main>
         <BottomNav />
       </div>
     </div>

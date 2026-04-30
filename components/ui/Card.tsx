@@ -1,31 +1,40 @@
 import type { ReactNode, CSSProperties } from 'react'
 
-/* ── Generic Card ── */
 interface CardProps {
   children: ReactNode
   className?: string
+  style?: CSSProperties
 }
 
-export function Card({ children, className = '' }: CardProps) {
+export function Card({ children, className = '', style }: CardProps) {
   return (
-    <div className={`rounded-md border border-[var(--border)] bg-[var(--surface)] p-4 ${className}`}>
+    <div
+      className={`${className}`}
+      style={{
+        background: 'var(--s1)',
+        border: '1px solid var(--b1)',
+        borderRadius: 'var(--rl)',
+        padding: '1rem',
+        ...style,
+      }}
+    >
       {children}
     </div>
   )
 }
 
-/* ── ModuleCard — Arknights operator-card style with accent bar ── */
 interface ModuleCardProps {
   accent: string
   children: ReactNode
   className?: string
+  style?: CSSProperties
 }
 
-export function ModuleCard({ accent, children, className = '' }: ModuleCardProps) {
+export function ModuleCard({ accent, children, className = '', style }: ModuleCardProps) {
   return (
     <div
-      className={`mod-card p-4 ${className}`}
-      style={{ '--accent': accent } as CSSProperties}
+      className={`mod-card ${className}`}
+      style={{ '--accent': accent, ...style } as CSSProperties}
     >
       {children}
     </div>

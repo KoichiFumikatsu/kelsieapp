@@ -1,19 +1,19 @@
 import type { CSSProperties } from 'react'
 
-/* ── Badge — minimal tag ── */
 interface BadgeProps {
   children: React.ReactNode
   color?: string
   className?: string
 }
 
-export function Badge({ children, color = 'var(--text-2)', className = '' }: BadgeProps) {
+export function Badge({ children, color = 'var(--t2)', className = '' }: BadgeProps) {
   return (
     <span
       className={`tag ${className}`}
       style={{
         color,
-        backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`,
+        background: `color-mix(in srgb, ${color} 12%, transparent)`,
+        borderColor: `color-mix(in srgb, ${color} 25%, transparent)`,
       }}
     >
       {children}
@@ -21,16 +21,15 @@ export function Badge({ children, color = 'var(--text-2)', className = '' }: Bad
   )
 }
 
-/* ── StatusBadge — semantic states ── */
 type Status = 'pending' | 'done' | 'overdue' | 'active' | 'cancelled' | 'skipped'
 
 const STATUS_CONFIG: Record<Status, { label: string; color: string }> = {
-  pending:   { label: 'Pendiente',  color: 'var(--warn)' },
-  done:      { label: 'Hecho',      color: 'var(--income)' },
-  overdue:   { label: 'Vencido',    color: 'var(--expense)' },
-  active:    { label: 'Activo',     color: 'var(--info)' },
-  cancelled: { label: 'Cancelado',  color: 'var(--text-3)' },
-  skipped:   { label: 'Saltado',    color: 'var(--text-3)' },
+  pending:   { label: 'Pendiente',  color: 'var(--y)' },
+  done:      { label: 'Hecho',      color: 'var(--g)' },
+  overdue:   { label: 'Vencido',    color: 'var(--r)' },
+  active:    { label: 'Activo',     color: 'var(--bl)' },
+  cancelled: { label: 'Cancelado',  color: 'var(--t3)' },
+  skipped:   { label: 'Saltado',    color: 'var(--t3)' },
 }
 
 interface StatusBadgeProps {
@@ -45,13 +44,11 @@ export function StatusBadge({ status, className = '' }: StatusBadgeProps) {
       className={`tag ${className}`}
       style={{
         color: cfg.color,
-        backgroundColor: `color-mix(in srgb, ${cfg.color} 12%, transparent)`,
+        background: `color-mix(in srgb, ${cfg.color} 12%, transparent)`,
+        borderColor: `color-mix(in srgb, ${cfg.color} 25%, transparent)`,
       } as CSSProperties}
     >
-      <span
-        className="inline-block h-1.5 w-1.5 rounded-full"
-        style={{ backgroundColor: cfg.color }}
-      />
+      <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: cfg.color }} />
       {cfg.label}
     </span>
   )

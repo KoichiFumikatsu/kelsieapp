@@ -1,0 +1,1884 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kelsie OS — Prototipo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,500;0,600;0,700;0,800;0,900;1,700;1,800;1,900&display=swap" rel="stylesheet">
+<style>
+
+/* ══ RESET ═══════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+button{cursor:pointer;font-family:inherit;border:none;background:none}
+a{text-decoration:none;color:inherit}
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-thumb{background:var(--s3);border-radius:3px}
+
+/* ══ TOKENS ══════════════════════════════════════════════ */
+:root{
+  --bg:  #222228;
+  --s1:  #2C2C33;
+  --s2:  #363640;
+  --s3:  #42424E;
+  --s4:  #50505C;
+
+  --b0: rgba(255,255,255,0.04);
+  --b1: rgba(255,255,255,0.09);
+  --b2: rgba(255,255,255,0.18);
+  --b3: rgba(255,255,255,0.30);
+
+  --t1: #F2F0FA;
+  --t2: #9896B0;
+  --t3: #5A5870;
+
+  /* Accents — semantic data colors (finance numbers, states) */
+  --y:   #ECC700; --y0: rgba(236,199,0,.10); --y1: rgba(236,199,0,.22); --yt: #1C1700;
+  --g:   #2EC49A; --g0: rgba(46,196,154,.10); --g1: rgba(46,196,154,.22);
+  --r:   #F07070; --r0: rgba(240,112,112,.10);
+  --pu:  #8B5CF6; --p0: rgba(139,92,246,.12); --p1: rgba(139,92,246,.22);
+  --bl:  #4A8EF0; --b0c: rgba(74,142,240,.12);
+  --or:  #E07A38; --o0: rgba(224,122,56,.12);
+
+  /* Module identity colors — muted, subordinated to --y */
+  --c-fin:  #3FAD86;
+  --c-task: #BA7A42;
+  --c-chor: #7560CC;
+  --c-med:  #CC6464;
+  --c-stu:  #4A7EC8;
+  --c-pm:   #ECC700;
+
+  /* Radius — ZZZ squarish */
+  --rs: 6px; --rm: 10px; --rl: 14px; --rx: 20px;
+
+  /* Layout */
+  --sw: 0px; --pad: 16px; --fs: 14px;
+}
+@media(min-width:640px) { :root{ --sw:72px;  --pad:24px } }
+@media(min-width:1024px){ :root{ --sw:220px; --pad:32px; --fs:15px } }
+@media(min-width:1440px){ :root{ --sw:240px; --pad:40px; --fs:16px } }
+@media(min-width:1920px){ :root{ --sw:260px; --pad:52px; --fs:18px } }
+
+/* ══ BASE ════════════════════════════════════════════════ */
+html{ background:var(--bg) }
+body{
+  font-family:'Poppins',sans-serif;
+  background:var(--bg);
+  color:var(--t1);
+  font-size:var(--fs);
+  line-height:1.4;
+  -webkit-font-smoothing:antialiased;
+  min-height:100dvh;
+  overflow-x:hidden;
+}
+/* dot grid texture */
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:radial-gradient(circle,rgba(255,255,255,.025) 1px,transparent 1px);
+  background-size:22px 22px;
+  pointer-events:none;z-index:0;
+}
+
+/* ══ UTILITY ═════════════════════════════════════════════ */
+.app{ display:flex; min-height:100dvh; position:relative; z-index:1 }
+.hidden{ display:none !important }
+.page{ display:flex; flex-direction:column; flex:1 }
+
+/* ══ ZZZ TYPOGRAPHY ══════════════════════════════════════ */
+/* [TAG] category label — inline colored bracket text */
+.ztag{
+  font-weight:800; font-size:.72em;
+  letter-spacing:.04em;
+}
+.ztag::before{ content:'[' }
+.ztag::after { content:']' }
+.ztag.fin  { color:var(--c-fin)  }
+.ztag.task { color:var(--c-task) }
+.ztag.chor { color:var(--c-chor) }
+.ztag.med  { color:var(--c-med)  }
+.ztag.stu  { color:var(--c-stu)  }
+.ztag.pm   { color:var(--c-pm)   }
+.ztag.all  { color:var(--t2)     }
+.ztag.once { color:var(--pu)     }
+.ztag.first{ color:var(--bl)     }
+.ztag.second{color:var(--y)      }
+.ztag.warn { color:var(--r)      }
+
+/* Section divider ZZZ style */
+.zdivider{
+  display:flex; align-items:center; gap:10px;
+  margin-bottom:12px;
+}
+.zdivider-star{ color:var(--y); font-size:1em }
+.zdivider-label{
+  font-size:.72em; font-weight:900; text-transform:uppercase;
+  letter-spacing:.14em; color:var(--t2);
+}
+.zdivider-line{ flex:1; height:1px; background:var(--b1) }
+
+/* ══ ZZZ BUTTONS ═════════════════════════════════════════ */
+/* Dark pill — base button */
+.zbtn{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:8px 18px;
+  border-radius:var(--rx);
+  background:var(--s2);
+  border:1.5px solid var(--b1);
+  color:var(--t2);
+  font-size:.8em; font-weight:800;
+  text-transform:uppercase; letter-spacing:.06em;
+  transition:border-color .15s, color .15s, box-shadow .15s, background .15s;
+  white-space:nowrap;
+}
+.zbtn:hover{
+  border-color:var(--b3);
+  color:var(--t1);
+  box-shadow:0 0 14px rgba(255,255,255,.06);
+}
+.zbtn:active{ transform:scale(.96) }
+
+/* Primary — yellow fill */
+.zbtn.primary{
+  background:var(--y); border-color:var(--y);
+  color:var(--yt);
+  box-shadow:0 3px 16px rgba(236,199,0,.35);
+}
+.zbtn.primary:hover{
+  box-shadow:0 4px 22px rgba(236,199,0,.55);
+  color:var(--yt);
+}
+
+/* Small Go button */
+.zbtn-go{
+  padding:5px 14px;
+  border-radius:var(--rx);
+  background:var(--s3);
+  border:1px solid var(--b1);
+  color:var(--t2);
+  font-size:.72em; font-weight:800;
+  text-transform:uppercase; letter-spacing:.05em;
+  transition:border-color .14s, color .14s, background .14s;
+  white-space:nowrap;
+}
+.zbtn-go:hover{
+  border-color:var(--y); color:var(--y);
+  background:var(--y0);
+}
+.zbtn-go.done{
+  border-color:var(--g); color:var(--g);
+  background:var(--g0);
+}
+
+/* ══ SIDEBAR ═════════════════════════════════════════════ */
+.sidebar{
+  display:none; position:fixed; left:0;top:0;bottom:0;
+  width:var(--sw); background:var(--s1);
+  border-right:1px solid var(--b1);
+  flex-direction:column; z-index:30;
+  overflow:hidden;
+}
+@media(min-width:640px){ .sidebar{ display:flex } }
+
+.sb-brand{
+  padding:18px 0 14px;
+  display:flex; align-items:center; justify-content:center;
+  border-bottom:1px solid var(--b0);
+  flex-shrink:0;
+}
+.sb-icon{
+  width:36px;height:36px; border-radius:var(--rs);
+  background:var(--y); display:flex; align-items:center; justify-content:center;
+  font-weight:900; font-style:italic; color:var(--yt); font-size:1em;
+}
+.sb-full{
+  font-size:1.25em; font-weight:900; font-style:italic;
+  color:var(--t1); letter-spacing:-.04em;
+}
+.sb-full em{ color:var(--y); font-style:normal }
+@media(max-width:1023px){ .sb-full{ display:none } }
+@media(min-width:1024px){ .sb-icon{ display:none } }
+
+.sb-nav{ flex:1; padding:8px; overflow-y:auto }
+.sb-footer{ padding:8px; border-top:1px solid var(--b0) }
+
+.sitem{
+  display:flex; align-items:center; gap:10px;
+  padding:9px 10px; border-radius:var(--rm);
+  color:var(--t3); font-size:.8em; font-weight:700;
+  cursor:pointer; white-space:nowrap; margin-bottom:2px;
+  transition:background .12s,color .12s;
+  border:1px solid transparent;
+}
+.sitem:hover{ background:var(--s2); color:var(--t2) }
+.sitem.active{ background:var(--y0); color:var(--y); border-color:rgba(236,199,0,.15) }
+.sitem-icon{ font-size:1.1em; width:22px; text-align:center; flex-shrink:0 }
+@media(max-width:1023px){
+  .sitem-label{ display:none }
+  .sitem{ justify-content:center }
+}
+
+/* ══ MAIN ════════════════════════════════════════════════ */
+.main{
+  flex:1; margin-left:var(--sw);
+  display:flex; flex-direction:column;
+  min-height:100dvh; padding-bottom:70px;
+}
+@media(min-width:640px){ .main{ padding-bottom:0 } }
+
+/* ══ APPBAR ══════════════════════════════════════════════ */
+.appbar{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px var(--pad);
+  background:var(--s1); border-bottom:1px solid var(--b1);
+  gap:12px; flex-wrap:wrap;
+  position:sticky; top:0; z-index:20;
+}
+.appbar-left{ display:flex; align-items:center; gap:12px }
+.appbar-brand{
+  font-size:1.3em; font-weight:900; font-style:italic;
+  letter-spacing:-.04em; color:var(--t1);
+}
+.appbar-brand em{ color:var(--y); font-style:normal }
+@media(min-width:640px){ .appbar-brand{ display:none } }
+.appbar-module{ font-size:.95em; font-weight:800; letter-spacing:-.02em }
+@media(max-width:639px){ .appbar-module{ display:none } }
+
+.appbar-right{ display:flex; align-items:center; gap:8px }
+.kpi-pill{
+  display:flex; align-items:center; gap:6px;
+  background:var(--s2); border:1px solid var(--b1);
+  border-radius:var(--rm); padding:5px 12px;
+  font-size:.78em;
+}
+.kpi-pill-label{ color:var(--t3); font-weight:700; text-transform:uppercase; letter-spacing:.08em }
+.kpi-pill-val{ color:var(--y); font-weight:900; letter-spacing:-.02em }
+.kpi-pill-sep{ color:var(--t3) }
+.kpi-pill-total{ color:var(--t2); font-weight:600 }
+@media(max-width:520px){ .kpi-pill{ display:none } }
+
+.icon-btn{
+  width:34px; height:34px; border-radius:var(--rs);
+  background:var(--s2); border:1px solid var(--b1);
+  display:flex; align-items:center; justify-content:center;
+  font-size:.95em; color:var(--t2);
+  transition:border-color .14s, color .14s;
+}
+.icon-btn:hover{ border-color:var(--b2); color:var(--t1) }
+
+/* ══ MODULE TABS (ZZZ top tabs) ══════════════════════════ */
+.mtabs-wrap{
+  background:var(--s1); border-bottom:1px solid var(--b1);
+  padding:0 var(--pad); overflow-x:auto; scrollbar-width:none;
+}
+.mtabs-wrap::-webkit-scrollbar{ display:none }
+.mtabs{ display:flex; height:44px; align-items:flex-end }
+.mtab{
+  position:relative; padding:0 16px; height:100%;
+  display:flex; align-items:center; gap:5px;
+  font-size:.8em; font-weight:700; color:var(--t3);
+  cursor:pointer; white-space:nowrap; flex-shrink:0;
+  border-bottom:2.5px solid transparent;
+  transition:color .13s, border-color .13s;
+}
+.mtab:hover{ color:var(--t2) }
+.mtab.active{ color:var(--y); border-bottom-color:var(--y) }
+.mtab-badge{
+  background:var(--r); color:#fff;
+  font-size:.6em; font-weight:900; padding:1px 5px;
+  border-radius:4px; letter-spacing:.03em;
+}
+
+/* ══ QBAR ════════════════════════════════════════════════ */
+.qbar{
+  display:flex; align-items:center; gap:10px;
+  padding:9px var(--pad);
+  background:var(--s1); border-bottom:1px solid var(--b1);
+}
+.qbar-lbl{ font-size:.68em; font-weight:800; color:var(--t3); text-transform:uppercase; letter-spacing:.10em; flex-shrink:0 }
+.qbar-nav{ display:flex; align-items:center; gap:8px; flex:1 }
+.qbar-arr{
+  width:26px; height:26px; border-radius:var(--rs);
+  background:var(--s2); border:1px solid var(--b1);
+  color:var(--t2); display:flex; align-items:center; justify-content:center;
+  font-size:.9em; font-weight:700; flex-shrink:0;
+  transition:border-color .13s, color .13s;
+}
+.qbar-arr:hover{ border-color:var(--b2); color:var(--t1) }
+.qbar-period{ font-size:.85em; font-weight:800; color:var(--t1); letter-spacing:-.01em; flex:1; text-align:center }
+.qbar-badge{
+  font-size:.68em; font-weight:900;
+  background:var(--y); color:var(--yt);
+  padding:2px 8px; border-radius:var(--rs);
+  text-transform:uppercase; letter-spacing:.04em; flex-shrink:0;
+}
+.member-pills{ display:flex; gap:4px; flex-shrink:0 }
+.mpill{
+  padding:4px 11px; border-radius:var(--rs);
+  font-size:.72em; font-weight:800;
+  background:var(--s2); border:1px solid var(--b1); color:var(--t3);
+  transition:all .12s;
+}
+.mpill.active{ background:var(--y); border-color:var(--y); color:var(--yt) }
+
+/* ══ CONTENT AREA ════════════════════════════════════════ */
+.content{ padding:var(--pad); display:flex; flex-direction:column; gap:22px; flex:1 }
+
+/* ══ HOME PAGE ═══════════════════════════════════════════ */
+.home-layout{
+  display:flex; flex-direction:column; gap:14px;
+}
+@media(min-width:900px){
+  .home-layout{ flex-direction:row; align-items:flex-start }
+  .featured-card{ flex:0 0 340px }
+  .module-grid-wrap{ flex:1 }
+}
+@media(min-width:1200px){
+  .featured-card{ flex:0 0 380px }
+}
+
+/* Featured card — ZZZ mission card style */
+.featured-card{
+  background:var(--s1); border:1px solid var(--b1);
+  border-radius:var(--rl); overflow:hidden;
+  position:relative;
+}
+/* Corner bracket decorations */
+.featured-card::before,.featured-card::after{
+  content:'';position:absolute;width:18px;height:18px;
+  border-color:var(--y); border-style:solid;
+  z-index:2;
+}
+.featured-card::before{ top:10px; left:10px; border-width:2px 0 0 2px }
+.featured-card::after { bottom:10px; right:10px; border-width:0 2px 2px 0 }
+
+.fc-header{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 16px 10px;
+}
+.fc-title{
+  display:flex; align-items:center; gap:8px;
+  font-size:.72em; font-weight:900; text-transform:uppercase;
+  letter-spacing:.14em; color:var(--y);
+  font-style:italic;
+}
+.fc-title-icon{ font-size:1.2em }
+.fc-period{
+  font-size:.68em; font-weight:700; color:var(--t3);
+  text-transform:uppercase; letter-spacing:.08em;
+}
+
+/* Big visual area */
+.fc-visual{
+  margin:0 16px;
+  background:var(--s2); border:1px solid var(--b1);
+  border-radius:var(--rm); padding:20px;
+  display:flex; align-items:center; gap:20px;
+}
+.fc-gauge-wrap{ position:relative; width:90px; height:90px; flex-shrink:0 }
+.fc-gauge-svg{ width:100%; height:100%; transform:rotate(-90deg) }
+.fc-gauge-bg  { fill:none; stroke:var(--s3); stroke-width:8 }
+.fc-gauge-fill{
+  fill:none; stroke:var(--y); stroke-width:8; stroke-linecap:square;
+  filter:drop-shadow(0 0 6px rgba(236,199,0,.5));
+}
+.fc-gauge-inner{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+}
+.fc-gauge-pct{ font-size:1.3em; font-weight:900; color:var(--y); line-height:1; font-style:italic }
+.fc-gauge-sub{ font-size:.6em; font-weight:700; color:var(--t3); text-transform:uppercase; letter-spacing:.06em }
+
+.fc-stats{ flex:1 }
+.fc-main-amount{
+  font-size:1.6em; font-weight:900; letter-spacing:-.05em;
+  font-style:italic; color:var(--t1); line-height:1;
+  margin-bottom:4px;
+}
+.fc-main-label{ font-size:.68em; font-weight:700; color:var(--t3); text-transform:uppercase; letter-spacing:.08em; margin-bottom:10px }
+.fc-stat-row{ display:flex; gap:14px; flex-wrap:wrap }
+.fc-stat{ display:flex; flex-direction:column; gap:1px }
+.fc-stat-val{ font-size:.9em; font-weight:800; letter-spacing:-.02em; font-style:italic }
+.fc-stat-val.g { color:var(--g) }
+.fc-stat-val.y { color:var(--y) }
+.fc-stat-val.pu{ color:var(--pu)}
+.fc-stat-lbl{ font-size:.6em; font-weight:700; color:var(--t3); text-transform:uppercase; letter-spacing:.06em }
+
+/* FC bottom bar */
+.fc-footer{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 16px 12px;
+}
+.fc-members{ display:flex; gap:8px }
+.fc-member{ display:flex; align-items:center; gap:5px; font-size:.72em; font-weight:700; color:var(--t2) }
+.fc-member-dot{ width:6px;height:6px;border-radius:50%;flex-shrink:0 }
+.fc-member-dot.k{ background:var(--g) }
+.fc-member-dot.p{ background:var(--bl) }
+.fc-badge{
+  font-size:.65em; font-weight:900; text-transform:uppercase; letter-spacing:.08em;
+  padding:3px 10px; border-radius:var(--rs);
+  background:var(--y0); color:var(--y); border:1px solid rgba(236,199,0,.2);
+}
+
+/* Module grid */
+.module-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:8px;
+}
+@media(min-width:640px) and (max-width:899px){
+  .module-grid{ grid-template-columns:repeat(3,1fr) }
+}
+@media(min-width:1200px){
+  .module-grid{ grid-template-columns:repeat(3,1fr) }
+}
+
+/* Module card — ZZZ battlefront right-side cards */
+.mod-card{
+  background:var(--s1); border:1px solid var(--b1);
+  border-radius:var(--rl); padding:14px;
+  cursor:pointer; position:relative; overflow:hidden;
+  transition:border-color .15s, background .15s, transform .12s;
+  display:flex; flex-direction:column; gap:8px;
+  min-height:110px;
+}
+.mod-card::before{
+  content:''; position:absolute; top:0;left:0;right:0; height:2.5px;
+  border-radius:var(--rl) var(--rl) 0 0;
+}
+.mod-card.fin::before { background:var(--c-fin)  }
+.mod-card.task::before{ background:var(--c-task) }
+.mod-card.chor::before{ background:var(--c-chor) }
+.mod-card.med::before { background:var(--c-med)  }
+.mod-card.stu::before { background:var(--c-stu)  }
+.mod-card.pm::before  { background:var(--c-pm)   }
+.mod-card:hover{
+  background:var(--s2);
+  transform:translateY(-1px);
+}
+.mod-card.fin:hover  { border-color:var(--c-fin)  }
+.mod-card.task:hover { border-color:var(--c-task) }
+.mod-card.chor:hover { border-color:var(--c-chor) }
+.mod-card.med:hover  { border-color:var(--c-med)  }
+.mod-card.stu:hover  { border-color:var(--c-stu)  }
+.mod-card.pm:hover   { border-color:var(--c-pm)   }
+.mod-card:active{ transform:scale(.97) }
+
+.mod-card-top{ display:flex; align-items:flex-start; justify-content:space-between }
+.mod-card-icon{ font-size:1.6em; line-height:1 }
+.mod-new-badge{
+  font-size:.58em; font-weight:900; text-transform:uppercase;
+  padding:2px 6px; border-radius:4px;
+  background:var(--y); color:var(--yt); letter-spacing:.04em;
+}
+.mod-card-name{
+  font-size:.85em; font-weight:800; color:var(--t1);
+  text-transform:uppercase; letter-spacing:.06em;
+  flex:1;
+}
+.mod-card-stat{ font-size:.8em; font-weight:700; font-style:italic }
+.mod-card.fin  .mod-card-stat { color:var(--g) }
+.mod-card.task .mod-card-stat { color:var(--c-task) }
+.mod-card.chor .mod-card-stat { color:var(--c-chor) }
+.mod-card.med  .mod-card-stat { color:var(--c-med)  }
+.mod-card.stu  .mod-card-stat { color:var(--c-stu)  }
+.mod-card.pm   .mod-card-stat { color:var(--c-pm)   }
+
+/* ══ KPI ROW ═════════════════════════════════════════════ */
+.kpi-row{ display:grid; grid-template-columns:auto 1fr; gap:12px; align-items:start }
+@media(min-width:1024px){ .kpi-row{ grid-template-columns:160px 1fr; gap:16px } }
+
+.gauge-card{
+  background:var(--s1); border:1px solid var(--b1);
+  border-radius:var(--rl); padding:16px 12px;
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+}
+.gauge-wrap{ position:relative; width:96px; height:96px }
+@media(min-width:1024px){ .gauge-wrap{ width:112px; height:112px } }
+.g-svg{ width:100%;height:100%;transform:rotate(-90deg) }
+.g-bg { fill:none;stroke:var(--s3);stroke-width:8 }
+.g-fill{ fill:none;stroke:var(--y);stroke-width:8;stroke-linecap:square; filter:drop-shadow(0 0 6px rgba(236,199,0,.45)) }
+.gauge-inner{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+}
+.g-pct{ font-size:1.35em;font-weight:900;color:var(--y);letter-spacing:-.04em;line-height:1;font-style:italic }
+.g-sub{ font-size:.62em;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em }
+.gauge-lbl{ font-size:.68em;font-weight:900;color:var(--t2);text-transform:uppercase;letter-spacing:.10em }
+
+.kpi-stack{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px }
+@media(max-width:380px){ .kpi-stack{ grid-template-columns:1fr 1fr } }
+
+.kpi-card{
+  background:var(--s1); border:1px solid var(--b1);
+  border-radius:var(--rm); padding:12px;
+  display:flex; flex-direction:column; gap:3px;
+  position:relative; overflow:hidden;
+}
+.kpi-card::before{ content:'';position:absolute;top:0;left:0;right:0;height:2px }
+.kpi-card.g::before  { background:var(--g)  }
+.kpi-card.y::before  { background:var(--y)  }
+.kpi-card.pu::before { background:var(--pu) }
+.kpi-lbl{ font-size:.64em;font-weight:700;text-transform:uppercase;letter-spacing:.10em;color:var(--t3) }
+.kpi-val{ font-size:1.1em;font-weight:900;letter-spacing:-.04em;line-height:1.1;font-style:italic }
+.kpi-val.g { color:var(--g)  }
+.kpi-val.y { color:var(--y)  }
+.kpi-val.pu{ color:var(--pu) }
+.kpi-delta{ font-size:.68em;font-weight:600;color:var(--t3) }
+
+/* ══ CONTAINERS STRIP ════════════════════════════════════ */
+.cstrip-wrap{
+  overflow-x:auto; margin:0 calc(-1*var(--pad));
+  padding:0 var(--pad); scrollbar-width:none;
+}
+.cstrip-wrap::-webkit-scrollbar{ display:none }
+.cstrip{ display:flex; gap:8px }
+.cstrip::after{ content:'';flex-shrink:0;width:var(--pad) }
+@media(min-width:640px){
+  .cstrip-wrap{ margin:0;padding:0;overflow:visible }
+  .cstrip{ display:grid;grid-template-columns:repeat(2,1fr);gap:10px }
+  .cstrip::after{ display:none }
+}
+@media(min-width:1024px){ .cstrip{ grid-template-columns:repeat(4,1fr) } }
+
+.ccard{
+  flex-shrink:0; min-width:148px;
+  background:var(--s1); border:1px solid var(--b1);
+  border-radius:var(--rl); padding:14px;
+  cursor:pointer; position:relative; overflow:hidden;
+  transition:border-color .15s, background .15s;
+}
+@media(min-width:640px){ .ccard{ min-width:0 } }
+.ccard::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2.5px;
+  border-radius:var(--rl) var(--rl) 0 0;
+}
+.ccard.active{ background:var(--s2); border-color:var(--b2) }
+.ccard.cuenta::before   { background:var(--g)  }
+.ccard.ahorro::before   { background:var(--y)  }
+.ccard.credito::before  { background:var(--pu) }
+.ccard.bolsillo::before { background:var(--bl) }
+.ccard:hover{ background:var(--s2) }
+
+.ccard-top{ display:flex;align-items:center;justify-content:space-between;margin-bottom:10px }
+.ccard-icon{ width:34px;height:34px;border-radius:var(--rs);display:flex;align-items:center;justify-content:center;font-size:1.05em }
+.ccard.cuenta   .ccard-icon{ background:var(--g0) }
+.ccard.ahorro   .ccard-icon{ background:var(--y0) }
+.ccard.credito  .ccard-icon{ background:var(--p0) }
+.ccard.bolsillo .ccard-icon{ background:var(--b0c)}
+.ccard-dot{ width:7px;height:7px;border-radius:50% }
+.ccard.cuenta   .ccard-dot{ background:var(--g); box-shadow:0 0 6px var(--g) }
+.ccard.ahorro   .ccard-dot{ background:var(--y); box-shadow:0 0 6px var(--y) }
+.ccard.credito  .ccard-dot{ background:var(--pu);box-shadow:0 0 6px var(--pu)}
+.ccard.bolsillo .ccard-dot{ background:var(--bl);box-shadow:0 0 6px var(--bl)}
+.ccard-lbl{ font-size:.65em;font-weight:900;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px }
+.ccard.cuenta  .ccard-lbl{ color:var(--g)  }
+.ccard.ahorro  .ccard-lbl{ color:var(--y)  }
+.ccard.credito .ccard-lbl{ color:var(--pu) }
+.ccard.bolsillo .ccard-lbl{ color:var(--bl) }
+.ccard-amount{ font-size:1.1em;font-weight:900;letter-spacing:-.04em;font-style:italic;color:var(--t1) }
+.ccard-amount .cur{ font-size:.65em;font-weight:700;color:var(--t3);margin-right:1px;font-style:normal }
+.ccard-sub{ font-size:.7em;color:var(--t3);font-weight:600;margin-top:3px }
+.ccard-delta{
+  display:inline-block;margin-top:10px;
+  padding:2px 8px;border-radius:var(--rs);
+  font-size:.68em;font-weight:800;text-transform:uppercase;letter-spacing:.04em;
+}
+.ccard.cuenta   .ccard-delta{ background:var(--r0);  color:var(--r)  }
+.ccard.ahorro   .ccard-delta{ background:var(--g0);  color:var(--g)  }
+.ccard.credito  .ccard-delta{ background:var(--p0);  color:var(--pu) }
+.ccard.bolsillo .ccard-delta{ background:var(--b0c); color:var(--bl) }
+
+/* ══ BUDGET LIST ═════════════════════════════════════════ */
+.two-col{ display:flex;flex-direction:column;gap:22px }
+@media(min-width:1024px){
+  .two-col{ flex-direction:row;align-items:flex-start }
+  .col-budget{ flex:1.1;min-width:0 }
+  .col-tx{ flex:0.9;min-width:0 }
+}
+
+.blist{ display:flex;flex-direction:column;gap:5px }
+
+/* ZZZ quest-row style budget item */
+.bitem{
+  background:var(--s1); border:1px solid var(--b1);
+  border-radius:var(--rm); overflow:hidden;
+  cursor:pointer;
+  transition:background .12s,border-color .12s;
+}
+.bitem:hover{ background:var(--s2);border-color:var(--b2) }
+.bitem:active{ transform:scale(.99) }
+
+.bitem-row{
+  display:flex;align-items:center;gap:10px;
+  padding:11px 14px;
+}
+.bitem-status{ flex-shrink:0 }
+.bst-check{
+  width:20px;height:20px;border-radius:var(--rs);
+  background:var(--g1);border:1px solid var(--g);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.72em;color:var(--g);font-weight:900;
+}
+.bst-pend{
+  width:20px;height:20px;border-radius:var(--rs);
+  border:1px solid var(--b1);
+  transition:border-color .14s;
+}
+.bitem:hover .bst-pend{ border-color:var(--b2) }
+.bst-over{
+  width:20px;height:20px;border-radius:var(--rs);
+  background:var(--r0);border:1px solid var(--r);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.72em;color:var(--r);font-weight:900;
+}
+
+.bitem-body{ flex:1;min-width:0 }
+.bitem-name-row{ display:flex;align-items:center;gap:6px;margin-bottom:4px }
+.bitem-name{ font-size:.87em;font-weight:800;color:var(--t1) }
+.bitem-tags{ display:flex;gap:5px;flex-wrap:wrap }
+
+.bitem-right{ display:flex;align-items:center;gap:10px;flex-shrink:0 }
+.bitem-amounts{ text-align:right }
+.bitem-real{ font-size:.88em;font-weight:900;letter-spacing:-.02em;font-style:italic;color:var(--t1) }
+.bitem-real.over{ color:var(--r) }
+.bitem-planned{ font-size:.7em;font-weight:600;color:var(--t3) }
+
+/* ══ TX LIST ═════════════════════════════════════════════ */
+.txlist{ display:flex;flex-direction:column;gap:5px }
+.txitem{
+  background:var(--s1);border:1px solid var(--b1);
+  border-radius:var(--rm);padding:11px 14px;
+  display:flex;align-items:center;gap:11px;
+  cursor:pointer;transition:background .12s,border-color .12s;
+}
+.txitem:hover{ background:var(--s2);border-color:var(--b2) }
+.tx-icon{
+  width:36px;height:36px;border-radius:var(--rs);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.05em;flex-shrink:0;
+}
+.tx-icon.exp { background:var(--r0)  }
+.tx-icon.inc { background:var(--g0)  }
+.tx-icon.xfr { background:var(--b0c) }
+.tx-icon.crd { background:var(--p0)  }
+.tx-icon.sav { background:var(--y0)  }
+.tx-body{ flex:1;min-width:0 }
+.tx-desc{ font-size:.87em;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
+.tx-meta{
+  display:flex;align-items:center;gap:5px;
+  font-size:.7em;font-weight:600;color:var(--t3);margin-top:2px;
+}
+.tx-dot{ width:5px;height:5px;border-radius:50%;flex-shrink:0 }
+.tx-dot.k{ background:var(--g)  }
+.tx-dot.p{ background:var(--bl) }
+.tx-amt{ font-size:.9em;font-weight:900;letter-spacing:-.02em;font-style:italic;flex-shrink:0 }
+.tx-amt.exp{ color:var(--r)  }
+.tx-amt.inc{ color:var(--g)  }
+.tx-amt.xfr{ color:var(--bl) }
+.tx-amt.crd{ color:var(--pu) }
+.tx-amt.sav{ color:var(--y)  }
+
+/* ══ TASKS PAGE ══════════════════════════════════════════ */
+/* Milestone bar — ZZZ Errands style */
+.milestone-wrap{
+  background:var(--s1); border-bottom:1px solid var(--b1);
+  padding:14px var(--pad);
+}
+.milestone-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:10px;
+}
+.milestone-title{
+  font-size:.72em;font-weight:900;text-transform:uppercase;
+  letter-spacing:.12em;color:var(--t2);
+}
+.milestone-max{
+  display:flex;align-items:center;gap:6px;
+  font-size:.78em;font-weight:800;color:var(--y);font-style:italic;
+}
+.milestone-track{
+  position:relative;height:36px;
+  background:var(--s3);border-radius:18px;
+  border:1px solid var(--b1);
+  display:flex;align-items:center;padding:0 6px;
+  overflow:visible;
+}
+.milestone-fill{
+  position:absolute;left:0;top:0;bottom:0;
+  background:linear-gradient(90deg,var(--g),var(--y));
+  border-radius:18px;
+  transition:width .6s ease;
+}
+.milestone-nodes{
+  position:relative;z-index:2;
+  display:flex;align-items:center;justify-content:space-between;
+  width:100%;
+}
+.mnode{
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  cursor:pointer;
+}
+.mnode-circle{
+  width:22px;height:22px;border-radius:50%;
+  background:var(--s3);border:2px solid var(--b2);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.65em;font-weight:900;color:var(--t3);
+  transition:all .2s;
+}
+.mnode.done .mnode-circle{
+  background:var(--y);border-color:var(--y);
+  color:var(--yt);box-shadow:0 0 8px rgba(236,199,0,.5);
+}
+.mnode.active .mnode-circle{
+  background:var(--g);border-color:var(--g);
+  color:#000;box-shadow:0 0 8px rgba(0,212,160,.5);
+}
+.mnode-val{ font-size:.6em;font-weight:800;color:var(--t3);white-space:nowrap }
+.mnode.done .mnode-val{ color:var(--y) }
+
+/* Task sub-tabs */
+.task-subtabs{
+  display:flex;gap:6px;padding:12px var(--pad);
+  background:var(--s1);border-bottom:1px solid var(--b1);
+  overflow-x:auto;scrollbar-width:none;
+}
+.task-subtabs::-webkit-scrollbar{ display:none }
+.tstab{
+  padding:6px 16px;border-radius:var(--rx);
+  font-size:.78em;font-weight:800;
+  background:var(--s2);border:1px solid var(--b1);
+  color:var(--t3);
+  white-space:nowrap;flex-shrink:0;
+  transition:all .13s;
+  text-transform:uppercase;letter-spacing:.06em;
+}
+.tstab:hover{ border-color:var(--b2);color:var(--t2) }
+.tstab.active{ background:var(--y);border-color:var(--y);color:var(--yt) }
+
+/* Task cards area */
+.task-content{ padding:var(--pad);display:flex;flex-direction:column;gap:20px }
+
+/* ZZZ Errands task cards — horizontal scroll on mobile, grid on desktop */
+.task-cards-scroll{
+  overflow-x:auto; margin:0 calc(-1*var(--pad));
+  padding:4px var(--pad) 4px;scrollbar-width:none;
+}
+.task-cards-scroll::-webkit-scrollbar{ display:none }
+.task-cards{ display:flex;gap:10px }
+.task-cards::after{ content:'';flex-shrink:0;width:var(--pad) }
+@media(min-width:640px){
+  .task-cards-scroll{ margin:0;padding:0;overflow:visible }
+  .task-cards{ display:grid;grid-template-columns:repeat(2,1fr);gap:10px }
+  .task-cards::after{ display:none }
+}
+@media(min-width:1024px){ .task-cards{ grid-template-columns:repeat(3,1fr) } }
+@media(min-width:1440px){ .task-cards{ grid-template-columns:repeat(4,1fr) } }
+
+.task-card{
+  flex-shrink:0; min-width:220px;
+  background:var(--s1);border:1px solid var(--b1);
+  border-radius:var(--rl);overflow:hidden;
+  display:flex;flex-direction:column;
+  transition:border-color .14s,background .14s;
+}
+@media(min-width:640px){ .task-card{ min-width:0 } }
+.task-card:hover{ background:var(--s2);border-color:var(--b2) }
+.task-card.starred{ border-color:rgba(236,199,0,.3) }
+.task-card.starred .task-card-hdr{ background:var(--y0) }
+
+.task-card-hdr{
+  padding:8px 12px;
+  background:var(--s2);
+  border-bottom:1px solid var(--b1);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.task-card-progress{
+  font-size:.68em;font-weight:800;color:var(--t3);
+  text-transform:uppercase;letter-spacing:.08em;
+}
+.task-card-progress em{ color:var(--y);font-style:normal }
+.task-star{ color:var(--y);font-size:.9em }
+
+.task-card-body{ padding:12px;flex:1 }
+.task-card-tag{ margin-bottom:6px }
+.task-card-desc{
+  font-size:.87em;font-weight:700;color:var(--t1);
+  line-height:1.4;margin-bottom:8px;
+}
+.task-card-sub{ font-size:.72em;font-weight:600;color:var(--t3);margin-bottom:10px }
+
+.task-card-footer{
+  padding:10px 12px;border-top:1px solid var(--b0);
+  display:flex;align-items:center;justify-content:space-between;
+  gap:8px;
+}
+.task-reward{
+  display:flex;align-items:center;gap:5px;
+  font-size:.78em;font-weight:800;color:var(--y);font-style:italic;
+}
+.task-reward-icon{ font-size:1em }
+.task-completed{
+  font-size:.78em;font-weight:800;color:var(--g);
+  display:flex;align-items:center;gap:4px;
+}
+
+/* ══ SCHEDULE / WEEKLY TIMELINE ══════════════════════════ */
+/* ZZZ event schedule style */
+.schedule-weeks{
+  display:flex;gap:0;
+  background:var(--s1);border:1px solid var(--b1);
+  border-radius:var(--rm) var(--rm) 0 0;
+  overflow:hidden;overflow-x:auto;scrollbar-width:none;
+}
+.schedule-weeks::-webkit-scrollbar{ display:none }
+.sweek{
+  flex:1;min-width:100px;
+  padding:8px 12px;
+  font-size:.72em;font-weight:800;
+  color:var(--t3);text-transform:uppercase;letter-spacing:.08em;
+  border-right:1px solid var(--b0);
+  cursor:pointer;transition:background .13s,color .13s;
+  white-space:nowrap;
+}
+.sweek:last-child{ border-right:none }
+.sweek:hover{ background:var(--s2);color:var(--t2) }
+.sweek.active{ background:var(--y0);color:var(--y) }
+.sweek-dates{ font-size:.85em;font-weight:600;color:var(--t3);margin-top:2px;font-style:normal;letter-spacing:0 }
+
+.schedule-rows{
+  background:var(--s1);border:1px solid var(--b1);border-top:none;
+  border-radius:0 0 var(--rm) var(--rm);
+  overflow:hidden;
+}
+.srow{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 14px;border-bottom:1px solid var(--b0);
+  cursor:pointer;transition:background .12s;
+}
+.srow:last-child{ border-bottom:none }
+.srow:hover{ background:var(--s2) }
+.srow.featured{ background:rgba(245,134,58,.08);border-left:3px solid var(--c-task) }
+.srow-name{
+  flex:1;font-size:.87em;font-weight:800;color:var(--t1);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.srow-chips{ display:flex;gap:5px;flex-shrink:0 }
+.srow-chip{
+  width:28px;height:28px;border-radius:50%;
+  background:var(--s3);border:1px solid var(--b1);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.8em;
+  transition:border-color .12s;
+}
+.srow:hover .srow-chip{ border-color:var(--b2) }
+.srow-arr{
+  color:var(--t3);font-size:1em;font-weight:700;
+  flex-shrink:0;transition:color .12s;
+}
+.srow:hover .srow-arr{ color:var(--y) }
+
+/* ══ BOTTOM NAV — ZZZ icon bar ═══════════════════════════ */
+.bottom-nav{
+  position:fixed;bottom:0;left:0;right:0;
+  background:rgba(28,28,32,.96);
+  border-top:1px solid var(--b1);
+  backdrop-filter:blur(12px);
+  display:flex;align-items:center;
+  padding:6px 0 max(6px,env(safe-area-inset-bottom));
+  z-index:40;
+}
+@media(min-width:640px){ .bottom-nav{ display:none } }
+.bnav-item{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+  color:var(--t3);transition:color .13s;padding:2px 0;
+}
+.bnav-item.active{ color:var(--y) }
+.bnav-icon{
+  font-size:1.4em;line-height:1;
+  /* ZZZ style: icon with faint circle bg when active */
+}
+.bnav-item.active .bnav-icon{
+  filter:drop-shadow(0 0 6px rgba(236,199,0,.5));
+}
+.bnav-label{
+  font-size:.58em;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+}
+.bnav-fab{
+  width:44px;height:44px;border-radius:var(--rm);
+  background:var(--y);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.3em;font-weight:900;color:var(--yt);
+  margin-top:-12px;
+  box-shadow:0 3px 18px rgba(236,199,0,.4);
+  transition:transform .13s,box-shadow .13s;
+}
+.bnav-fab:active{ transform:scale(.93) }
+
+/* FAB desktop */
+.fab-dt{
+  display:none;position:fixed;
+  bottom:28px;right:32px;z-index:40;
+}
+@media(min-width:640px){ .fab-dt{ display:block } }
+.fab-dt-btn{
+  display:flex;align-items:center;gap:8px;
+  padding:11px 22px;border-radius:var(--rm);
+  background:var(--y);color:var(--yt);
+  font-size:.85em;font-weight:900;text-transform:uppercase;letter-spacing:.06em;
+  box-shadow:0 4px 22px rgba(236,199,0,.45);
+  transition:opacity .13s,transform .13s,box-shadow .13s;
+}
+.fab-dt-btn:hover{ box-shadow:0 6px 28px rgba(236,199,0,.6) }
+.fab-dt-btn:active{ opacity:.88;transform:scale(.97) }
+
+/* ══ OVERLAY + SHEET ═════════════════════════════════════ */
+.overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.75);
+  z-index:50;opacity:0;pointer-events:none;
+  transition:opacity .22s;backdrop-filter:blur(6px);
+}
+.overlay.open{ opacity:1;pointer-events:all }
+.sheet{
+  position:fixed;bottom:0;left:50%;
+  transform:translateX(-50%) translateY(100%);
+  width:100%;max-width:520px;
+  background:var(--s1);
+  border-radius:var(--rx) var(--rx) 0 0;
+  border:1px solid var(--b1);border-bottom:none;
+  z-index:51;
+  transition:transform .3s cubic-bezier(.34,1.1,.64,1);
+  max-height:92dvh;overflow-y:auto;
+}
+.sheet.open{ transform:translateX(-50%) translateY(0) }
+@media(min-width:1024px){
+  .sheet{
+    bottom:auto;top:50%;border-radius:var(--rl);border:1px solid var(--b1);
+    transform:translateX(-50%) translateY(-40%);opacity:0;
+    transition:opacity .2s,transform .26s cubic-bezier(.34,1.1,.64,1);
+    max-height:85dvh;max-width:460px;
+  }
+  .sheet.open{ transform:translateX(-50%) translateY(-50%);opacity:1 }
+}
+.sh-handle{ width:36px;height:3px;border-radius:2px;background:var(--s3);margin:10px auto 0 }
+@media(min-width:1024px){ .sh-handle{ display:none } }
+.sh-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px 12px;border-bottom:1px solid var(--b0);
+}
+.sh-title{ font-size:1em;font-weight:900;text-transform:uppercase;letter-spacing:.04em }
+.sh-close{
+  width:28px;height:28px;border-radius:var(--rs);
+  background:var(--s2);border:1px solid var(--b1);
+  color:var(--t2);font-size:.85em;
+  display:flex;align-items:center;justify-content:center;
+  transition:border-color .13s,color .13s;
+}
+.sh-close:hover{ border-color:var(--b2);color:var(--t1) }
+.sh-body{ padding:16px 18px;display:flex;flex-direction:column;gap:14px }
+.f-lbl{ font-size:.65em;font-weight:900;text-transform:uppercase;letter-spacing:.12em;color:var(--t3);margin-bottom:8px }
+.type-grid{ display:grid;grid-template-columns:repeat(3,1fr);gap:6px }
+.type-btn{
+  background:var(--s2);border:1.5px solid var(--b1);
+  border-radius:var(--rm);padding:12px 6px;
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  transition:all .13s;
+}
+.type-btn:hover{ border-color:var(--b2);background:var(--s3) }
+.type-btn.sel         { border-color:var(--y);background:var(--y0) }
+.type-btn.sel.expense { border-color:var(--r);background:var(--r0) }
+.type-btn.sel.income  { border-color:var(--g);background:var(--g0) }
+.type-btn.sel.saving  { border-color:var(--y);background:var(--y0) }
+.type-btn.sel.xfer    { border-color:var(--bl);background:var(--b0c) }
+.type-icon{ font-size:1.3em;line-height:1 }
+.type-nm{ font-size:.68em;font-weight:900;color:var(--t3);text-transform:uppercase;letter-spacing:.04em }
+.type-btn.sel .type-nm{ color:var(--t1) }
+.who-row{ display:flex;gap:8px }
+.who-btn{
+  flex:1;background:var(--s2);border:1.5px solid var(--b1);
+  border-radius:var(--rm);padding:10px 12px;
+  display:flex;align-items:center;gap:9px;
+  transition:all .13s;
+}
+.who-btn:hover{ border-color:var(--b2) }
+.who-btn.sel{ border-color:var(--y);background:var(--y0) }
+.who-av{
+  width:30px;height:30px;border-radius:var(--rs);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.9em;font-weight:900;
+}
+.who-av.k{ background:var(--g1);color:var(--g) }
+.who-av.p{ background:var(--b0c);color:var(--bl) }
+.who-name{ font-size:.85em;font-weight:800 }
+.amt-wrap{
+  background:var(--s2);border:1.5px solid var(--b1);
+  border-radius:var(--rm);padding:11px 14px;
+  display:flex;align-items:center;gap:6px;
+  transition:border-color .13s;
+}
+.amt-wrap:focus-within{ border-color:var(--y) }
+.amt-cur{ font-size:1.3em;font-weight:900;color:var(--t3);font-style:italic }
+.amt-input{
+  background:transparent;border:none;outline:none;
+  font-family:'Poppins',sans-serif;font-size:1.8em;font-weight:900;
+  letter-spacing:-.04em;font-style:italic;color:var(--t1);width:100%;
+}
+.amt-input::placeholder{ color:var(--t3) }
+.cat-row{ display:flex;flex-wrap:wrap;gap:6px }
+.cat-chip{
+  padding:6px 12px;border-radius:var(--rx);
+  font-size:.75em;font-weight:800;
+  background:var(--s2);border:1px solid var(--b1);color:var(--t2);
+  text-transform:uppercase;letter-spacing:.04em;
+  transition:all .12s;
+}
+.cat-chip:hover{ border-color:var(--b2);color:var(--t1) }
+.cat-chip.sel{ background:var(--y0);border-color:var(--y);color:var(--y) }
+.note-input{
+  width:100%;background:var(--s2);border:1.5px solid var(--b1);
+  border-radius:var(--rm);padding:10px 12px;
+  font-family:'Poppins',sans-serif;font-size:.87em;font-weight:600;
+  color:var(--t1);outline:none;resize:none;
+  transition:border-color .13s;
+}
+.note-input:focus{ border-color:var(--y) }
+.note-input::placeholder{ color:var(--t3) }
+.sh-footer{
+  padding:12px 18px max(16px,env(safe-area-inset-bottom));
+  border-top:1px solid var(--b0);
+}
+.submit-btn{
+  width:100%;padding:13px;
+  background:var(--y);border-radius:var(--rm);
+  font-family:'Poppins',sans-serif;font-size:.9em;font-weight:900;
+  color:var(--yt);text-transform:uppercase;letter-spacing:.06em;
+  box-shadow:0 4px 18px rgba(236,199,0,.35);
+  transition:opacity .12s,transform .12s,box-shadow .12s;
+}
+.submit-btn:hover{ box-shadow:0 6px 24px rgba(236,199,0,.55) }
+.submit-btn:active{ opacity:.85;transform:scale(.98) }
+
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ═══ SIDEBAR ════════════════════════════════════════════ -->
+<aside class="sidebar">
+  <div class="sb-brand">
+    <div class="sb-icon">K.</div>
+    <div class="sb-full">Kelsie<em>.</em></div>
+  </div>
+  <nav class="sb-nav">
+    <a class="sitem" onclick="goPage('home',this)">
+      <span class="sitem-icon">⊞</span><span class="sitem-label">Inicio</span>
+    </a>
+    <a class="sitem active" onclick="goPage('finance',this)">
+      <span class="sitem-icon">◈</span><span class="sitem-label">Finanzas</span>
+    </a>
+    <a class="sitem" onclick="goPage('tasks',this)">
+      <span class="sitem-icon">✦</span><span class="sitem-label">Tareas</span>
+    </a>
+    <a class="sitem" onclick="goPage('home',this)">
+      <span class="sitem-icon">⊹</span><span class="sitem-label">Quehaceres</span>
+    </a>
+    <a class="sitem" onclick="goPage('home',this)">
+      <span class="sitem-icon">♡</span><span class="sitem-label">Médico</span>
+    </a>
+    <a class="sitem" onclick="goPage('home',this)">
+      <span class="sitem-icon">◎</span><span class="sitem-label">Estudios</span>
+    </a>
+    <a class="sitem" onclick="goPage('home',this)">
+      <span class="sitem-icon">★</span><span class="sitem-label">Proyectos</span>
+    </a>
+  </nav>
+  <div class="sb-footer">
+    <a class="sitem"><span class="sitem-icon">◆</span><span class="sitem-label">Ajustes</span></a>
+  </div>
+</aside>
+
+<!-- ═══ MAIN ════════════════════════════════════════════════ -->
+<main class="main">
+
+<!-- ──────────────────────────────────────────────────────── -->
+<!-- PAGE: HOME                                              -->
+<!-- ──────────────────────────────────────────────────────── -->
+<div class="page hidden" id="page-home">
+  <div class="appbar">
+    <div class="appbar-left">
+      <div class="appbar-brand">Kelsie<em>.</em></div>
+      <div class="appbar-module">Inicio</div>
+    </div>
+    <div class="appbar-right">
+      <div class="icon-btn">◌</div>
+      <div class="icon-btn">◆</div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="home-layout">
+
+      <!-- Featured KPI card -->
+      <div class="featured-card">
+        <div class="fc-header">
+          <div class="fc-title">
+            <span class="fc-title-icon">◈</span>
+            KELSIE OS
+          </div>
+          <div class="fc-period">◆ ABR 2026</div>
+        </div>
+
+        <div class="fc-visual">
+          <div class="fc-gauge-wrap">
+            <svg class="fc-gauge-svg" viewBox="0 0 100 100">
+              <circle class="fc-gauge-bg" cx="50" cy="50" r="40"/>
+              <circle class="fc-gauge-fill" cx="50" cy="50" r="40"
+                stroke-dasharray="251.2" stroke-dashoffset="97.97"/>
+            </svg>
+            <div class="fc-gauge-inner">
+              <div class="fc-gauge-pct">61%</div>
+              <div class="fc-gauge-sub">ejec.</div>
+            </div>
+          </div>
+          <div class="fc-stats">
+            <div class="fc-main-amount">$1.240k</div>
+            <div class="fc-main-label">saldo disponible</div>
+            <div class="fc-stat-row">
+              <div class="fc-stat">
+                <div class="fc-stat-val g">$480k</div>
+                <div class="fc-stat-lbl">Ahorro</div>
+              </div>
+              <div class="fc-stat">
+                <div class="fc-stat-val y">$3.2M</div>
+                <div class="fc-stat-lbl">Presup.</div>
+              </div>
+              <div class="fc-stat">
+                <div class="fc-stat-val pu">$750k</div>
+                <div class="fc-stat-lbl">Crédito</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="fc-footer">
+          <div class="fc-members">
+            <div class="fc-member"><div class="fc-member-dot k"></div>Koichi</div>
+            <div class="fc-member"><div class="fc-member-dot p"></div>Pareja</div>
+          </div>
+          <div class="fc-badge">15na 2 · Activa</div>
+        </div>
+      </div>
+
+      <!-- Module grid -->
+      <div class="module-grid-wrap">
+        <div class="module-grid">
+
+          <div class="mod-card fin" onclick="goPage('finance',null)">
+            <div class="mod-card-top">
+              <div class="mod-card-icon">◈</div>
+            </div>
+            <div><span class="ztag fin">Finanzas</span></div>
+            <div class="mod-card-name">Finanzas</div>
+            <div class="mod-card-stat">$1.24M saldo</div>
+          </div>
+
+          <div class="mod-card task" onclick="goPage('tasks',null)">
+            <div class="mod-card-top">
+              <div class="mod-card-icon">✦</div>
+            </div>
+            <div><span class="ztag task">Trabajo</span></div>
+            <div class="mod-card-name">Tareas</div>
+            <div class="mod-card-stat">3 pendientes</div>
+          </div>
+
+          <div class="mod-card chor">
+            <div class="mod-card-top">
+              <div class="mod-card-icon">⊹</div>
+            </div>
+            <div><span class="ztag chor">Hogar</span></div>
+            <div class="mod-card-name">Quehaceres</div>
+            <div class="mod-card-stat">820 pts</div>
+          </div>
+
+          <div class="mod-card med">
+            <div class="mod-card-top">
+              <div class="mod-card-icon">♡</div>
+            </div>
+            <div><span class="ztag med">Salud</span></div>
+            <div class="mod-card-name">Médico</div>
+            <div class="mod-card-stat">2 medicamentos</div>
+          </div>
+
+          <div class="mod-card stu">
+            <div class="mod-card-top">
+              <div class="mod-card-icon">◎</div>
+            </div>
+            <div><span class="ztag stu">Estudios</span></div>
+            <div class="mod-card-name">Estudios</div>
+            <div class="mod-card-stat">7 días racha</div>
+          </div>
+
+          <div class="mod-card pm">
+            <div class="mod-card-top">
+              <div class="mod-card-icon">★</div>
+              <div class="mod-new-badge">NEW</div>
+            </div>
+            <div><span class="ztag pm">PM</span></div>
+            <div class="mod-card-name">Proyectos</div>
+            <div class="mod-card-stat">En desarrollo</div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ──────────────────────────────────────────────────────── -->
+<!-- PAGE: FINANCE                                           -->
+<!-- ──────────────────────────────────────────────────────── -->
+<div class="page" id="page-finance">
+  <div class="appbar">
+    <div class="appbar-left">
+      <div class="appbar-brand">Kelsie<em>.</em></div>
+      <div class="appbar-module">Finanzas</div>
+    </div>
+    <div class="appbar-right">
+      <div class="kpi-pill">
+        <span class="kpi-pill-label">Saldo</span>
+        <span class="kpi-pill-val">$1.240k</span>
+        <span class="kpi-pill-sep">/</span>
+        <span class="kpi-pill-total">$3.200k</span>
+      </div>
+      <div class="icon-btn">◌</div>
+      <div class="icon-btn">◆</div>
+    </div>
+  </div>
+
+  <div class="mtabs-wrap">
+    <div class="mtabs">
+      <div class="mtab active" onclick="setMtab(this)">Resumen</div>
+      <div class="mtab" onclick="setMtab(this)">Presupuesto <span class="mtab-badge">2</span></div>
+      <div class="mtab" onclick="setMtab(this)">Transacciones</div>
+      <div class="mtab" onclick="setMtab(this)">Contenedores</div>
+      <div class="mtab" onclick="setMtab(this)">Bolsillos</div>
+    </div>
+  </div>
+
+  <div class="qbar">
+    <div class="qbar-lbl">Quincena</div>
+    <div class="qbar-nav">
+      <div class="qbar-arr">‹</div>
+      <div class="qbar-period">16 – 30 abril 2026</div>
+      <div class="qbar-arr">›</div>
+    </div>
+    <div class="qbar-badge">● Activa</div>
+    <div class="member-pills">
+      <button class="mpill active" onclick="setPill(this)">Todos</button>
+      <button class="mpill" onclick="setPill(this)">K</button>
+      <button class="mpill" onclick="setPill(this)">P</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- KPI -->
+    <div>
+      <div class="zdivider"><span class="zdivider-star">◆</span><span class="zdivider-label">Resumen</span><div class="zdivider-line"></div></div>
+      <div class="kpi-row">
+        <div class="gauge-card">
+          <div class="gauge-wrap">
+            <svg class="g-svg" viewBox="0 0 100 100">
+              <circle class="g-bg" cx="50" cy="50" r="40"/>
+              <circle class="g-fill" cx="50" cy="50" r="40"
+                stroke-dasharray="251.2" stroke-dashoffset="97.97"/>
+            </svg>
+            <div class="gauge-inner">
+              <div class="g-pct">61%</div>
+              <div class="g-sub">ejec.</div>
+            </div>
+          </div>
+          <div class="gauge-lbl">Presupuesto</div>
+        </div>
+        <div class="kpi-stack">
+          <div class="kpi-card g">
+            <div class="kpi-lbl">Saldo</div>
+            <div class="kpi-val g">$1.240k</div>
+            <div class="kpi-delta">de $3.200k</div>
+          </div>
+          <div class="kpi-card y">
+            <div class="kpi-lbl">Ahorro</div>
+            <div class="kpi-val y">$480k</div>
+            <div class="kpi-delta">colchón</div>
+          </div>
+          <div class="kpi-card pu">
+            <div class="kpi-lbl">Crédito</div>
+            <div class="kpi-val pu">$750k</div>
+            <div class="kpi-delta">+$120k</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Containers -->
+    <div>
+      <div class="zdivider"><span class="zdivider-star">◆</span><span class="zdivider-label">Contenedores</span><div class="zdivider-line"></div></div>
+      <div class="cstrip-wrap"><div class="cstrip">
+        <div class="ccard cuenta active" onclick="selCard(this)">
+          <div class="ccard-top"><div class="ccard-icon">$</div><div class="ccard-dot"></div></div>
+          <div class="ccard-lbl">Cuenta</div>
+          <div class="ccard-amount"><span class="cur">$</span>1.240.000</div>
+          <div class="ccard-sub">disponible</div>
+          <div class="ccard-delta">−$1.96M</div>
+        </div>
+        <div class="ccard ahorro" onclick="selCard(this)">
+          <div class="ccard-top"><div class="ccard-icon">⊙</div><div class="ccard-dot"></div></div>
+          <div class="ccard-lbl">Ahorro</div>
+          <div class="ccard-amount"><span class="cur">$</span>480.000</div>
+          <div class="ccard-sub">colchón</div>
+          <div class="ccard-delta">+$200k</div>
+        </div>
+        <div class="ccard credito" onclick="selCard(this)">
+          <div class="ccard-top"><div class="ccard-icon">▣</div><div class="ccard-dot"></div></div>
+          <div class="ccard-lbl">Crédito</div>
+          <div class="ccard-amount"><span class="cur">$</span>750.000</div>
+          <div class="ccard-sub">deuda</div>
+          <div class="ccard-delta">+$120k</div>
+        </div>
+        <div class="ccard bolsillo" onclick="selCard(this)">
+          <div class="ccard-top"><div class="ccard-icon">◧</div><div class="ccard-dot"></div></div>
+          <div class="ccard-lbl">Bolsillos</div>
+          <div class="ccard-amount"><span class="cur">$</span>320.000</div>
+          <div class="ccard-sub">3 activos</div>
+          <div class="ccard-delta">sin cambio</div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- Budget + TX -->
+    <div class="two-col">
+      <div class="col-budget">
+        <div class="zdivider"><span class="zdivider-star">◆</span><span class="zdivider-label">Presupuesto</span><div class="zdivider-line"></div><button class="zbtn" style="padding:5px 12px;font-size:.72em">+ Agregar</button></div>
+        <div class="blist">
+
+          <div class="bitem" onclick="togglePaid(this)">
+            <div class="bitem-row">
+              <div class="bitem-status"><div class="bst-check">✓</div></div>
+              <div class="bitem-body">
+                <div class="bitem-name-row">
+                  <span class="ztag all">Siempre</span>
+                  <span class="bitem-name">Arriendo</span>
+                </div>
+                <div class="bitem-tags"><span style="font-size:.7em;color:var(--t3);font-weight:600">Vivienda</span></div>
+              </div>
+              <div class="bitem-right">
+                <div class="bitem-amounts">
+                  <div class="bitem-real">$850.000</div>
+                  <div class="bitem-planned">/ $850.000</div>
+                </div>
+                <button class="zbtn-go done">Pagado</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="bitem" onclick="togglePaid(this)">
+            <div class="bitem-row">
+              <div class="bitem-status"><div class="bst-pend"></div></div>
+              <div class="bitem-body">
+                <div class="bitem-name-row">
+                  <span class="ztag all">Siempre</span>
+                  <span class="bitem-name">Mercado</span>
+                </div>
+                <div class="bitem-tags"><span style="font-size:.7em;color:var(--t3);font-weight:600">Alimentación</span></div>
+              </div>
+              <div class="bitem-right">
+                <div class="bitem-amounts">
+                  <div class="bitem-real">$320.000</div>
+                  <div class="bitem-planned">/ $400.000</div>
+                </div>
+                <button class="zbtn-go">Pagar</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="bitem" onclick="togglePaid(this)">
+            <div class="bitem-row">
+              <div class="bitem-status"><div class="bst-check">✓</div></div>
+              <div class="bitem-body">
+                <div class="bitem-name-row">
+                  <span class="ztag first">1ra 15na</span>
+                  <span class="bitem-name">Internet</span>
+                </div>
+                <div class="bitem-tags"><span style="font-size:.7em;color:var(--t3);font-weight:600">Servicios</span></div>
+              </div>
+              <div class="bitem-right">
+                <div class="bitem-amounts">
+                  <div class="bitem-real">$89.900</div>
+                  <div class="bitem-planned">/ $89.900</div>
+                </div>
+                <button class="zbtn-go done">Pagado</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="bitem" onclick="togglePaid(this)">
+            <div class="bitem-row">
+              <div class="bitem-status"><div class="bst-pend"></div></div>
+              <div class="bitem-body">
+                <div class="bitem-name-row">
+                  <span class="ztag second">2da 15na</span>
+                  <span class="bitem-name">Streaming</span>
+                </div>
+                <div class="bitem-tags"><span style="font-size:.7em;color:var(--t3);font-weight:600">Entretenim.</span></div>
+              </div>
+              <div class="bitem-right">
+                <div class="bitem-amounts">
+                  <div class="bitem-real" style="color:var(--t3)">$0</div>
+                  <div class="bitem-planned">/ $55.000</div>
+                </div>
+                <button class="zbtn-go">Pagar</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="bitem" onclick="togglePaid(this)">
+            <div class="bitem-row">
+              <div class="bitem-status"><div class="bst-over">!</div></div>
+              <div class="bitem-body">
+                <div class="bitem-name-row">
+                  <span class="ztag once">Única vez</span>
+                  <span class="bitem-name">Médico · Cita</span>
+                </div>
+                <div class="bitem-tags"><span style="font-size:.7em;color:var(--t3);font-weight:600">30 abr</span></div>
+              </div>
+              <div class="bitem-right">
+                <div class="bitem-amounts">
+                  <div class="bitem-real over">$120.000</div>
+                  <div class="bitem-planned">/ $80.000</div>
+                </div>
+                <button class="zbtn-go">Pagar</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="col-tx">
+        <div class="zdivider"><span class="zdivider-star">◆</span><span class="zdivider-label">Recientes</span><div class="zdivider-line"></div><button class="zbtn" style="padding:5px 12px;font-size:.72em">Ver todas</button></div>
+        <div class="txlist">
+          <div class="txitem">
+            <div class="tx-icon crd">▣</div>
+            <div class="tx-body">
+              <div class="tx-desc">Netflix — crédito</div>
+              <div class="tx-meta"><div class="tx-dot k"></div>Koichi · hoy</div>
+            </div>
+            <div class="tx-amt crd">−$55.000</div>
+          </div>
+          <div class="txitem">
+            <div class="tx-icon sav">⊙</div>
+            <div class="tx-body">
+              <div class="tx-desc">Guardado en ahorro</div>
+              <div class="tx-meta"><div class="tx-dot k"></div>Koichi · ayer</div>
+            </div>
+            <div class="tx-amt sav">$200.000</div>
+          </div>
+          <div class="txitem">
+            <div class="tx-icon exp">▽</div>
+            <div class="tx-body">
+              <div class="tx-desc">Mercado</div>
+              <div class="tx-meta"><div class="tx-dot p"></div>Pareja · 28 abr</div>
+            </div>
+            <div class="tx-amt exp">−$185.000</div>
+          </div>
+          <div class="txitem">
+            <div class="tx-icon xfr">↕</div>
+            <div class="tx-body">
+              <div class="tx-desc">Bolsillo: Cosméticos</div>
+              <div class="tx-meta"><div class="tx-dot p"></div>Pareja · 27 abr</div>
+            </div>
+            <div class="tx-amt xfr">$100.000</div>
+          </div>
+          <div class="txitem">
+            <div class="tx-icon inc">△</div>
+            <div class="tx-body">
+              <div class="tx-desc">Quincena — ingreso</div>
+              <div class="tx-meta"><div class="tx-dot k"></div>Koichi · 16 abr</div>
+            </div>
+            <div class="tx-amt inc">+$3.200.000</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="height:16px"></div>
+  </div>
+</div>
+
+<!-- ──────────────────────────────────────────────────────── -->
+<!-- PAGE: TASKS                                             -->
+<!-- ──────────────────────────────────────────────────────── -->
+<div class="page hidden" id="page-tasks">
+  <div class="appbar">
+    <div class="appbar-left">
+      <div class="appbar-brand">Kelsie<em>.</em></div>
+      <div class="appbar-module">Tareas</div>
+    </div>
+    <div class="appbar-right">
+      <div class="icon-btn">◌</div>
+      <div class="icon-btn">◆</div>
+    </div>
+  </div>
+
+  <!-- Milestone bar -->
+  <div class="milestone-wrap">
+    <div class="milestone-hdr">
+      <div class="milestone-title">★ Actividad hoy ★</div>
+      <div class="milestone-max">★ 120 / 400 pts</div>
+    </div>
+    <div class="milestone-track">
+      <div class="milestone-fill" style="width:30%"></div>
+      <div class="milestone-nodes">
+        <div class="mnode done">
+          <div class="mnode-circle">✓</div>
+          <div class="mnode-val">100</div>
+        </div>
+        <div class="mnode active">
+          <div class="mnode-circle">●</div>
+          <div class="mnode-val">200</div>
+        </div>
+        <div class="mnode">
+          <div class="mnode-circle"></div>
+          <div class="mnode-val">300</div>
+        </div>
+        <div class="mnode">
+          <div class="mnode-circle"></div>
+          <div class="mnode-val">400</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sub-tabs -->
+  <div class="task-subtabs">
+    <button class="tstab active" onclick="setTstab(this)">Todas</button>
+    <button class="tstab" onclick="setTstab(this)">Trabajo</button>
+    <button class="tstab" onclick="setTstab(this)">Personal</button>
+    <button class="tstab" onclick="setTstab(this)">Proyectos ★</button>
+  </div>
+
+  <div class="task-content">
+
+    <!-- Task cards ZZZ Errands style -->
+    <div>
+      <div class="zdivider"><span class="zdivider-star">◆</span><span class="zdivider-label">Tareas activas</span><div class="zdivider-line"></div></div>
+      <div class="task-cards-scroll"><div class="task-cards">
+
+        <div class="task-card starred">
+          <div class="task-card-hdr">
+            <div class="task-card-progress">Prog: <em>0/2</em></div>
+            <div class="task-star">★</div>
+          </div>
+          <div class="task-card-body">
+            <div class="task-card-tag"><span class="ztag pm">Proyecto</span></div>
+            <div class="task-card-desc">Diseño sistema de navegación — cliente app móvil</div>
+            <div class="task-card-sub">Entrega: 02 may · Alta prioridad</div>
+          </div>
+          <div class="task-card-footer">
+            <div class="task-reward"><span class="task-reward-icon">★</span>300 pts</div>
+            <button class="zbtn-go">Ir</button>
+          </div>
+        </div>
+
+        <div class="task-card">
+          <div class="task-card-hdr">
+            <div class="task-card-progress">Prog: <em>1/1</em></div>
+          </div>
+          <div class="task-card-body">
+            <div class="task-card-tag"><span class="ztag task">Trabajo</span></div>
+            <div class="task-card-desc">Revisar pull requests pendientes</div>
+            <div class="task-card-sub">Completado hoy</div>
+          </div>
+          <div class="task-card-footer">
+            <div class="task-completed">✓ Completado</div>
+          </div>
+        </div>
+
+        <div class="task-card">
+          <div class="task-card-hdr">
+            <div class="task-card-progress">Prog: <em>0/1</em></div>
+          </div>
+          <div class="task-card-body">
+            <div class="task-card-tag"><span class="ztag pm">Proyecto</span></div>
+            <div class="task-card-desc">Preparar presentación sprint demo</div>
+            <div class="task-card-sub">Entrega: 30 abr · Media</div>
+          </div>
+          <div class="task-card-footer">
+            <div class="task-reward"><span class="task-reward-icon">★</span>100 pts</div>
+            <button class="zbtn-go">Ir</button>
+          </div>
+        </div>
+
+        <div class="task-card">
+          <div class="task-card-hdr">
+            <div class="task-card-progress">Prog: <em>0/3</em></div>
+          </div>
+          <div class="task-card-body">
+            <div class="task-card-tag"><span class="ztag task">Trabajo</span></div>
+            <div class="task-card-desc">Documentar endpoints API v2</div>
+            <div class="task-card-sub">Sin fecha · Baja</div>
+          </div>
+          <div class="task-card-footer">
+            <div class="task-reward"><span class="task-reward-icon">★</span>100 pts</div>
+            <button class="zbtn-go">Ir</button>
+          </div>
+        </div>
+
+      </div></div>
+    </div>
+
+    <!-- Weekly schedule — ZZZ event timeline style -->
+    <div>
+      <div class="zdivider"><span class="zdivider-star">◆</span><span class="zdivider-label">Cronograma semanal</span><div class="zdivider-line"></div></div>
+
+      <div class="schedule-weeks">
+        <div class="sweek active" onclick="setSweek(this)">
+          Semana 1
+          <div class="sweek-dates">04/28–05/04</div>
+        </div>
+        <div class="sweek" onclick="setSweek(this)">
+          Semana 2
+          <div class="sweek-dates">05/05–05/11</div>
+        </div>
+        <div class="sweek" onclick="setSweek(this)">
+          Semana 3
+          <div class="sweek-dates">05/12–05/18</div>
+        </div>
+        <div class="sweek" onclick="setSweek(this)">
+          Semana 4
+          <div class="sweek-dates">05/19–05/25</div>
+        </div>
+      </div>
+
+      <div class="schedule-rows">
+        <div class="srow featured">
+          <div class="srow-name">★ Diseño sistema navegación</div>
+          <div class="srow-chips">
+            <div class="srow-chip">UI</div>
+            <div class="srow-chip">UX</div>
+            <div class="srow-chip">✦</div>
+          </div>
+          <div class="srow-arr">›</div>
+        </div>
+        <div class="srow">
+          <div class="srow-name">Sprint demo — preparación</div>
+          <div class="srow-chips">
+            <div class="srow-chip">PM</div>
+            <div class="srow-chip">CR</div>
+          </div>
+          <div class="srow-arr">›</div>
+        </div>
+        <div class="srow">
+          <div class="srow-name">Documentación API v2</div>
+          <div class="srow-chips">
+            <div class="srow-chip">DC</div>
+            <div class="srow-chip">◆</div>
+            <div class="srow-chip">AP</div>
+          </div>
+          <div class="srow-arr">›</div>
+        </div>
+        <div class="srow">
+          <div class="srow-name">Code review — módulo auth</div>
+          <div class="srow-chips">
+            <div class="srow-chip">RV</div>
+            <div class="srow-chip">AU</div>
+          </div>
+          <div class="srow-arr">›</div>
+        </div>
+        <div class="srow" style="opacity:.45">
+          <div class="srow-name">Reunión cliente — feedback</div>
+          <div class="srow-chips">
+            <div class="srow-chip">◆</div>
+          </div>
+          <div class="srow-arr">›</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="height:16px"></div>
+  </div>
+</div>
+
+</main><!-- /main -->
+</div><!-- /app -->
+
+<!-- ═══ BOTTOM NAV — ZZZ icon bar ══════════════════════════ -->
+<nav class="bottom-nav">
+  <button class="bnav-item" onclick="goPage('home',null);setBnav(this)">
+    <div class="bnav-icon">⊞</div>
+    <div class="bnav-label">Inicio</div>
+  </button>
+  <button class="bnav-item active" onclick="goPage('finance',null);setBnav(this)">
+    <div class="bnav-icon">◈</div>
+    <div class="bnav-label">Finanzas</div>
+  </button>
+  <button class="bnav-item" onclick="openSheet()">
+    <div class="bnav-fab">+</div>
+  </button>
+  <button class="bnav-item" onclick="goPage('tasks',null);setBnav(this)">
+    <div class="bnav-icon">✦</div>
+    <div class="bnav-label">Tareas</div>
+  </button>
+  <button class="bnav-item" onclick="setBnav(this)">
+    <div class="bnav-icon">···</div>
+    <div class="bnav-label">Más</div>
+  </button>
+</nav>
+
+<!-- FAB desktop -->
+<div class="fab-dt">
+  <button class="fab-dt-btn" onclick="openSheet()">+ Nueva transacción</button>
+</div>
+
+<!-- Overlay + Sheet -->
+<div class="overlay" id="overlay" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet">
+  <div class="sh-handle"></div>
+  <div class="sh-hdr">
+    <span class="sh-title">Nueva transacción</span>
+    <button class="sh-close" onclick="closeSheet()">✕</button>
+  </div>
+  <div class="sh-body">
+    <div>
+      <div class="f-lbl">Tipo</div>
+      <div class="type-grid">
+        <button class="type-btn" onclick="selType(this,'expense')"><span class="type-icon">▽</span><span class="type-nm">Gasto</span></button>
+        <button class="type-btn" onclick="selType(this,'income')"><span class="type-icon">△</span><span class="type-nm">Ingreso</span></button>
+        <button class="type-btn" onclick="selType(this,'credit')"><span class="type-icon">▣</span><span class="type-nm">Crédito</span></button>
+        <button class="type-btn" onclick="selType(this,'saving')"><span class="type-icon">⊙</span><span class="type-nm">Ahorro</span></button>
+        <button class="type-btn" onclick="selType(this,'xfer')"><span class="type-icon">◧</span><span class="type-nm">Bolsillo</span></button>
+        <button class="type-btn" onclick="selType(this,'xfer')"><span class="type-icon">↕</span><span class="type-nm">Mover</span></button>
+      </div>
+    </div>
+    <div>
+      <div class="f-lbl">¿Quién?</div>
+      <div class="who-row">
+        <button class="who-btn sel" onclick="selWho(this)"><div class="who-av k">K</div><span class="who-name">Koichi</span></button>
+        <button class="who-btn" onclick="selWho(this)"><div class="who-av p">P</div><span class="who-name">Pareja</span></button>
+      </div>
+    </div>
+    <div>
+      <div class="f-lbl">Monto</div>
+      <div class="amt-wrap"><span class="amt-cur">$</span><input class="amt-input" type="number" inputmode="numeric" placeholder="0"></div>
+    </div>
+    <div>
+      <div class="f-lbl">Categoría</div>
+      <div class="cat-row">
+        <div class="cat-chip" onclick="selCat(this)">Alimentación</div>
+        <div class="cat-chip sel" onclick="selCat(this)">Vivienda</div>
+        <div class="cat-chip" onclick="selCat(this)">Servicios</div>
+        <div class="cat-chip" onclick="selCat(this)">Transporte</div>
+        <div class="cat-chip" onclick="selCat(this)">Salud</div>
+        <div class="cat-chip" onclick="selCat(this)">+ Nueva</div>
+      </div>
+    </div>
+    <div>
+      <div class="f-lbl">Nota</div>
+      <textarea class="note-input" rows="2" placeholder="Descripción..."></textarea>
+    </div>
+  </div>
+  <div class="sh-footer">
+    <button class="submit-btn" onclick="closeSheet()">Registrar</button>
+  </div>
+</div>
+
+<script>
+// ── Page navigation ───────────────────────────────────────
+const pages = ['home','finance','tasks'];
+function goPage(id, sitemEl) {
+  pages.forEach(p => {
+    const el = document.getElementById('page-'+p);
+    if (el) el.classList.toggle('hidden', p !== id);
+  });
+  // sync sidebar
+  if (sitemEl) {
+    document.querySelectorAll('.sitem').forEach(s => s.classList.remove('active'));
+    sitemEl.classList.add('active');
+  } else {
+    // find sitem by page
+    document.querySelectorAll('.sitem').forEach(s => s.classList.remove('active'));
+  }
+}
+
+// Start on finance page
+goPage('finance', null);
+document.querySelectorAll('.sitem')[1].classList.add('active');
+
+// ── Sheet ─────────────────────────────────────────────────
+function openSheet() {
+  document.getElementById('sheet').classList.add('open');
+  document.getElementById('overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeSheet() {
+  document.getElementById('sheet').classList.remove('open');
+  document.getElementById('overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// ── Interactions ──────────────────────────────────────────
+function selType(btn, type) {
+  document.querySelectorAll('.type-btn').forEach(b => { b.className = 'type-btn'; });
+  btn.classList.add('sel', type);
+}
+function selWho(btn) {
+  document.querySelectorAll('.who-btn').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+}
+function selCat(c) {
+  document.querySelectorAll('.cat-chip').forEach(x => x.classList.remove('sel'));
+  c.classList.add('sel');
+}
+function selCard(c) {
+  document.querySelectorAll('.ccard').forEach(x => x.classList.remove('active'));
+  c.classList.add('active');
+}
+function togglePaid(item) {
+  const check = item.querySelector('.bst-check');
+  const pend  = item.querySelector('.bst-pend');
+  const over  = item.querySelector('.bst-over');
+  const btn   = item.querySelector('.zbtn-go');
+  if (check) {
+    check.outerHTML = '<div class="bst-pend"></div>';
+    if (btn) { btn.className='zbtn-go'; btn.textContent='Pagar'; }
+  } else if (pend) {
+    pend.outerHTML = '<div class="bst-check">✓</div>';
+    if (btn) { btn.className='zbtn-go done'; btn.textContent='Pagado'; }
+  } else if (over) {
+    over.outerHTML = '<div class="bst-check">✓</div>';
+    if (btn) { btn.className='zbtn-go done'; btn.textContent='Pagado'; }
+  }
+}
+function setMtab(t) {
+  document.querySelectorAll('.mtab').forEach(x => x.classList.remove('active'));
+  t.classList.add('active');
+}
+function setPill(btn) {
+  document.querySelectorAll('.mpill').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+function setTstab(btn) {
+  document.querySelectorAll('.tstab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+function setSweek(w) {
+  document.querySelectorAll('.sweek').forEach(x => x.classList.remove('active'));
+  w.classList.add('active');
+}
+function setBnav(el) {
+  document.querySelectorAll('.bnav-item').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+</script>
+</body>
+</html>

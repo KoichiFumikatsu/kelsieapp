@@ -1,128 +1,273 @@
 @import "tailwindcss";
 
+/* ══ TOKENS ══════════════════════════════════════════════ */
 :root {
-  /* Core — Arknights-inspired neutral canvas */
-  --bg: #E8E6E1;
-  --surface: #FFFFFF;
-  --surface-2: #F0EEEA;
-  --surface-glass: rgba(255, 255, 255, 0.45);
-  --text-1: #141413;
-  --text-2: #575650;
-  --text-3: #9C9A94;
-  --border: rgba(20, 20, 19, 0.08);
-  --border-strong: rgba(20, 20, 19, 0.18);
+  /* Background layers */
+  --bg:  #222228;
+  --s1:  #2C2C33;
+  --s2:  #363640;
+  --s3:  #42424E;
+  --s4:  #50505C;
 
-  /* Semánticos */
-  --income: #1A7A5A;
-  --expense: #C0472A;
-  --warn: #B87428;
-  --info: #2563A8;
-  --credit: #9333EA;
+  /* White-alpha overlays */
+  --b0: rgba(255,255,255,0.04);
+  --b1: rgba(255,255,255,0.09);
+  --b2: rgba(255,255,255,0.18);
+  --b3: rgba(255,255,255,0.30);
 
-  /* Por módulo (accent colors) */
-  --mod-finance: #1A7A5A;
-  --mod-chores: #7C5CBF;
-  --mod-tasks: #2563A8;
-  --mod-medical: #C0472A;
-  --mod-studies: #B87428;
+  /* Text */
+  --t1: #F2F0FA;
+  --t2: #9896B0;
+  --t3: #5A5870;
+
+  /* Accents */
+  --y:  #ECC700;  --y0: rgba(236,199,0,.10);  --y1: rgba(236,199,0,.22);  --yt: #1C1700;
+  --g:  #2EC49A;  --g0: rgba(46,196,154,.10);  --g1: rgba(46,196,154,.22);
+  --r:  #F07070;  --r0: rgba(240,112,112,.10);
+  --pu: #8B5CF6;  --p0: rgba(139,92,246,.12);  --p1: rgba(139,92,246,.22);
+  --bl: #4A8EF0;  --b0c: rgba(74,142,240,.12);
+  --or: #E07A38;  --o0: rgba(224,122,56,.12);
+
+  /* Module identity colors — muted, subordinated to --y */
+  --c-fin:  #3FAD86;
+  --c-task: #BA7A42;
+  --c-chor: #7560CC;
+  --c-med:  #CC6464;
+  --c-stu:  #4A7EC8;
+  --c-pm:   #ECC700;
+
+  /* Radius — ZZZ squarish */
+  --rs: 6px;
+  --rm: 10px;
+  --rl: 14px;
+  --rx: 20px;
+
+  /* Responsive layout */
+  --sw: 0px;
+  --pad: 16px;
+  --fs: 14px;
 }
 
+@media (min-width: 640px)  { :root { --sw: 72px;  --pad: 24px; } }
+@media (min-width: 1024px) { :root { --sw: 220px; --pad: 32px; --fs: 15px; } }
+@media (min-width: 1440px) { :root { --sw: 240px; --pad: 40px; --fs: 16px; } }
+@media (min-width: 1920px) { :root { --sw: 260px; --pad: 52px; --fs: 18px; } }
+
+/* ══ SEMANTIC ALIASES — old var names → new tokens ═══════ */
+/* Allows existing components to keep working during redesign */
+:root {
+  --surface:       var(--s1);
+  --surface-2:     var(--s2);
+  --surface-glass: rgba(44,44,51,0.85);
+  --text-1:        var(--t1);
+  --text-2:        var(--t2);
+  --text-3:        var(--t3);
+  --border:        var(--b1);
+  --border-strong: var(--b2);
+  --income:        var(--g);
+  --expense:       var(--r);
+  --warn:          var(--y);
+  --info:          var(--bl);
+  --credit:        var(--pu);
+  --mod-finance:   var(--c-fin);
+  --mod-chores:    var(--c-chor);
+  --mod-tasks:     var(--c-task);
+  --mod-medical:   var(--c-med);
+  --mod-studies:   var(--c-stu);
+}
+
+/* ══ TAILWIND THEME BRIDGE ═══════════════════════════════ */
 @theme inline {
-  --color-base: var(--bg);
-  --color-surface: var(--surface);
-  --color-surface-2: var(--surface-2);
-  --color-primary: var(--text-1);
-  --color-secondary: var(--text-2);
-  --color-muted: var(--text-3);
+  /* Semantic aliases — keep existing Tailwind utility names working */
+  --color-base:      var(--bg);
+  --color-surface:   var(--s1);
+  --color-surface-2: var(--s2);
+  --color-surface-3: var(--s3);
 
-  --color-income: var(--income);
-  --color-expense: var(--expense);
-  --color-warn: var(--warn);
-  --color-info: var(--info);
+  --color-primary:   var(--t1);
+  --color-secondary: var(--t2);
+  --color-muted:     var(--t3);
 
-  --color-mod-finance: var(--mod-finance);
-  --color-mod-chores: var(--mod-chores);
-  --color-mod-tasks: var(--mod-tasks);
-  --color-mod-medical: var(--mod-medical);
-  --color-mod-studies: var(--mod-studies);
+  --color-income:  var(--g);
+  --color-expense: var(--r);
+  --color-credit:  var(--pu);
+  --color-warn:    var(--y);
+  --color-info:    var(--bl);
+  --color-accent:  var(--y);
 
-  --font-sans: var(--font-dm-sans), "DM Sans", sans-serif;
-  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", monospace;
+  /* Module colors */
+  --color-mod-finance: var(--c-fin);
+  --color-mod-chores:  var(--c-chor);
+  --color-mod-tasks:   var(--c-task);
+  --color-mod-medical: var(--c-med);
+  --color-mod-studies: var(--c-stu);
+  --color-mod-pm:      var(--c-pm);
+
+  --font-sans: var(--font-poppins), "Poppins", sans-serif;
+  --font-mono: ui-monospace, "JetBrains Mono", monospace;
+}
+
+/* ══ BASE ════════════════════════════════════════════════ */
+html {
+  background: var(--bg);
 }
 
 body {
-  background: var(--bg);
-  color: var(--text-1);
   font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--t1);
+  font-size: var(--fs);
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+  overflow-x: hidden;
 }
 
-/* Números siempre monoespaciados y alineados a la derecha */
-.num {
-  font-family: var(--font-mono);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Glass panel — HSR / Wuthering Waves inspired */
-.glass {
-  background: var(--surface-glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--border);
-}
-
-/* Module card — Arknights operator-card style */
-.mod-card {
-  position: relative;
-  overflow: hidden;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-.mod-card::before {
+/* Dot grid background texture */
+body::before {
   content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--accent, var(--text-3));
-}
-.mod-card:hover {
-  border-color: var(--border-strong);
-  box-shadow: 0 0 12px color-mix(in srgb, var(--accent, var(--text-3)) 15%, transparent);
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,.025) 1px, transparent 1px);
+  background-size: 22px 22px;
+  pointer-events: none;
+  z-index: 0;
 }
 
-/* Accent bar for section headers — Arknights style */
-.section-bar {
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-thumb { background: var(--s3); border-radius: 3px; }
+
+/* ══ ZZZ TYPOGRAPHY ══════════════════════════════════════ */
+/* [TAG] inline bracket label */
+.ztag {
+  font-weight: 800;
+  font-size: .72em;
+  letter-spacing: .04em;
+}
+.ztag::before { content: '['; }
+.ztag::after  { content: ']'; }
+
+.ztag.fin    { color: var(--c-fin);  }
+.ztag.task   { color: var(--c-task); }
+.ztag.chor   { color: var(--c-chor); }
+.ztag.med    { color: var(--c-med);  }
+.ztag.stu    { color: var(--c-stu);  }
+.ztag.pm     { color: var(--c-pm);   }
+.ztag.all    { color: var(--t2);     }
+.ztag.once   { color: var(--pu);     }
+.ztag.first  { color: var(--bl);     }
+.ztag.second { color: var(--y);      }
+.ztag.warn   { color: var(--r);      }
+.ztag.income { color: var(--g);      }
+.ztag.credit { color: var(--pu);     }
+
+/* Section divider — ◆ SECCIÓN style */
+.zdivider {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  margin-bottom: 12px;
 }
-.section-bar::before {
-  content: '';
-  width: 3px;
-  height: 16px;
-  border-radius: 1px;
-  background: var(--accent, var(--text-1));
-  flex-shrink: 0;
+.zdivider-star  { color: var(--y); font-size: 1em; }
+.zdivider-label {
+  font-size: .72em;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  color: var(--t2);
 }
+.zdivider-line  { flex: 1; height: 1px; background: var(--b1); }
 
-/* Tag / badge — tactical status indicator */
-.tag {
+/* ══ ZZZ BUTTONS ═════════════════════════════════════════ */
+.zbtn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 2px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: var(--rx);
+  background: var(--s2);
+  border: 1.5px solid var(--b1);
+  color: var(--t2);
+  font-size: .8em;
+  font-weight: 800;
+  font-family: inherit;
   text-transform: uppercase;
+  letter-spacing: .06em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color .15s, color .15s, box-shadow .15s, background .15s;
+}
+.zbtn:hover {
+  border-color: var(--b3);
+  color: var(--t1);
+  box-shadow: 0 0 14px rgba(255,255,255,.06);
+}
+.zbtn:active { transform: scale(.96); }
+
+.zbtn.primary {
+  background: var(--y);
+  border-color: var(--y);
+  color: var(--yt);
+  box-shadow: 0 3px 16px rgba(236,199,0,.35);
+}
+.zbtn.primary:hover {
+  box-shadow: 0 4px 22px rgba(236,199,0,.55);
+  color: var(--yt);
 }
 
-/* ── Animations ── */
+/* Small "Ir / Pagado" button */
+.zbtn-go {
+  padding: 5px 14px;
+  border-radius: var(--rx);
+  background: var(--s3);
+  border: 1px solid var(--b1);
+  color: var(--t2);
+  font-size: .72em;
+  font-weight: 800;
+  font-family: inherit;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color .14s, color .14s, background .14s;
+}
+.zbtn-go:hover {
+  border-color: var(--y);
+  color: var(--y);
+  background: var(--y0);
+}
+.zbtn-go.done {
+  border-color: var(--g);
+  color: var(--g);
+  background: var(--g0);
+}
+
+/* Small icon button */
+.icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--rs);
+  background: var(--s2);
+  border: 1px solid var(--b1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .95em;
+  color: var(--t2);
+  cursor: pointer;
+  transition: border-color .14s, color .14s;
+}
+.icon-btn:hover { border-color: var(--b2); color: var(--t1); }
+
+/* ══ NUMBERS — Poppins italic bold ═══════════════════════ */
+.num {
+  font-style: italic;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.03em;
+}
+
+/* ══ ANIMATIONS ══════════════════════════════════════════ */
 @keyframes slide-up {
   from { transform: translateY(100%); }
   to   { transform: translateY(0); }
@@ -151,8 +296,50 @@ body {
 .animate-slide-out    { animation: slide-out-right 250ms ease-in forwards; }
 .animate-float-up     { animation: float-up 600ms ease-out forwards; }
 
-/* Private module indicator */
-.private-indicator {
-  border-style: dashed;
-  border-color: var(--text-3);
+/* ══ TRANSITION STUBS — remove when components are redesigned ═══ */
+/* mod-card: ZZZ dark container card */
+.mod-card {
+  background: var(--s1);
+  border: 1px solid var(--b1);
+  border-radius: var(--rl);
+  position: relative;
+  overflow: hidden;
+  transition: border-color .15s, background .15s;
+}
+.mod-card:hover { border-color: var(--b2); }
+
+/* section-bar: heading with yellow accent */
+.section-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: .72em;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .10em;
+  color: var(--t2);
+}
+.section-bar::before {
+  content: '';
+  width: 3px;
+  height: 14px;
+  border-radius: 1px;
+  background: var(--y);
+  flex-shrink: 0;
+}
+
+/* tag: inline badge (used by Badge.tsx) */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--rs);
+  font-size: .72em;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  background: var(--s2);
+  color: var(--t2);
+  border: 1px solid var(--b1);
 }

@@ -3,7 +3,6 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 
-/* ── Modal — HSR-style frosted overlay ── */
 interface ModalProps {
   open: boolean
   onClose: () => void
@@ -25,30 +24,35 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
     <dialog
       ref={dialogRef}
       onClose={onClose}
-      className="m-auto w-full max-w-[400px] rounded-md border border-[var(--border)] bg-[var(--surface)] p-0 shadow-xl backdrop:bg-black/40 backdrop:backdrop-blur-sm"
+      className="m-auto w-full max-w-[400px] p-0 shadow-xl backdrop:bg-black/60"
+      style={{
+        background: 'var(--s1)',
+        border: '1px solid var(--b1)',
+        borderRadius: 'var(--rl)',
+      }}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
+      <div
+        className="flex items-center justify-between px-4 py-3"
+        style={{ borderBottom: '1px solid var(--b1)' }}
+      >
         {title && (
-          <h2 className="text-sm font-bold uppercase tracking-widest text-[var(--text-1)]">
+          <h2 className="text-xs font-black uppercase tracking-widest" style={{ color: 'var(--t1)', letterSpacing: '.12em' }}>
             {title}
           </h2>
         )}
         <button
           onClick={onClose}
-          className="ml-auto flex h-7 w-7 items-center justify-center rounded text-[var(--text-3)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]"
+          className="icon-btn ml-auto"
           aria-label="Cerrar"
         >
-          <X size={16} strokeWidth={1.8} />
+          <X size={14} strokeWidth={1.8} />
         </button>
       </div>
-      {/* Body */}
       <div className="p-4">{children}</div>
     </dialog>
   )
 }
 
-/* ── BottomSheet — drag-to-close mobile panel ── */
 interface BottomSheetProps {
   open: boolean
   onClose: () => void
@@ -57,7 +61,6 @@ interface BottomSheetProps {
 }
 
 export function BottomSheet({ open, onClose, title, children }: BottomSheetProps) {
-  const sheetRef = useRef<HTMLDivElement>(null)
   const startY = useRef(0)
 
   useEffect(() => {
@@ -68,36 +71,36 @@ export function BottomSheet({ open, onClose, title, children }: BottomSheetProps
 
   if (!open) return null
 
-  function handleTouchStart(e: React.TouchEvent) {
-    startY.current = e.touches[0].clientY
-  }
-
-  function handleTouchEnd(e: React.TouchEvent) {
-    const delta = e.changedTouches[0].clientY - startY.current
-    if (delta > 80) onClose()
-  }
-
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm md:items-center" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center md:items-center"
+      style={{ background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(4px)' }}
+      onClick={onClose}
+    >
       <div
-        ref={sheetRef}
         onClick={(e) => e.stopPropagation()}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        className="w-full max-w-[430px] animate-slide-up rounded-t-lg border border-b-0 border-[var(--border)] bg-[var(--surface)] md:rounded-lg md:border-b"
+        onTouchStart={(e) => { startY.current = e.touches[0].clientY }}
+        onTouchEnd={(e) => { if (e.changedTouches[0].clientY - startY.current > 80) onClose() }}
+        className="w-full max-w-[430px] animate-slide-up md:animate-fade-in"
+        style={{
+          background: 'var(--s1)',
+          border: '1px solid var(--b1)',
+          borderBottom: 'none',
+          borderRadius: 'var(--rl) var(--rl) 0 0',
+        }}
       >
         {/* Drag handle */}
         <div className="flex justify-center py-2">
-          <div className="h-1 w-10 rounded-full bg-[var(--text-3)] opacity-40" />
+          <div className="h-1 w-10 rounded-full" style={{ background: 'var(--b2)' }} />
         </div>
         {title && (
-          <div className="px-4 pb-2">
-            <h2 className="text-sm font-bold uppercase tracking-widest text-[var(--text-1)]">
+          <div className="px-4 pb-3" style={{ borderBottom: '1px solid var(--b1)' }}>
+            <h2 className="text-xs font-black uppercase tracking-widest" style={{ color: 'var(--t1)', letterSpacing: '.12em' }}>
               {title}
             </h2>
           </div>
         )}
-        <div className="max-h-[70vh] overflow-y-auto px-4 pb-6">{children}</div>
+        <div className="max-h-[70vh] overflow-y-auto px-4 pb-6 pt-3">{children}</div>
       </div>
     </div>
   )
