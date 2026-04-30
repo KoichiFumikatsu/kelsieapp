@@ -20,19 +20,41 @@ interface Props {
   currentUserId?: string
 }
 
-type TipoTx = 'gasto' | 'ingreso' | 'credito' | 'ahorro' | 'bolsillo' | 'pago_credito'
+type TipoTx =
+  | 'gasto' | 'ingreso'
+  | 'credito' | 'pago_credito'
+  | 'ahorro' | 'retiro_ahorro'
+  | 'bolsillo' | 'uso_bolsillo'
 
-const TIPOS: { value: TipoTx; label: string; icon: string; color: string; bg: string }[] = [
-  { value: 'gasto',        label: 'Gasto',    icon: '▽', color: 'var(--r)',  bg: 'var(--r0)'  },
-  { value: 'ingreso',      label: 'Ingreso',  icon: '△', color: 'var(--g)',  bg: 'var(--g0)'  },
-  { value: 'credito',      label: 'Crédito',  icon: '▣', color: 'var(--pu)', bg: 'var(--p0)'  },
-  { value: 'ahorro',       label: 'Ahorro',   icon: '⊙', color: 'var(--y)',  bg: 'var(--y0)'  },
-  { value: 'bolsillo',     label: 'Bolsillo', icon: '◧', color: 'var(--bl)', bg: 'var(--b0c)' },
-  { value: 'pago_credito', label: 'Pago TC',  icon: '↕', color: 'var(--pu)', bg: 'var(--p0)'  },
+type MainGroup = 'gasto' | 'ingreso' | 'credito' | 'ahorro' | 'bolsillo'
+
+const MAIN_GROUPS: { value: MainGroup; label: string; icon: string; color: string; bg: string }[] = [
+  { value: 'gasto',    label: 'Gasto',    icon: '▽', color: 'var(--r)',  bg: 'var(--r0)'  },
+  { value: 'ingreso',  label: 'Ingreso',  icon: '△', color: 'var(--g)',  bg: 'var(--g0)'  },
+  { value: 'credito',  label: 'Crédito',  icon: '▣', color: 'var(--pu)', bg: 'var(--p0)'  },
+  { value: 'ahorro',   label: 'Ahorro',   icon: '⊙', color: 'var(--y)',  bg: 'var(--y0)'  },
+  { value: 'bolsillo', label: 'Bolsillo', icon: '◧', color: 'var(--bl)', bg: 'var(--b0c)' },
 ]
 
+type Direction = 'in' | 'out'
+
+const DIRECTIONS: Record<MainGroup, { in: { label: string; tipo: TipoTx }; out: { label: string; tipo: TipoTx } } | null> = {
+  gasto:    null,
+  ingreso:  null,
+  credito:  { in: { label: 'Cargo TC',   tipo: 'credito'       }, out: { label: 'Pagar TC',    tipo: 'pago_credito'  } },
+  ahorro:   { in: { label: 'Depositar',  tipo: 'ahorro'        }, out: { label: 'Retirar',     tipo: 'retiro_ahorro' } },
+  bolsillo: { in: { label: 'Depositar',  tipo: 'bolsillo'      }, out: { label: 'Usar',        tipo: 'uso_bolsillo'  } },
+}
+
+function resolvedTipo(group: MainGroup, dir: Direction): TipoTx {
+  const dirs = DIRECTIONS[group]
+  if (!dirs) return group as TipoTx
+  return dir === 'in' ? dirs.in.tipo : dirs.out.tipo
+}
+
 export function AddTransaccionSheet({ open, onClose, quincenaId, categorias, members, currentUserId }: Props) {
-  const [tipo, setTipo]         = useState<TipoTx>('gasto')
+  const [group, setGroup]       = useState<MainGroup>('gasto')
+  const [dir, setDir]           = useState<Direction>('in')
   const [userId, setUserId]     = useState(currentUserId ?? members[0]?.id ?? '')
   const [catId, setCatId]       = useState<string | null>(null)
   const [importe, setImporte]   = useState('')
@@ -40,17 +62,25 @@ export function AddTransaccionSheet({ open, onClose, quincenaId, categorias, mem
   const [error, setError]       = useState<string | null>(null)
   const [pending, setPending]   = useState(false)
 
-  const activeTipo = TIPOS.find(t => t.value === tipo)!
-
+  const activeGroup = MAIN_GROUPS.find(g => g.value === group)!
+  const dirs = DIRECTIONS[group]
+  const tipo = resolvedTipo(group, dir)
   const filteredCats = categorias.filter(c => c.tipo === tipo)
 
-  function handleTipoChange(next: TipoTx) {
-    setTipo(next)
+  function handleGroupChange(next: MainGroup) {
+    setGroup(next)
+    setDir('in')
+    setCatId(null)
+  }
+
+  function handleDirChange(next: Direction) {
+    setDir(next)
     setCatId(null)
   }
 
   function handleClose() {
-    setTipo('gasto')
+    setGroup('gasto')
+    setDir('in')
     setUserId(currentUserId ?? members[0]?.id ?? '')
     setCatId(null)
     setImporte('')
@@ -73,8 +103,8 @@ export function AddTransaccionSheet({ open, onClose, quincenaId, categorias, mem
     form.set('user_id', userId)
     form.set('fecha', new Date().toISOString().split('T')[0])
     if (nota) form.set('descripcion', nota)
-    if (catId) form.set('categoria_id', catId)
-    else if (filteredCats.length > 0) form.set('categoria_id', filteredCats[0].id)
+    const efectiveCat = catId ?? (filteredCats[0]?.id ?? null)
+    if (efectiveCat) form.set('categoria_id', efectiveCat)
 
     const result = await createTransaccion(form)
     setPending(false)
@@ -92,40 +122,79 @@ export function AddTransaccionSheet({ open, onClose, quincenaId, categorias, mem
     <BottomSheet open={open} onClose={handleClose} title="Nueva transacción">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
 
-        {/* ── Tipo ── */}
+        {/* ── Tipo principal ── */}
         <div>
           <span style={lbl}>Tipo</span>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-            {TIPOS.map(t => {
-              const sel = tipo === t.value
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
+            {MAIN_GROUPS.map(g => {
+              const sel = group === g.value
               return (
                 <button
-                  key={t.value}
+                  key={g.value}
                   type="button"
-                  onClick={() => handleTipoChange(t.value)}
+                  onClick={() => handleGroupChange(g.value)}
                   style={{
-                    background: sel ? t.bg : 'var(--s2)',
-                    border: `1.5px solid ${sel ? t.color : 'var(--b1)'}`,
+                    background: sel ? g.bg : 'var(--s2)',
+                    border: `1.5px solid ${sel ? g.color : 'var(--b1)'}`,
                     borderRadius: 'var(--rm)',
-                    padding: '11px 6px',
+                    padding: '11px 4px',
                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
                     transition: 'all .13s', cursor: 'pointer',
                   }}
                 >
-                  <span style={{ fontSize: '1.25em', lineHeight: 1, color: sel ? t.color : 'var(--t3)' }}>
-                    {t.icon}
+                  <span style={{ fontSize: '1.2em', lineHeight: 1, color: sel ? g.color : 'var(--t3)' }}>
+                    {g.icon}
                   </span>
                   <span style={{
-                    fontSize: '.65em', fontWeight: 900, textTransform: 'uppercase',
-                    letterSpacing: '.04em', color: sel ? 'var(--t1)' : 'var(--t3)',
+                    fontSize: '.6em', fontWeight: 900, textTransform: 'uppercase',
+                    letterSpacing: '.03em', color: sel ? 'var(--t1)' : 'var(--t3)',
                   }}>
-                    {t.label}
+                    {g.label}
                   </span>
                 </button>
               )
             })}
           </div>
         </div>
+
+        {/* ── Dirección (solo para Crédito, Ahorro, Bolsillo) ── */}
+        {dirs && (
+          <div>
+            <span style={lbl}>Dirección</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {(['in', 'out'] as Direction[]).map(d => {
+                const sel = dir === d
+                const opt = d === 'in' ? dirs.in : dirs.out
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => handleDirChange(d)}
+                    style={{
+                      flex: 1,
+                      background: sel ? activeGroup.bg : 'var(--s2)',
+                      border: `1.5px solid ${sel ? activeGroup.color : 'var(--b1)'}`,
+                      borderRadius: 'var(--rm)',
+                      padding: '10px 14px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                      transition: 'all .13s', cursor: 'pointer',
+                    }}
+                  >
+                    <span style={{ fontSize: '1em', color: sel ? activeGroup.color : 'var(--t3)' }}>
+                      {d === 'in' ? '→' : '←'}
+                    </span>
+                    <span style={{
+                      fontSize: '.78em', fontWeight: 900, textTransform: 'uppercase',
+                      letterSpacing: '.04em', color: sel ? 'var(--t1)' : 'var(--t3)',
+                    }}>
+                      {opt.label}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* ── Quién ── */}
         {members.length > 1 && (
@@ -134,14 +203,14 @@ export function AddTransaccionSheet({ open, onClose, quincenaId, categorias, mem
             <div style={{ display: 'flex', gap: 8 }}>
               {members.map(m => {
                 const sel = userId === m.id
-                const initial = m.display_name.charAt(0).toUpperCase()
                 return (
                   <button
                     key={m.id}
                     type="button"
                     onClick={() => setUserId(m.id)}
                     style={{
-                      flex: 1, background: sel ? 'var(--y0)' : 'var(--s2)',
+                      flex: 1,
+                      background: sel ? 'var(--y0)' : 'var(--s2)',
                       border: `1.5px solid ${sel ? 'var(--y)' : 'var(--b1)'}`,
                       borderRadius: 'var(--rm)', padding: '10px 12px',
                       display: 'flex', alignItems: 'center', gap: 9,
@@ -155,7 +224,7 @@ export function AddTransaccionSheet({ open, onClose, quincenaId, categorias, mem
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: '.88em', fontWeight: 900, flexShrink: 0,
                     }}>
-                      {initial}
+                      {m.display_name.charAt(0).toUpperCase()}
                     </div>
                     <span style={{ fontSize: '.85em', fontWeight: 800, color: 'var(--t1)' }}>
                       {m.display_name}
@@ -171,7 +240,8 @@ export function AddTransaccionSheet({ open, onClose, quincenaId, categorias, mem
         <div>
           <span style={lbl}>Monto</span>
           <div style={{
-            background: 'var(--s2)', border: `1.5px solid ${importe ? activeTipo.color : 'var(--b1)'}`,
+            background: 'var(--s2)',
+            border: `1.5px solid ${importe ? activeGroup.color : 'var(--b1)'}`,
             borderRadius: 'var(--rm)', padding: '11px 14px',
             display: 'flex', alignItems: 'center', gap: 6,
             transition: 'border-color .13s',
@@ -207,7 +277,8 @@ export function AddTransaccionSheet({ open, onClose, quincenaId, categorias, mem
                     onClick={() => setCatId(sel ? null : c.id)}
                     style={{
                       padding: '6px 12px', borderRadius: 'var(--rx)',
-                      fontSize: '.75em', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.04em',
+                      fontSize: '.75em', fontWeight: 800,
+                      textTransform: 'uppercase', letterSpacing: '.04em',
                       background: sel ? 'var(--y0)' : 'var(--s2)',
                       border: `1px solid ${sel ? 'var(--y)' : 'var(--b1)'}`,
                       color: sel ? 'var(--y)' : 'var(--t2)',
@@ -255,7 +326,8 @@ export function AddTransaccionSheet({ open, onClose, quincenaId, categorias, mem
             width: '100%', padding: 13,
             background: pending ? 'var(--s3)' : 'var(--y)',
             borderRadius: 'var(--rm)', border: 'none',
-            fontSize: '.9em', fontWeight: 900, color: pending ? 'var(--t3)' : 'var(--yt)',
+            fontSize: '.9em', fontWeight: 900,
+            color: pending ? 'var(--t3)' : 'var(--yt)',
             textTransform: 'uppercase', letterSpacing: '.06em',
             cursor: pending ? 'default' : 'pointer',
             transition: 'background .15s, color .15s',

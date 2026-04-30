@@ -23,20 +23,28 @@ type Tab = 'resumen' | 'presupuesto' | 'transacciones'
 
 /* ─ colour/icon maps for transaction types ─ */
 const TX_COLOR: Record<string, string> = {
-  gasto: 'var(--r)', ingreso: 'var(--g)', ahorro: 'var(--y)',
-  bolsillo: 'var(--bl)', credito: 'var(--pu)', pago_credito: 'var(--pu)', uso_bolsillo: 'var(--bl)',
+  gasto: 'var(--r)', ingreso: 'var(--g)',
+  ahorro: 'var(--y)', retiro_ahorro: 'var(--y)',
+  bolsillo: 'var(--bl)', uso_bolsillo: 'var(--bl)',
+  credito: 'var(--pu)', pago_credito: 'var(--pu)',
 }
 const TX_ICON: Record<string, string> = {
-  gasto: '▽', ingreso: '△', ahorro: '⊙', bolsillo: '◧',
-  credito: '▣', pago_credito: '▣', uso_bolsillo: '◧',
+  gasto: '▽', ingreso: '△',
+  ahorro: '⊙→', retiro_ahorro: '←⊙',
+  bolsillo: '◧→', uso_bolsillo: '←◧',
+  credito: '▣', pago_credito: '↕▣',
 }
 const TX_SIGN: Record<string, string> = {
-  gasto: '−', ingreso: '+', ahorro: '−', bolsillo: '−',
-  credito: '+', pago_credito: '−', uso_bolsillo: '+',
+  gasto: '−', ingreso: '+',
+  ahorro: '−', retiro_ahorro: '+',
+  bolsillo: '−', uso_bolsillo: '+',
+  credito: '+', pago_credito: '−',
 }
 const TX_CLASS: Record<string, string> = {
-  gasto: 'exp', ingreso: 'inc', ahorro: 'sav', bolsillo: 'xfr',
-  credito: 'crd', pago_credito: 'crd', uso_bolsillo: 'xfr',
+  gasto: 'exp', ingreso: 'inc',
+  ahorro: 'sav', retiro_ahorro: 'sav',
+  bolsillo: 'xfr', uso_bolsillo: 'xfr',
+  credito: 'crd', pago_credito: 'crd',
 }
 
 const FREQ_LABEL: Record<string, string> = {
