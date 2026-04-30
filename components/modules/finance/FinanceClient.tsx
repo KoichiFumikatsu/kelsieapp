@@ -1,70 +1,89 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, ChevronDown, ChevronLeft, ChevronRight, Tag, Pencil, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2 } from 'lucide-react'
 import { createBrowserClient } from '@supabase/ssr'
 
-import { getActiveQuincena, getQuincenas, updateQuincena, ensureQuincena } from '@/app/actions/finance/quincenas'
-import { getCategorias, createCategoria, updateCategoria, deleteCategoria } from '@/app/actions/finance/categorias'
+import { getActiveQuincena, getQuincenas, ensureQuincena, updateQuincena } from '@/app/actions/finance/quincenas'
+import { getCategorias, createCategoria, deleteCategoria, updateCategoria } from '@/app/actions/finance/categorias'
 import { getTransacciones, updateTransaccion, deleteTransaccion } from '@/app/actions/finance/transacciones'
 import { getFinanceKPIs } from '@/app/actions/finance/dashboard'
-import { FinanceKPIPanel } from '@/components/modules/finance/FinanceKPIPanel'
-import { TransaccionList } from '@/components/modules/finance/TransaccionList'
+import { getBudgetItems, markBudgetItemPaid, createBudgetItem, deleteBudgetItem } from '@/app/actions/finance/budget_items'
+import type { BudgetItem } from '@/app/actions/finance/budget_items'
 import { AddTransaccionSheet } from '@/components/modules/finance/AddTransaccionSheet'
-import { useHousehold } from '@/hooks/useHousehold'
-import { Button } from '@/components/ui/Button'
 import { BottomSheet } from '@/components/ui/Modal'
-import { formatPeriod } from '@/lib/utils/format'
+import { Button } from '@/components/ui/Button'
+import { useHousehold } from '@/hooks/useHousehold'
+import { formatCOP, formatPeriod, formatDateShort } from '@/lib/utils/format'
 import type {
-  Quincena,
-  Categoria,
-  TransaccionConCategoria,
-  FinanceKPIs,
+  Quincena, Categoria, TransaccionConCategoria, FinanceKPIs,
 } from '@/lib/types/modules.types'
+
+type Tab = 'resumen' | 'presupuesto' | 'transacciones'
+
+/* ─ colour/icon maps for transaction types ─ */
+const TX_COLOR: Record<string, string> = {
+  gasto: 'var(--r)', ingreso: 'var(--g)', ahorro: 'var(--y)',
+  bolsillo: 'var(--bl)', credito: 'var(--pu)', pago_credito: 'var(--pu)', uso_bolsillo: 'var(--bl)',
+}
+const TX_ICON: Record<string, string> = {
+  gasto: '▽', ingreso: '△', ahorro: '⊙', bolsillo: '◧',
+  credito: '▣', pago_credito: '▣', uso_bolsillo: '◧',
+}
+const TX_SIGN: Record<string, string> = {
+  gasto: '−', ingreso: '+', ahorro: '−', bolsillo: '−',
+  credito: '+', pago_credito: '−', uso_bolsillo: '+',
+}
+const TX_CLASS: Record<string, string> = {
+  gasto: 'exp', ingreso: 'inc', ahorro: 'sav', bolsillo: 'xfr',
+  credito: 'crd', pago_credito: 'crd', uso_bolsillo: 'xfr',
+}
+
+const FREQ_LABEL: Record<string, string> = {
+  all: 'Siempre', first: '1ra 15na', second: '2da 15na', once: 'Unica vez',
+}
+const FREQ_TAG_CLASS: Record<string, string> = {
+  all: 'all', first: 'first', second: 'second', once: 'once',
+}
 
 export function FinanceClient() {
   const { members, profile } = useHousehold()
 
-  const [quincenas, setQuincenas] = useState<Quincena[]>([])
-  const [active, setActive] = useState<Quincena | null>(null)
-  const [categorias, setCategorias] = useState<Categoria[]>([])
+  const [quincenas, setQuincenas]       = useState<Quincena[]>([])
+  const [active, setActive]             = useState<Quincena | null>(null)
+  const [categorias, setCategorias]     = useState<Categoria[]>([])
   const [transacciones, setTransacciones] = useState<TransaccionConCategoria[]>([])
-  const [kpis, setKPIs] = useState<FinanceKPIs | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [kpis, setKPIs]                 = useState<FinanceKPIs | null>(null)
+  const [budgetItems, setBudgetItems]   = useState<BudgetItem[]>([])
+  const [loading, setLoading]           = useState(true)
 
-  const [showAddTx, setShowAddTx] = useState(false)
-  const [showNewCategoria, setShowNewCategoria] = useState(false)
-  const [showCategorias, setShowCategorias] = useState(false)
-  const [showTransacciones, setShowTransacciones] = useState(true)
-  const [editingCat, setEditingCat] = useState<Categoria | null>(null)
-  const [editingQuincena, setEditingQuincena] = useState<Quincena | null>(null)
-  const [editingTx, setEditingTx] = useState<TransaccionConCategoria | null>(null)
+  const [tab, setTab]                   = useState<Tab>('resumen')
   const [filterUserId, setFilterUserId] = useState<string | null>(null)
 
+  const [showAddTx, setShowAddTx]             = useState(false)
+  const [editingTx, setEditingTx]             = useState<TransaccionConCategoria | null>(null)
+  const [editingQuincena, setEditingQuincena] = useState<Quincena | null>(null)
+  const [showNewBudget, setShowNewBudget]     = useState(false)
+  const [showNewCat, setShowNewCat]           = useState(false)
+  const [editingCat, setEditingCat]           = useState<Categoria | null>(null)
+
+  /* ── load all data ── */
   const loadData = useCallback(async (quincenaId?: string) => {
-    const [qRes, catRes] = await Promise.all([
+    const [qRes, catRes, biRes] = await Promise.all([
       getQuincenas(),
       getCategorias(),
+      getBudgetItems(),
     ])
-
     if (qRes.ok) setQuincenas(qRes.data)
     if (catRes.ok) setCategorias(catRes.data)
+    if (biRes.ok) setBudgetItems(biRes.data)
 
     let q: Quincena | null = null
-    if (quincenaId && qRes.ok) {
-      q = qRes.data.find((x) => x.id === quincenaId) ?? null
-    }
+    if (quincenaId && qRes.ok) q = qRes.data.find((x) => x.id === quincenaId) ?? null
     if (!q) {
       const activeRes = await getActiveQuincena()
-      if (activeRes.ok) {
-        q = activeRes.data
-        if (q && qRes.ok && !qRes.data.find((x) => x.id === q!.id)) {
-          const refreshed = await getQuincenas()
-          if (refreshed.ok) setQuincenas(refreshed.data)
-        }
-      }
+      if (activeRes.ok) q = activeRes.data
     }
-
     setActive(q)
 
     if (q) {
@@ -75,288 +94,559 @@ export function FinanceClient() {
       if (txRes.ok) setTransacciones(txRes.data)
       if (kpiRes.ok) setKPIs(kpiRes.data)
     }
-
     setLoading(false)
   }, [])
 
-  /** Navigate to a specific period (auto-creates if needed) */
+  /* ── navigate quincena ── */
   const navigateToPeriod = useCallback(async (year: number, month: number, half: 1 | 2) => {
     const res = await ensureQuincena(year, month, half)
-    if (res.ok && res.data) {
-      // Refresh list and load the target period
-      const refreshed = await getQuincenas()
-      if (refreshed.ok) setQuincenas(refreshed.data)
-      setActive(res.data)
-      const [txRes, kpiRes] = await Promise.all([
-        getTransacciones(res.data.id),
-        getFinanceKPIs(res.data.id),
-      ])
-      if (txRes.ok) setTransacciones(txRes.data)
-      if (kpiRes.ok) setKPIs(kpiRes.data)
-    }
+    if (!res.ok || !res.data) return
+    const refreshed = await getQuincenas()
+    if (refreshed.ok) setQuincenas(refreshed.data)
+    setActive(res.data)
+    const [txRes, kpiRes] = await Promise.all([
+      getTransacciones(res.data.id),
+      getFinanceKPIs(res.data.id),
+    ])
+    if (txRes.ok) setTransacciones(txRes.data)
+    if (kpiRes.ok) setKPIs(kpiRes.data)
   }, [])
 
-  useEffect(() => {
-    loadData()
-  }, [loadData])
+  useEffect(() => { loadData() }, [loadData])
 
-  // Realtime subscription for transacciones
+  /* ── realtime ── */
   useEffect(() => {
     if (!active) return
     const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     )
-    const channel = supabase
+    const ch = supabase
       .channel('finance-tx')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'transacciones', filter: `quincena_id=eq.${active.id}` },
-        () => { loadData(active.id) },
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transacciones', filter: `quincena_id=eq.${active.id}` },
+        () => loadData(active.id))
       .subscribe()
-
-    return () => { supabase.removeChannel(channel) }
+    return () => { supabase.removeChannel(ch) }
   }, [active, loadData])
 
+  /* ── skeleton ── */
   if (loading) {
     return (
-      <div className="space-y-4 p-4 md:p-6">
-        <div className="h-6 w-40 animate-pulse rounded bg-[var(--surface-2)]" />
-        <div className="grid grid-cols-3 gap-2">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-16 animate-pulse rounded bg-[var(--surface-2)]" />
-          ))}
-        </div>
-        <div className="h-32 animate-pulse rounded bg-[var(--surface-2)]" />
+      <div style={{ padding: 'var(--pad)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {[120, 80, 160, 80].map((h, i) => (
+          <div key={i} className="animate-pulse" style={{ height: h, background: 'var(--s2)', borderRadius: 'var(--rm)' }} />
+        ))}
       </div>
     )
   }
 
-  // No quincena yet — show message (should not happen with auto-create)
   if (!active) {
-    return (
-      <div className="flex flex-col items-center gap-4 p-8 text-center">
-        <p className="text-sm text-[var(--text-2)]">Cargando quincena...</p>
-      </div>
-    )
+    return <p style={{ padding: 'var(--pad)', color: 'var(--t3)', fontSize: '.87em' }}>Cargando quincena...</p>
   }
 
-  // Determine active half from fecha_inicio
   const activeHalf: 1 | 2 = new Date(active.fecha_inicio + 'T12:00:00').getDate() === 1 ? 1 : 2
 
-  // Filter categories to those matching the active half (or null = both)
-  const filteredCategorias = categorias.filter(
-    (c) => c.quincena_half === null || c.quincena_half === activeHalf
-  )
-
-  // Per-member filtering
-  const filteredTransacciones = filterUserId
+  const filteredTx = filterUserId
     ? transacciones.filter((t) => t.user_id === filterUserId)
     : transacciones
 
-  const filteredKPIs = filterUserId && kpis
-    ? computeFilteredKPIs(filteredTransacciones, filteredCategorias, kpis, filterUserId)
+  const filteredKpis: FinanceKPIs | null = filterUserId && kpis
+    ? computeFilteredKPIs(filteredTx, categorias, kpis, filterUserId)
     : kpis
 
+  const filteredCats = categorias.filter(
+    (c) => c.quincena_half === null || c.quincena_half === activeHalf,
+  )
+
+  const saldo    = filteredKpis?.saldoActual ?? 0
+  const ingresos = filteredKpis?.totalIngresos ?? 0
+  const gastos   = filteredKpis?.totalGastos ?? 0
+  const ahorro   = filteredKpis?.totalAhorros ?? 0
+  const credito  = filteredKpis?.deudaCreditoAcumulada ?? 0
+  const bolsillos = filteredKpis?.saldoBolsillosAcumulado ?? 0
+  const pct      = ingresos > 0 ? Math.min(gastos / ingresos, 1) : 0
+  const circ     = 2 * Math.PI * 40
+  const dashOff  = circ * (1 - pct)
+
+  /* ── date parse for navigator ── */
+  const [y, m, d] = active.fecha_inicio.split('-').map(Number)
+  const half: 1 | 2 = d === 1 ? 1 : 2
+
+  function goPrev() {
+    if (half === 1) navigateToPeriod(m === 1 ? y - 1 : y, m === 1 ? 12 : m - 1, 2)
+    else navigateToPeriod(y, m, 1)
+  }
+  function goNext() {
+    if (half === 2) navigateToPeriod(m === 12 ? y + 1 : y, m === 12 ? 1 : m + 1, 1)
+    else navigateToPeriod(y, m, 2)
+  }
+
+  /* ═══════════════════════════════════════════════════════ */
   return (
-    <div className="space-y-4 p-4 md:p-6">
-      {/* Quincena period navigator */}
-      <QuincenaNavigator
-        active={active}
-        onNavigate={navigateToPeriod}
-        onEdit={() => setEditingQuincena(active)}
-      />
-
-      {/* Per-member filter */}
-      {members.length > 1 && (
-        <MemberFilter
-          members={members}
-          selected={filterUserId}
-          onChange={setFilterUserId}
-        />
-      )}
-
-      {/* KPIs */}
-      {filteredKPIs && <FinanceKPIPanel kpis={filteredKPIs} isFiltered={!!filterUserId} />}
-
-      {/* Transactions */}
-      <div>
-        <div className="mb-2 flex items-center justify-between">
-          <button
-            onClick={() => setShowTransacciones(!showTransacciones)}
-            className="section-bar text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]"
-            style={{ '--accent': 'var(--mod-finance)' } as React.CSSProperties}
-          >
-            <span className="flex items-center gap-1.5">
-              Transacciones ({filteredTransacciones.length})
-              <ChevronDown size={12} className={`transition-transform ${showTransacciones ? 'rotate-180' : ''}`} />
-            </span>
-          </button>
+    <>
+      {/* ── Module tabs ── */}
+      <div style={{ background: 'var(--s1)', borderBottom: '1px solid var(--b1)', padding: '0 var(--pad)', overflowX: 'auto', scrollbarWidth: 'none' }}>
+        <div style={{ display: 'flex', height: 44, alignItems: 'flex-end' }}>
+          {(['resumen', 'presupuesto', 'transacciones'] as Tab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              style={{
+                position: 'relative', padding: '0 16px', height: '100%',
+                display: 'flex', alignItems: 'center',
+                fontSize: '.78em', fontWeight: 800, cursor: 'pointer',
+                whiteSpace: 'nowrap', flexShrink: 0, textTransform: 'uppercase', letterSpacing: '.06em',
+                color: tab === t ? 'var(--y)' : 'var(--t3)',
+                borderBottom: `2.5px solid ${tab === t ? 'var(--y)' : 'transparent'}`,
+                transition: 'color .13s, border-color .13s',
+                background: 'none',
+              }}
+            >
+              { { resumen: 'Resumen', presupuesto: 'Presupuesto', transacciones: 'Transacc.' }[t] }
+            </button>
+          ))}
         </div>
-        {showTransacciones && (
-          <TransaccionList transacciones={filteredTransacciones} onEdit={(t) => setEditingTx(t)} pageSize={10} />
-        )}
       </div>
 
-      {/* Categories section */}
-      <div>
-        <div className="mb-2 flex items-center justify-between">
-          <button
-            onClick={() => setShowCategorias(!showCategorias)}
-            className="section-bar text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]"
-            style={{ '--accent': 'var(--mod-finance)' } as React.CSSProperties}
-          >
-            <span className="flex items-center gap-1.5">
-              <Tag size={12} />
-              Categorías
-              <ChevronDown size={12} className={`transition-transform ${showCategorias ? 'rotate-180' : ''}`} />
-            </span>
+      {/* ── Qbar ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px var(--pad)', background: 'var(--s1)', borderBottom: '1px solid var(--b1)' }}>
+        <span style={{ fontSize: '.65em', fontWeight: 800, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.10em', flexShrink: 0 }}>Quincena</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+          <button onClick={goPrev} style={{ width: 26, height: 26, borderRadius: 'var(--rs)', background: 'var(--s2)', border: '1px solid var(--b1)', color: 'var(--t2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '.9em', fontWeight: 700, flexShrink: 0, cursor: 'pointer' }}>‹</button>
+          <button onClick={() => setEditingQuincena(active)} style={{ fontSize: '.82em', fontWeight: 800, color: 'var(--t1)', flex: 1, textAlign: 'center', cursor: 'pointer', background: 'none' }}>
+            {formatPeriod(active.fecha_inicio, active.fecha_fin)}
           </button>
-          <button
-            onClick={() => setShowNewCategoria(true)}
-            className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)] hover:text-[var(--text-1)]"
-          >
-            + Nueva
-          </button>
+          <button onClick={goNext} style={{ width: 26, height: 26, borderRadius: 'var(--rs)', background: 'var(--s2)', border: '1px solid var(--b1)', color: 'var(--t2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '.9em', fontWeight: 700, flexShrink: 0, cursor: 'pointer' }}>›</button>
         </div>
-        {showCategorias && (
-          <div className="space-y-1">
-            {filteredCategorias.length === 0 && (
-              <p className="py-3 text-center text-xs text-[var(--text-3)]">Sin categorías para esta quincena.</p>
-            )}
-            {filteredCategorias.map((cat) => (
-              <div
-                key={cat.id}
-                className="flex items-center justify-between rounded border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5"
+        {active.is_active && (
+          <span style={{ fontSize: '.65em', fontWeight: 900, background: 'var(--y)', color: 'var(--yt)', padding: '2px 8px', borderRadius: 'var(--rs)', textTransform: 'uppercase', letterSpacing: '.04em', flexShrink: 0 }}>
+            Activa
+          </span>
+        )}
+        {/* Member pills */}
+        {members.length > 1 && (
+          <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+            {[{ id: null, label: 'Todos' }, ...members.map((m) => ({ id: m.id, label: m.display_name.charAt(0) }))].map((item) => (
+              <button
+                key={item.id ?? 'all'}
+                onClick={() => setFilterUserId(item.id)}
+                style={{
+                  padding: '4px 10px', borderRadius: 'var(--rs)',
+                  fontSize: '.7em', fontWeight: 800,
+                  background: filterUserId === item.id ? 'var(--y)' : 'var(--s2)',
+                  border: `1px solid ${filterUserId === item.id ? 'var(--y)' : 'var(--b1)'}`,
+                  color: filterUserId === item.id ? 'var(--yt)' : 'var(--t3)',
+                  cursor: 'pointer', transition: 'all .12s',
+                }}
               >
-                <div className="flex items-center gap-2">
-                  <span className={`inline-block h-2 w-2 rounded-full ${cat.tipo === 'gasto' ? 'bg-[var(--expense)]' : cat.tipo === 'ingreso' ? 'bg-[var(--income)]' : cat.tipo === 'ahorro' ? 'bg-[var(--info)]' : cat.tipo === 'credito' || cat.tipo === 'pago_credito' ? 'bg-[var(--credit)]' : 'bg-[var(--mod-finance)]'}`} />
-                  <span className="text-sm font-medium text-[var(--text-1)]">{cat.nombre}</span>
-                  {cat.presupuesto_default > 0 && (
-                    <span className="num text-[10px] text-[var(--text-3)]">
-                      ${cat.presupuesto_default.toLocaleString()}
-                    </span>
-                  )}
-                  {cat.assigned_to && members.length > 0 && (
-                    <span className="text-[10px] text-[var(--text-3)]">
-                      {members.find((m) => m.id === cat.assigned_to)?.display_name ?? ''}
-                    </span>
-                  )}
-                  {cat.quincena_half && (
-                    <span className="rounded bg-[var(--surface-2)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--text-3)]">
-                      Q{cat.quincena_half}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setEditingCat(cat)}
-                    className="rounded p-1 text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]"
-                  >
-                    <Pencil size={12} />
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!confirm(`Eliminar categoría "${cat.nombre}"?`)) return
-                      await deleteCategoria(cat.id)
-                      loadData(active?.id)
-                    }}
-                    className="rounded p-1 text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--expense)]"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              </div>
+                {item.label}
+              </button>
             ))}
           </div>
         )}
       </div>
 
-      {/* FAB */}
+      {/* ── Tab content ── */}
+      <div style={{ padding: 'var(--pad)', display: 'flex', flexDirection: 'column', gap: 22, paddingBottom: 96 }}>
+
+        {/* ════════ RESUMEN ════════ */}
+        {tab === 'resumen' && (
+          <>
+            {/* KPI row: gauge + cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 12, alignItems: 'start' }}>
+              {/* Gauge */}
+              <div style={{ background: 'var(--s1)', border: '1px solid var(--b1)', borderRadius: 'var(--rl)', padding: '14px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                <div style={{ position: 'relative', width: 90, height: 90 }}>
+                  <svg width="90" height="90" style={{ transform: 'rotate(-90deg)' }}>
+                    <circle cx="45" cy="45" r="40" fill="none" stroke="var(--s3)" strokeWidth="8" />
+                    <circle cx="45" cy="45" r="40" fill="none"
+                      stroke={pct > 0.9 ? 'var(--r)' : 'var(--y)'}
+                      strokeWidth="8" strokeLinecap="square"
+                      strokeDasharray={circ} strokeDashoffset={dashOff}
+                      style={{ filter: 'drop-shadow(0 0 5px rgba(236,199,0,.4))' }}
+                    />
+                  </svg>
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                    <span className="num" style={{ fontSize: '1.2em', fontWeight: 900, color: pct > 0.9 ? 'var(--r)' : 'var(--y)', lineHeight: 1 }}>{Math.round(pct * 100)}%</span>
+                    <span style={{ fontSize: '.58em', fontWeight: 700, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>ejec.</span>
+                  </div>
+                </div>
+                <span style={{ fontSize: '.65em', fontWeight: 900, color: 'var(--t2)', textTransform: 'uppercase', letterSpacing: '.10em' }}>Presupuesto</span>
+              </div>
+
+              {/* KPI cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+                <KPICard cls="g" label="Saldo" value={formatCOP(saldo)} delta={`de ${formatCOP(ingresos)}`} />
+                <KPICard cls="y" label="Ahorro" value={formatCOP(ahorro)} delta="colchon" />
+                <KPICard cls="pu" label="Credito" value={formatCOP(credito)} delta={`+${formatCOP(filteredKpis?.totalCredito ?? 0)}`} />
+              </div>
+            </div>
+
+            {/* Container cards */}
+            <div>
+              <div className="zdivider"><span className="zdivider-star">◆</span><span className="zdivider-label">Contenedores</span><span className="zdivider-line" /></div>
+              <div className="cstrip-wrap">
+                <div className="cstrip">
+                  <ContainerCard type="cuenta"   icon="$" label="Cuenta"   amount={saldo}    sub="disponible" delta={formatCOP(-gastos)} />
+                  <ContainerCard type="ahorro"   icon="⊙" label="Ahorro"   amount={ahorro}   sub="colchon"    delta={`+${formatCOP(filteredKpis?.totalAhorros ?? 0)}`} />
+                  <ContainerCard type="credito"  icon="▣" label="Credito"  amount={credito}  sub="deuda"      delta={`+${formatCOP(filteredKpis?.totalCredito ?? 0)}`} />
+                  <ContainerCard type="bolsillo" icon="◧" label="Bolsillos" amount={bolsillos} sub={`${categorias.filter(c=>c.tipo==='bolsillo').length} activos`} delta="acum." />
+                </div>
+              </div>
+            </div>
+
+            {/* Recent transactions preview */}
+            <div>
+              <div className="zdivider">
+                <span className="zdivider-star">◆</span>
+                <span className="zdivider-label">Recientes</span>
+                <span className="zdivider-line" />
+                <button onClick={() => setTab('transacciones')} style={{ fontSize: '.7em', fontWeight: 800, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.06em', background: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>Ver todas</button>
+              </div>
+              <TxList txs={filteredTx.slice(0, 5)} members={members} onEdit={setEditingTx} />
+            </div>
+          </>
+        )}
+
+        {/* ════════ PRESUPUESTO ════════ */}
+        {tab === 'presupuesto' && (
+          <div className="fin-two-col">
+            {/* Budget items */}
+            <div>
+              <div className="zdivider">
+                <span className="zdivider-star">◆</span>
+                <span className="zdivider-label">Presupuesto</span>
+                <span className="zdivider-line" />
+                <button onClick={() => setShowNewBudget(true)} className="zbtn" style={{ padding: '4px 10px', fontSize: '.7em' }}>+ Item</button>
+              </div>
+              <BudgetList items={budgetItems} onToggle={async (id, paid) => {
+                await markBudgetItemPaid(id, paid)
+                loadData(active.id)
+              }} onDelete={async (id) => {
+                if (!confirm('Eliminar este item?')) return
+                await deleteBudgetItem(id)
+                loadData(active.id)
+              }} />
+              {budgetItems.length === 0 && (
+                <div style={{ padding: '24px 0', textAlign: 'center' }}>
+                  <p style={{ fontSize: '.82em', color: 'var(--t3)', marginBottom: 12 }}>Sin items de presupuesto. Crea el primero:</p>
+                  <button className="zbtn primary" onClick={() => setShowNewBudget(true)} style={{ padding: '8px 20px' }}>+ Agregar item</button>
+                </div>
+              )}
+            </div>
+
+            {/* Categories management */}
+            <div>
+              <div className="zdivider">
+                <span className="zdivider-star">◆</span>
+                <span className="zdivider-label">Categorias</span>
+                <span className="zdivider-line" />
+                <button onClick={() => setShowNewCat(true)} className="zbtn" style={{ padding: '4px 10px', fontSize: '.7em' }}>+ Cat.</button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {filteredCats.map((cat) => (
+                  <div key={cat.id} style={{ background: 'var(--s1)', border: '1px solid var(--b1)', borderRadius: 'var(--rm)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span
+                      style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: TX_COLOR[cat.tipo] ?? 'var(--t3)' }}
+                    />
+                    <span style={{ fontSize: '.87em', fontWeight: 700, color: 'var(--t1)', flex: 1 }}>{cat.nombre}</span>
+                    {cat.presupuesto_default > 0 && (
+                      <span className="num" style={{ fontSize: '.75em', color: 'var(--t3)' }}>{formatCOP(cat.presupuesto_default)}</span>
+                    )}
+                    {cat.quincena_half && (
+                      <span className={`ztag ${cat.quincena_half === 1 ? 'first' : 'second'}`}>Q{cat.quincena_half}</span>
+                    )}
+                    <button onClick={() => setEditingCat(cat)} style={{ background: 'none', color: 'var(--t3)', cursor: 'pointer', padding: 4 }}><Pencil size={12} /></button>
+                    <button onClick={async () => {
+                      if (!confirm(`Eliminar "${cat.nombre}"?`)) return
+                      await deleteCategoria(cat.id)
+                      loadData(active.id)
+                    }} style={{ background: 'none', color: 'var(--t3)', cursor: 'pointer', padding: 4 }}><Trash2 size={12} /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ════════ TRANSACCIONES ════════ */}
+        {tab === 'transacciones' && (
+          <div>
+            <div className="zdivider">
+              <span className="zdivider-star">◆</span>
+              <span className="zdivider-label">Transacciones ({filteredTx.length})</span>
+              <span className="zdivider-line" />
+            </div>
+            <TxList txs={filteredTx} members={members} onEdit={setEditingTx} />
+          </div>
+        )}
+      </div>
+
+      {/* ── FAB ── */}
       <button
         onClick={() => setShowAddTx(true)}
-        className="fixed bottom-20 right-4 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--mod-finance)] text-white shadow-lg transition-transform hover:scale-105 active:scale-95 md:bottom-6"
-        aria-label="Nueva transacción"
+        style={{
+          position: 'fixed', bottom: 80,
+          right: 16, zIndex: 20,
+          display: 'flex', alignItems: 'center', gap: 6,
+          padding: '11px 20px', borderRadius: 'var(--rm)',
+          background: 'var(--y)', color: 'var(--yt)',
+          fontSize: '.85em', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.06em',
+          boxShadow: '0 4px 22px rgba(236,199,0,.45)',
+          transition: 'opacity .13s, transform .13s',
+          cursor: 'pointer',
+        }}
+        className="sm:bottom-6! sm:right-6!"
+        aria-label="Nueva transaccion"
       >
-        <Plus size={22} strokeWidth={2.2} />
+        <Plus size={16} strokeWidth={2.5} />
+        Nueva
       </button>
 
-      {/* Sheets */}
+      {/* ── Sheets ── */}
       <AddTransaccionSheet
         open={showAddTx}
         onClose={() => { setShowAddTx(false); loadData(active.id) }}
         quincenaId={active.id}
-        categorias={filteredCategorias}
+        categorias={filteredCats}
         members={members}
         currentUserId={profile?.id}
       />
 
-      <EditTransaccionSheet
-        open={!!editingTx}
-        transaccion={editingTx}
-        categorias={filteredCategorias}
-        members={members}
-        onClose={() => setEditingTx(null)}
-        onSaved={() => { setEditingTx(null); loadData(active.id) }}
-        onDeleted={() => { setEditingTx(null); loadData(active.id) }}
-      />
+      {editingTx && (
+        <EditTxSheet
+          tx={editingTx}
+          categorias={filteredCats}
+          members={members}
+          onClose={() => setEditingTx(null)}
+          onSaved={() => { setEditingTx(null); loadData(active.id) }}
+          onDeleted={() => { setEditingTx(null); loadData(active.id) }}
+        />
+      )}
 
-      <NewCategoriaSheet
-        open={showNewCategoria}
-        onClose={() => setShowNewCategoria(false)}
-        onCreated={() => loadData(active?.id)}
-        members={members}
-        activeHalf={activeHalf}
-      />
-      <EditCategoriaSheet
-        open={!!editingCat}
-        categoria={editingCat}
-        onClose={() => setEditingCat(null)}
-        onSaved={() => { setEditingCat(null); loadData(active?.id) }}
-        members={members}
-        activeHalf={activeHalf}
-      />
       <EditQuincenaSheet
         open={!!editingQuincena}
         quincena={editingQuincena}
         onClose={() => setEditingQuincena(null)}
         onSaved={() => { setEditingQuincena(null); loadData(editingQuincena?.id) }}
       />
+
+      <NewBudgetItemSheet
+        open={showNewBudget}
+        onClose={() => setShowNewBudget(false)}
+        onCreated={() => { setShowNewBudget(false); loadData(active.id) }}
+        activeHalf={activeHalf}
+        quincenaId={active.id}
+      />
+
+      <NewCategoriaSheet
+        open={showNewCat}
+        onClose={() => setShowNewCat(false)}
+        onCreated={() => loadData(active.id)}
+        members={members}
+        activeHalf={activeHalf}
+      />
+
+      {editingCat && (
+        <EditCategoriaSheet
+          categoria={editingCat}
+          onClose={() => setEditingCat(null)}
+          onSaved={() => { setEditingCat(null); loadData(active.id) }}
+          members={members}
+          activeHalf={activeHalf}
+        />
+      )}
+    </>
+  )
+}
+
+/* ══ SUB-COMPONENTS ═══════════════════════════════════════ */
+
+function KPICard({ cls, label, value, delta }: { cls: 'g' | 'y' | 'pu'; label: string; value: string; delta: string }) {
+  const colors: Record<string, string> = { g: 'var(--g)', y: 'var(--y)', pu: 'var(--pu)' }
+  const c = colors[cls]
+  return (
+    <div style={{ background: 'var(--s1)', border: '1px solid var(--b1)', borderRadius: 'var(--rm)', padding: 12, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <span style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: c }} />
+      <span style={{ fontSize: '.62em', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.10em', color: 'var(--t3)' }}>{label}</span>
+      <span className="num" style={{ fontSize: '1.05em', fontWeight: 900, letterSpacing: '-.04em', lineHeight: 1.1, color: c }}>{value}</span>
+      <span style={{ fontSize: '.66em', fontWeight: 600, color: 'var(--t3)' }}>{delta}</span>
     </div>
   )
 }
 
-/* ── New Categoría Sheet ── */
-function NewCategoriaSheet({ open, onClose, onCreated, members, activeHalf }: { open: boolean; onClose: () => void; onCreated: () => void; members: { id: string; display_name: string }[]; activeHalf: 1 | 2 }) {
-  const [error, setError] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
+function ContainerCard({ type, icon, label, amount, sub, delta }: {
+  type: 'cuenta' | 'ahorro' | 'credito' | 'bolsillo'
+  icon: string; label: string; amount: number; sub: string; delta: string
+}) {
+  const colors: Record<string, string> = { cuenta: 'var(--g)', ahorro: 'var(--y)', credito: 'var(--pu)', bolsillo: 'var(--bl)' }
+  const bgs: Record<string, string>    = { cuenta: 'var(--g0)', ahorro: 'var(--y0)', credito: 'var(--p0)', bolsillo: 'var(--b0c)' }
+  const c = colors[type]
+  return (
+    <div style={{ flexShrink: 0, minWidth: 148, background: 'var(--s1)', border: '1px solid var(--b1)', borderRadius: 'var(--rl)', padding: 14, position: 'relative', overflow: 'hidden', transition: 'border-color .15s, background .15s', cursor: 'pointer' }}>
+      <span style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2.5, background: c, borderRadius: 'var(--rl) var(--rl) 0 0' }} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div style={{ width: 34, height: 34, borderRadius: 'var(--rs)', background: bgs[type], display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.05em', color: c }}>
+          {icon}
+        </div>
+        <div style={{ width: 7, height: 7, borderRadius: '50%', background: c, boxShadow: `0 0 6px ${c}` }} />
+      </div>
+      <div style={{ fontSize: '.65em', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 4, color: c }}>{label}</div>
+      <div className="num" style={{ fontSize: '1.05em', fontWeight: 900, letterSpacing: '-.04em', color: 'var(--t1)' }}>
+        <span style={{ fontSize: '.65em', fontWeight: 700, color: 'var(--t3)', fontStyle: 'normal', marginRight: 1 }}>$</span>
+        {Math.abs(amount).toLocaleString('es-CO')}
+      </div>
+      <div style={{ fontSize: '.7em', color: 'var(--t3)', fontWeight: 600, marginTop: 3 }}>{sub}</div>
+      <div style={{ display: 'inline-block', marginTop: 10, padding: '2px 8px', borderRadius: 'var(--rs)', fontSize: '.66em', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.04em', background: bgs[type], color: c }}>{delta}</div>
+    </div>
+  )
+}
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+function TxList({ txs, members, onEdit }: { txs: TransaccionConCategoria[]; members: { id: string; display_name: string; color_hex: string }[]; onEdit: (t: TransaccionConCategoria) => void }) {
+  if (txs.length === 0) return <p style={{ padding: '24px 0', textAlign: 'center', fontSize: '.82em', color: 'var(--t3)' }}>Sin transacciones</p>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+      {txs.map((t) => {
+        const cls = TX_CLASS[t.tipo] ?? 'exp'
+        const c   = TX_COLOR[t.tipo] ?? 'var(--r)'
+        const icon = TX_ICON[t.tipo] ?? '▽'
+        const sign = TX_SIGN[t.tipo] ?? '−'
+        const member = members.find((m) => m.id === t.user_id)
+        return (
+          <button
+            key={t.id}
+            onClick={() => onEdit(t)}
+            style={{ background: 'var(--s1)', border: '1px solid var(--b1)', borderRadius: 'var(--rm)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 11, cursor: 'pointer', transition: 'background .12s, border-color .12s', textAlign: 'left', width: '100%' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--s2)'; e.currentTarget.style.borderColor = 'var(--b2)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--s1)'; e.currentTarget.style.borderColor = 'var(--b1)' }}
+          >
+            <div style={{ width: 36, height: 36, borderRadius: 'var(--rs)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.05em', flexShrink: 0, background: `color-mix(in srgb, ${c} 12%, transparent)`, color: c }}>
+              {icon}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: '.87em', fontWeight: 800, color: 'var(--t1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {t.descripcion || t.categorias?.nombre || 'Transaccion'}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '.7em', fontWeight: 600, color: 'var(--t3)', marginTop: 2 }}>
+                {member && <span style={{ width: 5, height: 5, borderRadius: '50%', background: member.color_hex, flexShrink: 0 }} />}
+                <span>{member?.display_name} · {formatDateShort(t.fecha)}</span>
+                {t.categorias?.nombre && <span>· {t.categorias.nombre}</span>}
+              </div>
+            </div>
+            <span className="num" style={{ fontSize: '.9em', fontWeight: 900, letterSpacing: '-.02em', flexShrink: 0, color: c }}>
+              {sign}{formatCOP(t.importe)}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function BudgetList({ items, onToggle, onDelete }: { items: BudgetItem[]; onToggle: (id: string, paid: boolean) => void; onDelete: (id: string) => void }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+      {items.map((item) => (
+        <div key={item.id} style={{ background: 'var(--s1)', border: '1px solid var(--b1)', borderRadius: 'var(--rm)', overflow: 'hidden', cursor: 'pointer', transition: 'background .12s, border-color .12s' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px' }}>
+            {/* Status indicator */}
+            <div style={{
+              width: 20, height: 20, borderRadius: 'var(--rs)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '.72em', fontWeight: 900,
+              ...(item.status === 'paid'
+                ? { background: 'var(--g1)', border: '1px solid var(--g)', color: 'var(--g)' }
+                : { border: '1px solid var(--b1)' }),
+            }} onClick={() => onToggle(item.id, item.status !== 'paid')}>
+              {item.status === 'paid' ? '✓' : ''}
+            </div>
+            {/* Body */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                <span className={`ztag ${FREQ_TAG_CLASS[item.frequency]}`}>{FREQ_LABEL[item.frequency]}</span>
+                <span style={{ fontSize: '.87em', fontWeight: 800, color: 'var(--t1)' }}>{item.name}</span>
+              </div>
+              {item.due_day && (
+                <span style={{ fontSize: '.7em', color: 'var(--t3)', fontWeight: 600 }}>Dia {item.due_day}</span>
+              )}
+            </div>
+            {/* Amounts + button */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+              <div style={{ textAlign: 'right' }}>
+                <div className="num" style={{ fontSize: '.88em', fontWeight: 900, color: 'var(--t1)' }}>{formatCOP(item.amount_planned)}</div>
+              </div>
+              <button
+                className={`zbtn-go ${item.status === 'paid' ? 'done' : ''}`}
+                onClick={() => onToggle(item.id, item.status !== 'paid')}
+              >
+                {item.status === 'paid' ? 'Pagado' : 'Pagar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/* ══ INLINE SHEETS ════════════════════════════════════════ */
+
+function NewBudgetItemSheet({ open, onClose, onCreated, activeHalf, quincenaId }: { open: boolean; onClose: () => void; onCreated: () => void; activeHalf: 1 | 2; quincenaId: string }) {
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  async function handle(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setPending(true)
-    setError(null)
-
-    const result = await createCategoria(new FormData(e.currentTarget))
+    const fd = new FormData(e.currentTarget)
+    const freq = fd.get('frequency') as string
+    if (freq === 'once') fd.set('quincena_id', quincenaId)
+    const res = await createBudgetItem(fd)
     setPending(false)
-
-    if (!result.ok) { setError(result.error); return }
+    if (!res.ok) { setError(res.error); return }
     onCreated()
-    // Don't close — let user add multiple categories
-    ;(e.currentTarget as HTMLFormElement).reset()
   }
-
   return (
-    <BottomSheet open={open} onClose={onClose} title="Nueva categoría">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <p className="text-xs text-[var(--expense)]">{error}</p>}
-        <div className="space-y-1">
-          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Nombre</label>
-          <input name="nombre" required placeholder="Ej: Arriendo" className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none placeholder:text-[var(--text-3)] focus:border-[var(--text-1)]" />
-        </div>
-        <div className="space-y-1">
-          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Tipo</label>
-          <select name="tipo" required className="w-full appearance-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]">
+    <BottomSheet open={open} onClose={onClose} title="Nuevo item de presupuesto">
+      <form onSubmit={handle} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {error && <p style={{ fontSize: '.82em', color: 'var(--r)' }}>{error}</p>}
+        <FieldLabel label="Nombre"><input name="name" required className="zinput" placeholder="Ej: Arriendo" /></FieldLabel>
+        <FieldLabel label="Frecuencia">
+          <select name="frequency" defaultValue="all" className="zinput">
+            <option value="all">Siempre (ambas quincenas)</option>
+            <option value="first">Solo 1ra quincena</option>
+            <option value="second">Solo 2da quincena</option>
+            <option value="once">Unica vez</option>
+          </select>
+        </FieldLabel>
+        <FieldLabel label="Monto previsto">
+          <input name="amount_planned" type="number" min="0" defaultValue="0" className="zinput num" />
+        </FieldLabel>
+        <FieldLabel label="Dia de vencimiento (opcional)">
+          <input name="due_day" type="number" min="1" max="31" className="zinput" placeholder="Ej: 5" />
+        </FieldLabel>
+        <Button type="submit" disabled={pending} className="w-full">{pending ? 'Creando...' : 'Agregar'}</Button>
+      </form>
+    </BottomSheet>
+  )
+}
+
+function NewCategoriaSheet({ open, onClose, onCreated, members, activeHalf }: { open: boolean; onClose: () => void; onCreated: () => void; members: { id: string; display_name: string }[]; activeHalf: 1 | 2 }) {
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  async function handle(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setPending(true)
+    const res = await createCategoria(new FormData(e.currentTarget))
+    setPending(false)
+    if (!res.ok) { setError(res.error); return }
+    onCreated();
+    (e.currentTarget as HTMLFormElement).reset()
+  }
+  return (
+    <BottomSheet open={open} onClose={onClose} title="Nueva categoria">
+      <form onSubmit={handle} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {error && <p style={{ fontSize: '.82em', color: 'var(--r)' }}>{error}</p>}
+        <FieldLabel label="Nombre"><input name="nombre" required className="zinput" placeholder="Ej: Mercado" /></FieldLabel>
+        <FieldLabel label="Tipo">
+          <select name="tipo" required className="zinput">
             <option value="gasto">Gasto</option>
             <option value="ingreso">Ingreso</option>
             <option value="ahorro">Ahorro</option>
@@ -365,340 +655,130 @@ function NewCategoriaSheet({ open, onClose, onCreated, members, activeHalf }: { 
             <option value="pago_credito">Pago credito</option>
             <option value="uso_bolsillo">Uso bolsillo</option>
           </select>
-        </div>
-        <div className="space-y-1">
-          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Presupuesto</label>
-          <div className="flex items-center gap-1">
-            <span className="text-sm font-bold text-[var(--text-3)]">$</span>
-            <input name="presupuesto_default" type="number" min="0" defaultValue="0" className="num w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
-          </div>
-        </div>
-        <div className="space-y-1">
-          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Asignar a</label>
-          <select name="assigned_to" className="w-full appearance-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]">
+        </FieldLabel>
+        <FieldLabel label="Presupuesto">
+          <input name="presupuesto_default" type="number" min="0" defaultValue="0" className="zinput num" />
+        </FieldLabel>
+        <FieldLabel label="Asignar a">
+          <select name="assigned_to" className="zinput">
             <option value="">Compartida</option>
-            {members.map((m) => (
-              <option key={m.id} value={m.id}>{m.display_name}</option>
-            ))}
+            {members.map((m) => <option key={m.id} value={m.id}>{m.display_name}</option>)}
           </select>
-        </div>
-        <div className="space-y-1">
-          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Quincena</label>
-          <select name="quincena_half" defaultValue={String(activeHalf)} className="w-full appearance-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]">
+        </FieldLabel>
+        <FieldLabel label="Quincena">
+          <select name="quincena_half" defaultValue={String(activeHalf)} className="zinput">
             <option value="">Ambas</option>
-            <option value="1">Solo 1ra quincena</option>
-            <option value="2">Solo 2da quincena</option>
+            <option value="1">Solo 1ra</option>
+            <option value="2">Solo 2da</option>
           </select>
-        </div>
-        <Button type="submit" disabled={pending} className="w-full">
-          {pending ? 'Creando...' : 'Agregar categoría'}
-        </Button>
+        </FieldLabel>
+        <Button type="submit" disabled={pending} className="w-full">{pending ? 'Creando...' : 'Agregar'}</Button>
       </form>
     </BottomSheet>
   )
 }
 
-/* ── Edit Categoría Sheet ── */
-function EditCategoriaSheet({ open, categoria, onClose, onSaved, members, activeHalf }: {
-  open: boolean; categoria: Categoria | null; onClose: () => void; onSaved: () => void; members: { id: string; display_name: string }[]; activeHalf: 1 | 2
-}) {
-  const [error, setError] = useState<string | null>(null)
+function EditCategoriaSheet({ categoria, onClose, onSaved, members, activeHalf }: { categoria: Categoria; onClose: () => void; onSaved: () => void; members: { id: string; display_name: string }[]; activeHalf: 1 | 2 }) {
   const [pending, setPending] = useState(false)
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  const [error, setError] = useState<string | null>(null)
+  async function handle(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!categoria) return
     setPending(true)
-    setError(null)
-
-    const result = await updateCategoria(categoria.id, new FormData(e.currentTarget))
+    const res = await updateCategoria(categoria.id, new FormData(e.currentTarget))
     setPending(false)
-
-    if (!result.ok) { setError(result.error); return }
+    if (!res.ok) { setError(res.error); return }
     onSaved()
   }
-
-  if (!categoria) return null
-
   return (
-    <BottomSheet open={open} onClose={onClose} title="Editar categoría">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <p className="text-xs text-[var(--expense)]">{error}</p>}
-        <div className="space-y-1">
-          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Nombre</label>
-          <input name="nombre" required defaultValue={categoria.nombre} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
-        </div>
-        <div className="space-y-1">
-          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Presupuesto</label>
-          <div className="flex items-center gap-1">
-            <span className="text-sm font-bold text-[var(--text-3)]">$</span>
-            <input name="presupuesto_default" type="number" min="0" defaultValue={categoria.presupuesto_default} className="num w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
-          </div>
-        </div>
-        <div className="space-y-1">
-          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Asignar a</label>
-          <select name="assigned_to" defaultValue={categoria.assigned_to ?? ''} className="w-full appearance-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]">
+    <BottomSheet open onClose={onClose} title="Editar categoria">
+      <form onSubmit={handle} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {error && <p style={{ fontSize: '.82em', color: 'var(--r)' }}>{error}</p>}
+        <FieldLabel label="Nombre"><input name="nombre" required defaultValue={categoria.nombre} className="zinput" /></FieldLabel>
+        <FieldLabel label="Presupuesto">
+          <input name="presupuesto_default" type="number" min="0" defaultValue={categoria.presupuesto_default} className="zinput num" />
+        </FieldLabel>
+        <FieldLabel label="Asignar a">
+          <select name="assigned_to" defaultValue={categoria.assigned_to ?? ''} className="zinput">
             <option value="">Compartida</option>
-            {members.map((m) => (
-              <option key={m.id} value={m.id}>{m.display_name}</option>
-            ))}
+            {members.map((m) => <option key={m.id} value={m.id}>{m.display_name}</option>)}
           </select>
-        </div>
-        <div className="space-y-1">
-          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Quincena</label>
-          <select name="quincena_half" defaultValue={categoria.quincena_half != null ? String(categoria.quincena_half) : ''} className="w-full appearance-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]">
+        </FieldLabel>
+        <FieldLabel label="Quincena">
+          <select name="quincena_half" defaultValue={categoria.quincena_half != null ? String(categoria.quincena_half) : ''} className="zinput">
             <option value="">Ambas</option>
-            <option value="1">Solo 1ra quincena</option>
-            <option value="2">Solo 2da quincena</option>
+            <option value="1">Solo 1ra</option>
+            <option value="2">Solo 2da</option>
           </select>
-        </div>
-        <Button type="submit" disabled={pending} className="w-full">
-          {pending ? 'Guardando...' : 'Guardar cambios'}
-        </Button>
+        </FieldLabel>
+        <Button type="submit" disabled={pending} className="w-full">{pending ? 'Guardando...' : 'Guardar'}</Button>
       </form>
     </BottomSheet>
   )
 }
 
-/* ── Edit Quincena Sheet ── */
-function EditQuincenaSheet({ open, quincena, onClose, onSaved }: {
-  open: boolean; quincena: Quincena | null; onClose: () => void; onSaved: () => void
+function EditTxSheet({ tx, categorias, members, onClose, onSaved, onDeleted }: {
+  tx: TransaccionConCategoria; categorias: Categoria[]; members: { id: string; display_name: string }[];
+  onClose: () => void; onSaved: () => void; onDeleted: () => void;
 }) {
-  const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  const [error, setError] = useState<string | null>(null)
+  async function handle(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!quincena) return
     setPending(true)
-    setError(null)
-
-    const result = await updateQuincena(quincena.id, new FormData(e.currentTarget))
+    const res = await updateTransaccion(tx.id, new FormData(e.currentTarget))
     setPending(false)
-
-    if (!result.ok) { setError(result.error); return }
+    if (!res.ok) { setError(res.error); return }
     onSaved()
   }
-
-  if (!quincena) return null
-
+  const TIPOS = ['gasto','ingreso','ahorro','bolsillo','credito','pago_credito','uso_bolsillo'] as const
+  const TIPO_LABELS: Record<string, string> = { gasto:'Gasto', ingreso:'Ingreso', ahorro:'Ahorro', bolsillo:'Bolsillo', credito:'Credito', pago_credito:'Pago TC', uso_bolsillo:'Uso Bols.' }
   return (
-    <BottomSheet open={open} onClose={onClose} title="Editar quincena">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <p className="text-xs text-[var(--expense)]">{error}</p>}
-        <div className="space-y-1">
-          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Nombre</label>
-          <input name="nombre" required defaultValue={quincena.nombre} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
-        </div>
-        <p className="text-xs text-[var(--text-3)]">
-          Periodo: {formatPeriod(quincena.fecha_inicio, quincena.fecha_fin)}
-        </p>
-        <div className="space-y-1">
-          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Saldo inicial</label>
-          <div className="flex items-center gap-1">
-            <span className="text-sm font-bold text-[var(--text-3)]">$</span>
-            <input name="saldo_inicial" type="number" step="any" required defaultValue={quincena.saldo_inicial} className="num w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
+    <BottomSheet open onClose={onClose} title="Editar transaccion">
+      <form onSubmit={handle} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {error && <p style={{ fontSize: '.82em', color: 'var(--r)' }}>{error}</p>}
+        <FieldLabel label="Tipo">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6 }}>
+            {TIPOS.map((tipo) => (
+              <label key={tipo} style={{ cursor: 'pointer' }}>
+                <input type="radio" name="tipo" value={tipo} defaultChecked={tx.tipo === tipo} className="sr-only" />
+                <span style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '8px 4px', borderRadius: 'var(--rm)',
+                  fontSize: '.7em', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.04em',
+                  background: 'var(--s2)', border: '1.5px solid var(--b1)', color: 'var(--t3)',
+                  cursor: 'pointer',
+                }}>
+                  {TIPO_LABELS[tipo]}
+                </span>
+              </label>
+            ))}
           </div>
-        </div>
-        <Button type="submit" disabled={pending} className="w-full">
-          {pending ? 'Guardando...' : 'Guardar cambios'}
-        </Button>
-      </form>
-    </BottomSheet>
-  )
-}
-
-/* ── Quincena Period Navigator ── */
-function QuincenaNavigator({ active, onNavigate, onEdit }: {
-  active: Quincena
-  onNavigate: (year: number, month: number, half: 1 | 2) => void
-  onEdit: () => void
-}) {
-  // Parse current period from fecha_inicio
-  const [y, m, d] = active.fecha_inicio.split('-').map(Number)
-  const half: 1 | 2 = d === 1 ? 1 : 2
-
-  function goPrev() {
-    if (half === 1) {
-      // Go to previous month 2da
-      const pm = m === 1 ? 12 : m - 1
-      const py = m === 1 ? y - 1 : y
-      onNavigate(py, pm, 2)
-    } else {
-      onNavigate(y, m, 1)
-    }
-  }
-
-  function goNext() {
-    if (half === 2) {
-      // Go to next month 1ra
-      const nm = m === 12 ? 1 : m + 1
-      const ny = m === 12 ? y + 1 : y
-      onNavigate(ny, nm, 1)
-    } else {
-      onNavigate(y, m, 2)
-    }
-  }
-
-  const monthName = new Date(y, m - 1, 1)
-    .toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })
-
-  return (
-    <div className="flex items-center gap-2">
-      <button
-        onClick={goPrev}
-        className="rounded p-1 text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]"
-        aria-label="Quincena anterior"
-      >
-        <ChevronLeft size={18} />
-      </button>
-      <div className="flex-1 text-center">
-        <p className="text-sm font-bold text-[var(--text-1)]">
-          {half === 1 ? '1ra' : '2da'} quincena
-        </p>
-        <p className="text-[10px] capitalize text-[var(--text-3)]">
-          {monthName} · {formatPeriod(active.fecha_inicio, active.fecha_fin)}
-        </p>
-      </div>
-      <button
-        onClick={goNext}
-        className="rounded p-1 text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]"
-        aria-label="Quincena siguiente"
-      >
-        <ChevronRight size={18} />
-      </button>
-      <button
-        onClick={onEdit}
-        className="rounded p-1 text-[var(--text-3)] hover:text-[var(--text-1)]"
-        title="Editar saldo inicial"
-      >
-        <Pencil size={12} />
-      </button>
-    </div>
-  )
-}
-
-/* ── Edit Transaccion Sheet ── */
-function EditTransaccionSheet({ open, transaccion, categorias, members, onClose, onSaved, onDeleted }: {
-  open: boolean
-  transaccion: TransaccionConCategoria | null
-  categorias: Categoria[]
-  members: { id: string; display_name: string }[]
-  onClose: () => void
-  onSaved: () => void
-  onDeleted: () => void
-}) {
-  const [error, setError] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (!transaccion) return
-    setPending(true)
-    setError(null)
-
-    const result = await updateTransaccion(transaccion.id, new FormData(e.currentTarget))
-    setPending(false)
-
-    if (!result.ok) { setError(result.error); return }
-    onSaved()
-  }
-
-  async function handleDelete() {
-    if (!transaccion) return
-    if (!confirm('Eliminar esta transaccion?')) return
-    await deleteTransaccion(transaccion.id)
-    onDeleted()
-  }
-
-  if (!transaccion) return null
-
-  const gastos = categorias.filter((c) => c.tipo === 'gasto')
-  const ingresos = categorias.filter((c) => c.tipo === 'ingreso')
-  const ahorros = categorias.filter((c) => c.tipo === 'ahorro')
-  const bolsillos = categorias.filter((c) => c.tipo === 'bolsillo')
-  const creditos = categorias.filter((c) => c.tipo === 'credito')
-  const pagosCredito = categorias.filter((c) => c.tipo === 'pago_credito')
-  const usosBolsillo = categorias.filter((c) => c.tipo === 'uso_bolsillo')
-
-  return (
-    <BottomSheet open={open} onClose={onClose} title="Editar transaccion">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <p className="text-xs text-[var(--expense)]">{error}</p>}
-
-        {/* Tipo */}
-        <div className="space-y-1">
-          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Tipo</label>
-          <div className="grid grid-cols-3 gap-2">
-            {(['gasto', 'ingreso', 'ahorro', 'bolsillo', 'credito', 'pago_credito', 'uso_bolsillo'] as const).map((tipo) => {
-              const colorVar: Record<string, string> = { gasto: '--expense', ingreso: '--income', ahorro: '--info', bolsillo: '--mod-finance', credito: '--credit', pago_credito: '--credit', uso_bolsillo: '--mod-finance' }
-              const labels: Record<string, string> = { gasto: 'Gasto', ingreso: 'Ingreso', ahorro: 'Ahorro', bolsillo: 'Bolsillo', credito: 'Credito', pago_credito: 'Pago TC', uso_bolsillo: 'Uso Bols.' }
-              return (
-                <label key={tipo} className={`flex cursor-pointer items-center justify-center rounded border border-[var(--border-strong)] px-3 py-2 text-[11px] font-medium has-[:checked]:border-[var(${colorVar[tipo]})] has-[:checked]:bg-[color-mix(in_srgb,var(${colorVar[tipo]})_8%,transparent)] has-[:checked]:text-[var(${colorVar[tipo]})]`}>
-                  <input type="radio" name="tipo" value={tipo} defaultChecked={transaccion.tipo === tipo} className="sr-only" />
-                  {labels[tipo]}
-                </label>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Importe */}
-        <div className="space-y-1">
-          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Importe</label>
-          <div className="flex items-center gap-1">
-            <span className="text-sm font-bold text-[var(--text-3)]">$</span>
-            <input name="importe" type="number" min="1" required defaultValue={transaccion.importe} className="num w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
-          </div>
-        </div>
-
-        {/* Miembro */}
+        </FieldLabel>
+        <FieldLabel label="Importe">
+          <input name="importe" type="number" min="1" required defaultValue={tx.importe} className="zinput num" />
+        </FieldLabel>
         {members.length > 1 && (
-          <div className="space-y-1">
-            <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Miembro</label>
-            <select name="user_id" defaultValue={transaccion.user_id} className="w-full appearance-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]">
-              {members.map((m) => (
-                <option key={m.id} value={m.id}>{m.display_name}</option>
-              ))}
+          <FieldLabel label="Miembro">
+            <select name="user_id" defaultValue={tx.user_id} className="zinput">
+              {members.map((m) => <option key={m.id} value={m.id}>{m.display_name}</option>)}
             </select>
-          </div>
+          </FieldLabel>
         )}
-
-        {/* Categoria */}
-        <div className="space-y-1">
-          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Categoria</label>
-          <select name="categoria_id" required defaultValue={transaccion.categoria_id} className="w-full appearance-none rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]">
-            {gastos.length > 0 && <optgroup label="Gastos">{gastos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</optgroup>}
-            {ingresos.length > 0 && <optgroup label="Ingresos">{ingresos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</optgroup>}
-            {ahorros.length > 0 && <optgroup label="Ahorros">{ahorros.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</optgroup>}
-            {bolsillos.length > 0 && <optgroup label="Bolsillos">{bolsillos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</optgroup>}
-            {creditos.length > 0 && <optgroup label="Credito">{creditos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</optgroup>}
-            {pagosCredito.length > 0 && <optgroup label="Pago credito">{pagosCredito.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</optgroup>}
-            {usosBolsillo.length > 0 && <optgroup label="Uso bolsillo">{usosBolsillo.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</optgroup>}
+        <FieldLabel label="Categoria">
+          <select name="categoria_id" required defaultValue={tx.categoria_id} className="zinput">
+            {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </select>
-        </div>
-
-        {/* Descripcion */}
-        <div className="space-y-1">
-          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Descripcion</label>
-          <input name="descripcion" type="text" defaultValue={transaccion.descripcion ?? ''} placeholder="Opcional" className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none placeholder:text-[var(--text-3)] focus:border-[var(--text-1)]" />
-        </div>
-
-        {/* Fecha */}
-        <div className="space-y-1">
-          <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--text-2)]">Fecha</label>
-          <input name="fecha" type="date" defaultValue={transaccion.fecha} className="w-full rounded border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--text-1)]" />
-        </div>
-
-        <div className="flex gap-2">
-          <Button type="submit" disabled={pending} className="flex-1">
-            {pending ? 'Guardando...' : 'Guardar'}
-          </Button>
-          <button
-            type="button"
-            onClick={handleDelete}
-            className="rounded border border-[var(--expense)] px-4 py-2 text-sm font-medium text-[var(--expense)] hover:bg-[color-mix(in_srgb,var(--expense)_8%,transparent)]"
-          >
+        </FieldLabel>
+        <FieldLabel label="Descripcion">
+          <input name="descripcion" type="text" defaultValue={tx.descripcion ?? ''} placeholder="Opcional" className="zinput" />
+        </FieldLabel>
+        <FieldLabel label="Fecha">
+          <input name="fecha" type="date" defaultValue={tx.fecha} className="zinput" />
+        </FieldLabel>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Button type="submit" disabled={pending} style={{ flex: 1 }}>{pending ? 'Guardando...' : 'Guardar'}</Button>
+          <button type="button" onClick={async () => { if (!confirm('Eliminar?')) return; await deleteTransaccion(tx.id); onDeleted() }}
+            style={{ padding: '8px 16px', borderRadius: 'var(--rm)', border: '1px solid var(--r)', color: 'var(--r)', background: 'none', cursor: 'pointer' }}>
             <Trash2 size={14} />
           </button>
         </div>
@@ -707,111 +787,65 @@ function EditTransaccionSheet({ open, transaccion, categorias, members, onClose,
   )
 }
 
-/* ── Compute KPIs from filtered transactions (client-side) ── */
-function computeFilteredKPIs(
-  txs: TransaccionConCategoria[],
-  categorias: Categoria[],
-  originalKPIs: FinanceKPIs,
-  userId: string,
-): FinanceKPIs {
-  const totalIngresos = txs
-    .filter((t) => t.tipo === 'ingreso')
-    .reduce((s, t) => s + Number(t.importe), 0)
-  const totalGastos = txs
-    .filter((t) => t.tipo === 'gasto')
-    .reduce((s, t) => s + Number(t.importe), 0)
-  const totalAhorros = txs
-    .filter((t) => t.tipo === 'ahorro')
-    .reduce((s, t) => s + Number(t.importe), 0)
-  const totalBolsillos = txs
-    .filter((t) => t.tipo === 'bolsillo')
-    .reduce((s, t) => s + Number(t.importe), 0)
-  const totalCredito = txs
-    .filter((t) => t.tipo === 'credito')
-    .reduce((s, t) => s + Number(t.importe), 0)
-  const totalPagoCredito = txs
-    .filter((t) => t.tipo === 'pago_credito')
-    .reduce((s, t) => s + Number(t.importe), 0)
-  const totalUsoBolsillo = txs
-    .filter((t) => t.tipo === 'uso_bolsillo')
-    .reduce((s, t) => s + Number(t.importe), 0)
-
-  const realByCategoria: Record<string, number> = {}
-  for (const t of txs) {
-    realByCategoria[t.categoria_id] = (realByCategoria[t.categoria_id] ?? 0) + Number(t.importe)
+function EditQuincenaSheet({ open, quincena, onClose, onSaved }: { open: boolean; quincena: Quincena | null; onClose: () => void; onSaved: () => void }) {
+  const [pending, setPending] = useState(false)
+  if (!quincena) return null
+  async function handle(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setPending(true)
+    const res = await updateQuincena(quincena!.id, new FormData(e.currentTarget))
+    setPending(false)
+    if (res.ok) onSaved()
   }
-
-  const porCategoria = categorias.map((c) => {
-    const real = realByCategoria[c.id] ?? 0
-    const previsto = Number(c.presupuesto_default)
-    return {
-      categoriaId: c.id,
-      nombre: c.nombre,
-      icono: c.icono ?? 'circle',
-      tipo: c.tipo,
-      previsto,
-      real,
-      porcentaje: previsto > 0 ? real / previsto : 0,
-    }
-  })
-
-  const memberAccum = originalKPIs.acumuladoPorMiembro[userId]
-
-  return {
-    saldoInicial: 0,
-    totalIngresos,
-    totalGastos,
-    totalAhorros,
-    totalBolsillos,
-    totalUsoBolsillo,
-    totalCredito,
-    totalPagoCredito,
-    saldoActual: memberAccum?.balance ?? (totalIngresos - totalGastos - totalAhorros - totalBolsillos - totalPagoCredito),
-    deudaCreditoAcumulada: memberAccum?.deudaCredito ?? 0,
-    saldoBolsillosAcumulado: memberAccum?.saldoBolsillos ?? 0,
-    fechaCorteCredito: originalKPIs.fechaCorteCredito,
-    diasParaCorte: originalKPIs.diasParaCorte,
-    porCategoria,
-    acumuladoPorMiembro: originalKPIs.acumuladoPorMiembro,
-  }
+  return (
+    <BottomSheet open={open} onClose={onClose} title="Editar quincena">
+      <form onSubmit={handle} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <FieldLabel label="Nombre"><input name="nombre" required defaultValue={quincena.nombre} className="zinput" /></FieldLabel>
+        <p style={{ fontSize: '.78em', color: 'var(--t3)' }}>Periodo: {formatPeriod(quincena.fecha_inicio, quincena.fecha_fin)}</p>
+        <FieldLabel label="Saldo inicial">
+          <input name="saldo_inicial" type="number" step="any" required defaultValue={quincena.saldo_inicial} className="zinput num" />
+        </FieldLabel>
+        <Button type="submit" disabled={pending} className="w-full">{pending ? 'Guardando...' : 'Guardar'}</Button>
+      </form>
+    </BottomSheet>
+  )
 }
 
-/* ── Member Filter Chips ── */
-function MemberFilter({ members, selected, onChange }: {
-  members: { id: string; display_name: string; color_hex: string }[]
-  selected: string | null
-  onChange: (userId: string | null) => void
-}) {
+function FieldLabel({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-1 rounded-lg bg-[var(--surface-2)] p-1">
-      <button
-        onClick={() => onChange(null)}
-        className={`flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
-          selected === null
-            ? 'bg-[var(--surface)] text-[var(--text-1)] shadow-sm'
-            : 'text-[var(--text-3)] hover:text-[var(--text-2)]'
-        }`}
-      >
-        Todos
-      </button>
-      {members.map((m) => (
-        <button
-          key={m.id}
-          onClick={() => onChange(m.id)}
-          className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
-            selected === m.id
-              ? 'bg-[var(--surface)] shadow-sm'
-              : 'text-[var(--text-3)] hover:text-[var(--text-2)]'
-          }`}
-          style={selected === m.id ? { color: m.color_hex } : undefined}
-        >
-          <span
-            className="inline-block h-2 w-2 shrink-0 rounded-full"
-            style={{ backgroundColor: m.color_hex }}
-          />
-          {m.display_name}
-        </button>
-      ))}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <span style={{ fontSize: '.65em', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.12em', color: 'var(--t3)' }}>{label}</span>
+      {children}
     </div>
   )
+}
+
+/* ══ KPI FILTER (client-side) ═══════════════════════════ */
+function computeFilteredKPIs(txs: TransaccionConCategoria[], cats: Categoria[], orig: FinanceKPIs, userId: string): FinanceKPIs {
+  const sum = (tipo: string) => txs.filter((t) => t.tipo === tipo).reduce((s, t) => s + Number(t.importe), 0)
+  const totalIngresos    = sum('ingreso')
+  const totalGastos      = sum('gasto')
+  const totalAhorros     = sum('ahorro')
+  const totalBolsillos   = sum('bolsillo')
+  const totalCredito     = sum('credito')
+  const totalPagoCredito = sum('pago_credito')
+  const totalUsoBolsillo = sum('uso_bolsillo')
+  const real: Record<string, number> = {}
+  for (const t of txs) real[t.categoria_id] = (real[t.categoria_id] ?? 0) + Number(t.importe)
+  const porCategoria = cats.map((c) => {
+    const rv = real[c.id] ?? 0
+    const pv = Number(c.presupuesto_default)
+    return { categoriaId: c.id, nombre: c.nombre, icono: c.icono ?? 'circle', tipo: c.tipo, previsto: pv, real: rv, porcentaje: pv > 0 ? rv / pv : 0 }
+  })
+  const mb = orig.acumuladoPorMiembro[userId]
+  return {
+    saldoInicial: 0, totalIngresos, totalGastos, totalAhorros, totalBolsillos, totalUsoBolsillo, totalCredito, totalPagoCredito,
+    saldoActual: mb?.balance ?? (totalIngresos - totalGastos - totalAhorros - totalBolsillos - totalPagoCredito),
+    deudaCreditoAcumulada: mb?.deudaCredito ?? 0,
+    saldoBolsillosAcumulado: mb?.saldoBolsillos ?? 0,
+    fechaCorteCredito: orig.fechaCorteCredito,
+    diasParaCorte: orig.diasParaCorte,
+    porCategoria,
+    acumuladoPorMiembro: orig.acumuladoPorMiembro,
+  }
 }

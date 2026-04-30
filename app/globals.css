@@ -296,6 +296,58 @@ body::before {
 .animate-slide-out    { animation: slide-out-right 250ms ease-in forwards; }
 .animate-float-up     { animation: float-up 600ms ease-out forwards; }
 
+/* ══ ZZZ FORM INPUTS ════════════════════════════════════ */
+.zinput {
+  width: 100%;
+  background: var(--s2);
+  border: 1.5px solid var(--b1);
+  border-radius: var(--rm);
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: .87em;
+  font-weight: 600;
+  color: var(--t1);
+  outline: none;
+  transition: border-color .13s;
+  appearance: none;
+}
+.zinput::placeholder { color: var(--t3); }
+.zinput:focus { border-color: var(--y); }
+
+select.zinput { cursor: pointer; }
+
+/* Finance-specific layout */
+.fin-two-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+@media (min-width: 1024px) {
+  .fin-two-col { flex-direction: row; align-items: flex-start; }
+  .fin-two-col > :first-child { flex: 1.1; min-width: 0; }
+  .fin-two-col > :last-child  { flex: 0.9; min-width: 0; }
+}
+
+/* Container card strip — horizontal scroll mobile, grid desktop */
+.cstrip-wrap {
+  overflow-x: auto;
+  margin: 0 calc(-1 * var(--pad));
+  padding: 0 var(--pad) 2px;
+  scrollbar-width: none;
+}
+.cstrip-wrap::-webkit-scrollbar { display: none; }
+.cstrip { display: flex; gap: 8px; }
+.cstrip::after { content: ''; flex-shrink: 0; width: var(--pad); }
+
+@media (min-width: 640px) {
+  .cstrip-wrap { margin: 0; padding: 0; overflow: visible; }
+  .cstrip { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .cstrip::after { display: none; }
+}
+@media (min-width: 1024px) {
+  .cstrip { grid-template-columns: repeat(4, 1fr); }
+}
+
 /* ══ TRANSITION STUBS — remove when components are redesigned ═══ */
 /* mod-card: ZZZ dark container card */
 .mod-card {
