@@ -6,8 +6,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen" style={{ background: 'var(--bg)' }}>
       <SideNav />
-      {/* Offset matches sidebar: 72px tablet, 220px desktop */}
-      <div className="relative z-10 flex flex-1 flex-col sm:ml-[72px] lg:ml-[220px]">
+      <div className="relative z-10 flex flex-1 flex-col" style={{ marginLeft: 'var(--sw)' }}>
         <Header />
         <main className="flex-1 pb-[70px] sm:pb-0">{children}</main>
         <BottomNav />
