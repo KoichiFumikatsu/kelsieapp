@@ -188,6 +188,16 @@ export function FinanceClient() {
   const totalPlanned = visibleBudgetItems.reduce((s, i) => s + i.amount_planned, 0)
   const totalSpent = visibleBudgetItems.reduce((s, i) => s + (spentPerBudgetItem[i.id] ?? 0), 0)
 
+  // Category paid state: derived per-category from transactions (not from budget item status)
+  // Also tracks the last transaction ID per category for unpay
+  const paidCatIds = new Set<string>()
+  const lastTxByCatId: Record<string, string> = {}
+  for (const tx of transacciones) {
+    if (!tx.categoria_id) continue
+    paidCatIds.add(tx.categoria_id)
+    lastTxByCatId[tx.categoria_id] = tx.id
+  }
+
   const saldo    = filteredKpis?.saldoActual ?? 0
   const ingresos = filteredKpis?.totalIngresos ?? 0
   const gastos   = filteredKpis?.totalGastos ?? 0
@@ -426,11 +436,11 @@ export function FinanceClient() {
                 {categorias.map((cat) => {
                   const linkedItem = cat.budget_item_id ? budgetItems.find(b => b.id === cat.budget_item_id) : null
                   const isPayable = ['gasto', 'pago_credito', 'bolsillo', 'ahorro', 'uso_bolsillo'].includes(cat.tipo)
-                  const isPaid = linkedItem?.status === 'paid'
+                  const isPaid = paidCatIds.has(cat.id)
                   return (
-                    <div key={cat.id} style={{ background: 'var(--s1)', border: '1px solid var(--b1)', borderRadius: 'var(--rm)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div key={cat.id} style={{ background: 'var(--s1)', border: `1px solid ${isPaid ? 'var(--g)' : 'var(--b1)'}`, borderRadius: 'var(--rm)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, opacity: isPaid ? 0.75 : 1, transition: 'border-color .12s, opacity .12s' }}>
                       <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: TX_COLOR[cat.tipo] ?? 'var(--t3)' }} />
-                      <span style={{ fontSize: '.87em', fontWeight: 700, color: 'var(--t1)', flex: 1 }}>{cat.nombre}</span>
+                      <span style={{ fontSize: '.87em', fontWeight: 700, color: 'var(--t1)', flex: 1, textDecoration: isPaid ? 'line-through' : 'none' }}>{cat.nombre}</span>
                       {cat.presupuesto_default > 0 && (
                         <span className="num" style={{ fontSize: '.75em', color: 'var(--t3)' }}>{formatCOP(cat.presupuesto_default)}</span>
                       )}
@@ -441,15 +451,25 @@ export function FinanceClient() {
                       {isPayable && (
                         <button
                           className={`zbtn-go ${isPaid ? 'done' : ''}`}
-                          onClick={() => !isPaid && setPayingBudget({
-                            item: linkedItem ?? {
-                              id: '', household_id: '', parent_id: null, quincena_id: null, assigned_to: null,
-                              name: cat.nombre, frequency: 'all', amount_planned: cat.presupuesto_default,
-                              due_day: null, status: 'pending', created_at: '',
-                            },
-                            categoriaId: cat.id,
-                            tipo: cat.tipo,
-                          })}
+                          onClick={async () => {
+                            if (isPaid) {
+                              const txId = lastTxByCatId[cat.id]
+                              if (!txId || !confirm('Revertir el pago de esta categoria?')) return
+                              await deleteTransaccion(txId)
+                              if (cat.budget_item_id) await markBudgetItemPaid(cat.budget_item_id, false)
+                              loadData(active.id)
+                            } else {
+                              setPayingBudget({
+                                item: linkedItem ?? {
+                                  id: '', household_id: '', parent_id: null, quincena_id: null, assigned_to: null,
+                                  name: cat.nombre, frequency: 'all', amount_planned: cat.presupuesto_default,
+                                  due_day: null, status: 'pending', created_at: '',
+                                },
+                                categoriaId: cat.id,
+                                tipo: cat.tipo,
+                              })
+                            }
+                          }}
                         >
                           {isPaid ? 'Pagado' : 'Pagar'}
                         </button>
