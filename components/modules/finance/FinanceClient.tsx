@@ -77,7 +77,7 @@ export function FinanceClient() {
   const [showNewCat, setShowNewCat]           = useState(false)
   const [editingCat, setEditingCat]           = useState<Categoria | null>(null)
   const [editingBudget, setEditingBudget]     = useState<BudgetItem | null>(null)
-  const [payingBudget, setPayingBudget]       = useState<{ item: BudgetItem; categoriaId?: string } | null>(null)
+  const [payingBudget, setPayingBudget]       = useState<{ item: BudgetItem; categoriaId?: string; tipo?: string } | null>(null)
   const [showReset, setShowReset]             = useState(false)
 
   /* ── load all data ── */
@@ -403,6 +403,8 @@ export function FinanceClient() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                 {categorias.map((cat) => {
                   const linkedItem = cat.budget_item_id ? budgetItems.find(b => b.id === cat.budget_item_id) : null
+                  const isPayable = ['gasto', 'pago_credito', 'bolsillo', 'ahorro', 'uso_bolsillo'].includes(cat.tipo)
+                  const isPaid = linkedItem?.status === 'paid'
                   return (
                     <div key={cat.id} style={{ background: 'var(--s1)', border: '1px solid var(--b1)', borderRadius: 'var(--rm)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
                       <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: TX_COLOR[cat.tipo] ?? 'var(--t3)' }} />
@@ -414,12 +416,20 @@ export function FinanceClient() {
                         <span className={`ztag ${cat.quincena_half === 1 ? 'first' : 'second'}`}>{cat.quincena_half === 1 ? '1ra 15na' : '2da 15na'}</span>
                       )}
                       {cat.is_salary && <span className="ztag all">Salario</span>}
-                      {linkedItem && (
+                      {isPayable && (
                         <button
-                          className={`zbtn-go ${linkedItem.status === 'paid' ? 'done' : ''}`}
-                          onClick={() => linkedItem.status !== 'paid' && setPayingBudget({ item: linkedItem, categoriaId: cat.id })}
+                          className={`zbtn-go ${isPaid ? 'done' : ''}`}
+                          onClick={() => !isPaid && setPayingBudget({
+                            item: linkedItem ?? {
+                              id: '', household_id: '', parent_id: null, quincena_id: null, assigned_to: null,
+                              name: cat.nombre, frequency: 'all', amount_planned: cat.presupuesto_default,
+                              due_day: null, status: 'pending', created_at: '',
+                            },
+                            categoriaId: cat.id,
+                            tipo: cat.tipo,
+                          })}
                         >
-                          {linkedItem.status === 'paid' ? 'Pagado' : 'Pagar'}
+                          {isPaid ? 'Pagado' : 'Pagar'}
                         </button>
                       )}
                       <button onClick={() => setEditingCat(cat)} style={{ background: 'none', color: 'var(--t3)', cursor: 'pointer', padding: 4 }}><Pencil size={12} /></button>
@@ -542,6 +552,7 @@ export function FinanceClient() {
         <PayBudgetSheet
           item={payingBudget.item}
           categoriaId={payingBudget.categoriaId}
+          tipo={payingBudget.tipo ?? 'gasto'}
           quincenaId={active.id}
           members={members}
           currentUserId={profile?.id}
@@ -1033,9 +1044,10 @@ function EditQuincenaSheet({ open, quincena, members, onClose, onSaved }: {
   )
 }
 
-function PayBudgetSheet({ item, categoriaId, quincenaId, members, currentUserId, onClose, onPaid }: {
+function PayBudgetSheet({ item, categoriaId, tipo, quincenaId, members, currentUserId, onClose, onPaid }: {
   item: BudgetItem
   categoriaId?: string
+  tipo?: string
   quincenaId: string
   members: { id: string; display_name: string; color_hex: string }[]
   currentUserId?: string
@@ -1058,7 +1070,7 @@ function PayBudgetSheet({ item, categoriaId, quincenaId, members, currentUserId,
     // Create gasto transaction
     const form = new FormData()
     form.set('quincena_id', quincenaId)
-    form.set('tipo', 'gasto')
+    form.set('tipo', tipo ?? 'gasto')
     form.set('importe', String(item.amount_planned))
     form.set('user_id', userId)
     form.set('fecha', new Date().toISOString().split('T')[0])
