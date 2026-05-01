@@ -188,12 +188,22 @@ export function FinanceClient() {
   // Budget items that have a linked category — their "Pagar" is handled from the category row
   const linkedBudgetItemIds = new Set(categorias.filter(c => c.budget_item_id).map(c => c.budget_item_id!))
 
-  // Spent per budget item (via categoria link) for current quincena filtered view
+  // Items 'all' acumulan gasto mensual (ambas quincenas); el resto solo la activa
+  const allFreqIds = new Set(budgetItems.filter(b => b.frequency === 'all').map(b => b.id))
+
   const spentPerBudgetItem: Record<string, number> = {}
   for (const tx of filteredTx) {
     if (!tx.categoria_id) continue
     const cat = categorias.find(c => c.id === tx.categoria_id)
     if (!cat?.budget_item_id) continue
+    spentPerBudgetItem[cat.budget_item_id] = (spentPerBudgetItem[cat.budget_item_id] ?? 0) + tx.importe
+  }
+  // Suma la quincena hermana para items 'all'
+  const filteredSiblingTx = filterUserId ? siblingTx.filter(t => t.user_id === filterUserId) : siblingTx
+  for (const tx of filteredSiblingTx) {
+    if (!tx.categoria_id) continue
+    const cat = categorias.find(c => c.id === tx.categoria_id)
+    if (!cat?.budget_item_id || !allFreqIds.has(cat.budget_item_id)) continue
     spentPerBudgetItem[cat.budget_item_id] = (spentPerBudgetItem[cat.budget_item_id] ?? 0) + tx.importe
   }
 
@@ -215,7 +225,6 @@ export function FinanceClient() {
 
   // Category paid state: derived per-category from transactions (not from budget item status)
   // Also tracks the last transaction ID per category for unpay
-  const allFreqBudgetItemIds = new Set(budgetItems.filter(b => b.frequency === 'all').map(b => b.id))
   const paidCatIds = new Set<string>()
   const lastTxByCatId: Record<string, string> = {}
   for (const tx of transacciones) {
@@ -227,10 +236,8 @@ export function FinanceClient() {
   for (const tx of siblingTx) {
     if (!tx.categoria_id) continue
     const cat = categorias.find(c => c.id === tx.categoria_id)
-    if (!cat?.budget_item_id) continue
-    if (allFreqBudgetItemIds.has(cat.budget_item_id)) {
-      paidCatIds.add(tx.categoria_id)
-    }
+    if (!cat?.budget_item_id || !allFreqIds.has(cat.budget_item_id)) continue
+    paidCatIds.add(tx.categoria_id)
   }
 
   const saldo    = filteredKpis?.saldoActual ?? 0
@@ -387,6 +394,7 @@ export function FinanceClient() {
                     items={halfFilteredItems.slice(0, 6)}
                     linkedBudgetItemIds={linkedBudgetItemIds}
                     spentPerBudgetItem={spentPerBudgetItem}
+                    allFreqIds={allFreqIds}
                     members={members}
                     filterUserId={filterUserId}
                     onToggle={(item) => setPayingBudget({ item })}
@@ -444,7 +452,7 @@ export function FinanceClient() {
                 <span className="zdivider-line" />
                 <button onClick={() => setShowNewBudget(true)} className="zbtn" style={{ padding: '4px 10px', fontSize: '.7em' }}>+ Item</button>
               </div>
-              <BudgetList items={halfFilteredItems} linkedBudgetItemIds={linkedBudgetItemIds} spentPerBudgetItem={spentPerBudgetItem} members={members} filterUserId={filterUserId} onToggle={(item) => setPayingBudget({ item })} onEdit={(item) => setEditingBudget(item)} onDelete={async (id) => {
+              <BudgetList items={halfFilteredItems} linkedBudgetItemIds={linkedBudgetItemIds} spentPerBudgetItem={spentPerBudgetItem} allFreqIds={allFreqIds} members={members} filterUserId={filterUserId} onToggle={(item) => setPayingBudget({ item })} onEdit={(item) => setEditingBudget(item)} onDelete={async (id) => {
                 if (!confirm('Eliminar este item?')) return
                 await deleteBudgetItem(id)
                 loadData(active.id)
@@ -731,10 +739,11 @@ function TxList({ txs, members, onEdit }: { txs: TransaccionConCategoria[]; memb
   )
 }
 
-function BudgetList({ items, linkedBudgetItemIds, spentPerBudgetItem, members, filterUserId, onToggle, onEdit, onDelete }: {
+function BudgetList({ items, linkedBudgetItemIds, spentPerBudgetItem, allFreqIds, members, filterUserId, onToggle, onEdit, onDelete }: {
   items: BudgetItem[]
   linkedBudgetItemIds: Set<string>
   spentPerBudgetItem: Record<string, number>
+  allFreqIds: Set<string>
   members: { id: string; display_name: string; color_hex: string }[]
   filterUserId: string | null
   onToggle: (item: BudgetItem) => void
@@ -755,6 +764,7 @@ function BudgetList({ items, linkedBudgetItemIds, spentPerBudgetItem, members, f
         const spentPct = planned > 0 ? Math.min(spent / planned, 1) : 0
         const isOver = spent > planned && planned > 0
         const barColor = isOver ? 'var(--r)' : 'var(--g)'
+        const isMonthly = allFreqIds.has(item.id)
         return (
         <div key={item.id} style={{ background: 'var(--s1)', border: `1px solid ${isOver ? 'var(--r)' : 'var(--b1)'}`, borderRadius: 'var(--rm)', overflow: 'hidden', transition: 'border-color .12s' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px' }}>
@@ -784,8 +794,7 @@ function BudgetList({ items, linkedBudgetItemIds, spentPerBudgetItem, members, f
               </div>
               {spent > 0 ? (
                 <span className="num" style={{ fontSize: '.68em', color: isOver ? 'var(--r)' : 'var(--t3)', fontWeight: 700 }}>
-                  {formatCOP(spent)} de {formatCOP(planned)}
-                  {isOver && ' · excedido'}
+                  {formatCOP(spent)} de {formatCOP(planned)}{isMonthly ? ' · mes' : ''}{isOver ? ' · excedido' : ''}
                 </span>
               ) : item.due_day ? (
                 <span style={{ fontSize: '.7em', color: 'var(--t3)', fontWeight: 600 }}>Dia {item.due_day}</span>
