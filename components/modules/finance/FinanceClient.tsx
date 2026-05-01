@@ -6,7 +6,7 @@ import { createBrowserClient } from '@supabase/ssr'
 
 import { getActiveQuincena, getQuincenas, ensureQuincena, updateQuincena } from '@/app/actions/finance/quincenas'
 import { getCategorias, createCategoria, deleteCategoria, updateCategoria } from '@/app/actions/finance/categorias'
-import { getTransacciones, updateTransaccion, deleteTransaccion } from '@/app/actions/finance/transacciones'
+import { getTransacciones, createTransaccion, updateTransaccion, deleteTransaccion } from '@/app/actions/finance/transacciones'
 import { getFinanceKPIs } from '@/app/actions/finance/dashboard'
 import { getBudgetItems, markBudgetItemPaid, createBudgetItem, updateBudgetItem, deleteBudgetItem } from '@/app/actions/finance/budget_items'
 import type { BudgetItem } from '@/app/actions/finance/budget_items'
@@ -77,6 +77,7 @@ export function FinanceClient() {
   const [showNewCat, setShowNewCat]           = useState(false)
   const [editingCat, setEditingCat]           = useState<Categoria | null>(null)
   const [editingBudget, setEditingBudget]     = useState<BudgetItem | null>(null)
+  const [payingBudget, setPayingBudget]       = useState<BudgetItem | null>(null)
   const [showReset, setShowReset]             = useState(false)
 
   /* ── load all data ── */
@@ -307,15 +308,42 @@ export function FinanceClient() {
               </div>
             </div>
 
-            {/* Recent transactions preview */}
-            <div>
-              <div className="zdivider">
-                <span className="zdivider-star">◆</span>
-                <span className="zdivider-label">Recientes</span>
-                <span className="zdivider-line" />
-                <button onClick={() => setTab('transacciones')} style={{ fontSize: '.7em', fontWeight: 800, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.06em', background: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>Ver todas</button>
+            {/* Presupuesto + Recientes — dos columnas en desktop */}
+            <div className="fin-two-col">
+              {/* Presupuesto */}
+              <div>
+                <div className="zdivider">
+                  <span className="zdivider-star">◆</span>
+                  <span className="zdivider-label">Presupuesto</span>
+                  <span className="zdivider-line" />
+                  <button onClick={() => setTab('presupuesto')} style={{ fontSize: '.7em', fontWeight: 800, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.06em', background: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>Ver todo</button>
+                </div>
+                {budgetItems.length === 0 ? (
+                  <p style={{ fontSize: '.8em', color: 'var(--t3)', padding: '12px 0' }}>Sin items de presupuesto</p>
+                ) : (
+                  <BudgetList
+                    items={budgetItems.slice(0, 6)}
+                    onToggle={(item) => setPayingBudget(item)}
+                    onEdit={(item) => setEditingBudget(item)}
+                    onDelete={async (id) => {
+                      if (!confirm('Eliminar este item?')) return
+                      await deleteBudgetItem(id)
+                      loadData(active!.id)
+                    }}
+                  />
+                )}
               </div>
-              <TxList txs={filteredTx.slice(0, 5)} members={members} onEdit={setEditingTx} />
+
+              {/* Recientes */}
+              <div>
+                <div className="zdivider">
+                  <span className="zdivider-star">◆</span>
+                  <span className="zdivider-label">Recientes</span>
+                  <span className="zdivider-line" />
+                  <button onClick={() => setTab('transacciones')} style={{ fontSize: '.7em', fontWeight: 800, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.06em', background: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>Ver todas</button>
+                </div>
+                <TxList txs={filteredTx.slice(0, 6)} members={members} onEdit={setEditingTx} />
+              </div>
             </div>
 
             {/* Zona de peligro */}
@@ -347,10 +375,7 @@ export function FinanceClient() {
                 <span className="zdivider-line" />
                 <button onClick={() => setShowNewBudget(true)} className="zbtn" style={{ padding: '4px 10px', fontSize: '.7em' }}>+ Item</button>
               </div>
-              <BudgetList items={budgetItems} onToggle={async (id, paid) => {
-                await markBudgetItemPaid(id, paid)
-                loadData(active.id)
-              }} onEdit={(item) => setEditingBudget(item)} onDelete={async (id) => {
+              <BudgetList items={budgetItems} onToggle={(item) => setPayingBudget(item)} onEdit={(item) => setEditingBudget(item)} onDelete={async (id) => {
                 if (!confirm('Eliminar este item?')) return
                 await deleteBudgetItem(id)
                 loadData(active.id)
@@ -495,6 +520,17 @@ export function FinanceClient() {
         />
       )}
 
+      {payingBudget && active && (
+        <PayBudgetSheet
+          item={payingBudget}
+          quincenaId={active.id}
+          members={members}
+          currentUserId={profile?.id}
+          onClose={() => setPayingBudget(null)}
+          onPaid={() => { setPayingBudget(null); loadData(active.id) }}
+        />
+      )}
+
       <ResetFinanceSheet
         open={showReset}
         onClose={() => setShowReset(false)}
@@ -589,7 +625,7 @@ function TxList({ txs, members, onEdit }: { txs: TransaccionConCategoria[]; memb
 
 function BudgetList({ items, onToggle, onEdit, onDelete }: {
   items: BudgetItem[]
-  onToggle: (id: string, paid: boolean) => void
+  onToggle: (item: BudgetItem) => void
   onEdit: (item: BudgetItem) => void
   onDelete: (id: string) => void
 }) {
@@ -600,7 +636,7 @@ function BudgetList({ items, onToggle, onEdit, onDelete }: {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px' }}>
             {/* Status checkbox */}
             <div
-              onClick={() => onToggle(item.id, item.status !== 'paid')}
+              onClick={() => item.status !== 'paid' && onToggle(item)}
               style={{
                 width: 20, height: 20, borderRadius: 'var(--rs)', flexShrink: 0,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -631,7 +667,7 @@ function BudgetList({ items, onToggle, onEdit, onDelete }: {
               </div>
               <button
                 className={`zbtn-go ${item.status === 'paid' ? 'done' : ''}`}
-                onClick={() => onToggle(item.id, item.status !== 'paid')}
+                onClick={() => item.status !== 'paid' && onToggle(item)}
               >
                 {item.status === 'paid' ? 'Pagado' : 'Pagar'}
               </button>
@@ -878,6 +914,120 @@ function EditQuincenaSheet({ open, quincena, onClose, onSaved }: { open: boolean
         </FieldLabel>
         <Button type="submit" disabled={pending} className="w-full">{pending ? 'Guardando...' : 'Guardar'}</Button>
       </form>
+    </BottomSheet>
+  )
+}
+
+function PayBudgetSheet({ item, quincenaId, members, currentUserId, onClose, onPaid }: {
+  item: BudgetItem
+  quincenaId: string
+  members: { id: string; display_name: string; color_hex: string }[]
+  currentUserId?: string
+  onClose: () => void
+  onPaid: () => void
+}) {
+  const [userId, setUserId] = useState(currentUserId ?? members[0]?.id ?? '')
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const lbl: React.CSSProperties = {
+    fontSize: '.65em', fontWeight: 900, textTransform: 'uppercase',
+    letterSpacing: '.12em', color: 'var(--t3)', marginBottom: 8, display: 'block',
+  }
+
+  async function handlePay() {
+    setPending(true)
+    setError(null)
+
+    // Create gasto transaction
+    const form = new FormData()
+    form.set('quincena_id', quincenaId)
+    form.set('tipo', 'gasto')
+    form.set('importe', String(item.amount_planned))
+    form.set('user_id', userId)
+    form.set('fecha', new Date().toISOString().split('T')[0])
+    form.set('descripcion', item.name)
+
+    const txRes = await createTransaccion(form)
+    if (!txRes.ok) { setError(txRes.error); setPending(false); return }
+
+    // Mark item as paid
+    await markBudgetItemPaid(item.id, true)
+    setPending(false)
+    onPaid()
+  }
+
+  return (
+    <BottomSheet open onClose={onClose} title="Registrar pago">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Item info */}
+        <div style={{ background: 'var(--s2)', border: '1px solid var(--b1)', borderRadius: 'var(--rm)', padding: '12px 14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <span className={`ztag ${FREQ_TAG_CLASS[item.frequency]}`}>{FREQ_LABEL[item.frequency]}</span>
+            <span style={{ fontSize: '.88em', fontWeight: 800, color: 'var(--t1)' }}>{item.name}</span>
+          </div>
+          <span className="num" style={{ fontSize: '1.2em', fontWeight: 900, color: 'var(--g)' }}>{formatCOP(item.amount_planned)}</span>
+        </div>
+
+        {/* Quién paga */}
+        {members.length > 1 && (
+          <div>
+            <span style={lbl}>¿Quién paga?</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {members.map(m => {
+                const sel = userId === m.id
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setUserId(m.id)}
+                    style={{
+                      flex: 1, background: sel ? 'var(--y0)' : 'var(--s2)',
+                      border: `1.5px solid ${sel ? 'var(--y)' : 'var(--b1)'}`,
+                      borderRadius: 'var(--rm)', padding: '10px 12px',
+                      display: 'flex', alignItems: 'center', gap: 9,
+                      transition: 'all .13s', cursor: 'pointer',
+                    }}
+                  >
+                    <div style={{
+                      width: 30, height: 30, borderRadius: 'var(--rs)',
+                      background: `color-mix(in srgb, ${m.color_hex} 22%, transparent)`,
+                      color: m.color_hex, display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', fontSize: '.88em', fontWeight: 900, flexShrink: 0,
+                    }}>
+                      {m.display_name.charAt(0).toUpperCase()}
+                    </div>
+                    <span style={{ fontSize: '.85em', fontWeight: 800, color: 'var(--t1)' }}>
+                      {m.display_name}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <p style={{ fontSize: '.75em', fontWeight: 700, color: 'var(--r)', background: 'var(--r0)', border: '1px solid var(--r)', borderRadius: 'var(--rs)', padding: '8px 12px' }}>
+            {error}
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={handlePay}
+          disabled={pending}
+          style={{
+            width: '100%', padding: 13, background: pending ? 'var(--s3)' : 'var(--y)',
+            borderRadius: 'var(--rm)', border: 'none', fontSize: '.9em', fontWeight: 900,
+            color: pending ? 'var(--t3)' : 'var(--yt)', textTransform: 'uppercase',
+            letterSpacing: '.06em', cursor: pending ? 'default' : 'pointer',
+            transition: 'background .15s, color .15s',
+          }}
+        >
+          {pending ? 'Registrando...' : 'Confirmar pago'}
+        </button>
+      </div>
     </BottomSheet>
   )
 }
