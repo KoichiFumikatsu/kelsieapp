@@ -108,16 +108,18 @@ export async function getFinanceKPIs(quincenaId: string): Promise<ActionResult<F
 
   // Household-level accumulated
   const deudaCreditoAcumulada = sumByTipo(txList, 'credito') - sumByTipo(txList, 'pago_credito')
+  const saldoAhorroAcumulado = sumByTipo(txList, 'ahorro') - sumByTipo(txList, 'retiro_ahorro')
   const saldoBolsillosAcumulado = sumByTipo(txList, 'bolsillo') - sumByTipo(txList, 'uso_bolsillo')
 
   // Per-member accumulated breakdowns
   const userIds = [...new Set(txList.map((t) => t.user_id))]
-  const acumuladoPorMiembro: Record<string, { balance: number; deudaCredito: number; saldoBolsillos: number }> = {}
+  const acumuladoPorMiembro: Record<string, { balance: number; deudaCredito: number; saldoAhorro: number; saldoBolsillos: number }> = {}
   for (const uid of userIds) {
     const ut = txList.filter((t) => t.user_id === uid)
     acumuladoPorMiembro[uid] = {
       balance: sumByTipo(ut, 'ingreso') - sumByTipo(ut, 'gasto') - sumByTipo(ut, 'ahorro') - sumByTipo(ut, 'bolsillo') - sumByTipo(ut, 'pago_credito'),
       deudaCredito: sumByTipo(ut, 'credito') - sumByTipo(ut, 'pago_credito'),
+      saldoAhorro: sumByTipo(ut, 'ahorro') - sumByTipo(ut, 'retiro_ahorro'),
       saldoBolsillos: sumByTipo(ut, 'bolsillo') - sumByTipo(ut, 'uso_bolsillo'),
     }
   }
@@ -156,6 +158,7 @@ export async function getFinanceKPIs(quincenaId: string): Promise<ActionResult<F
       totalPagoCredito,
       saldoActual: Number(quincena.saldo_inicial) + totalIngresos - totalGastos - totalAhorros + totalRetiroAhorro - totalBolsillos + totalUsoBolsillo - totalPagoCredito,
       deudaCreditoAcumulada,
+      saldoAhorroAcumulado,
       saldoBolsillosAcumulado,
       fechaCorteCredito,
       diasParaCorte,

@@ -243,7 +243,7 @@ export function FinanceClient() {
   const saldo    = filteredKpis?.saldoActual ?? 0
   const ingresos = filteredKpis?.totalIngresos ?? 0
   const gastos   = filteredKpis?.totalGastos ?? 0
-  const ahorro   = (filteredKpis?.totalAhorros ?? 0) - (filteredKpis?.totalRetiroAhorro ?? 0)
+  const ahorro   = filteredKpis?.saldoAhorroAcumulado ?? 0
   const credito  = filteredKpis?.deudaCreditoAcumulada ?? 0
   const bolsillos = filteredKpis?.saldoBolsillosAcumulado ?? 0
   const pct      = ingresos > 0 ? Math.min(gastos / ingresos, 1) : 0
@@ -370,7 +370,7 @@ export function FinanceClient() {
               <div className="cstrip-wrap">
                 <div className="cstrip">
                   <ContainerCard type="cuenta"   icon="$" label="Cuenta"   amount={saldo}    sub="disponible" delta={formatCOP(-gastos)} />
-                  <ContainerCard type="ahorro"   icon="⊙" label="Ahorro"   amount={ahorro}   sub="colchon"    delta={ahorro !== (filteredKpis?.totalAhorros ?? 0) ? `−${formatCOP(filteredKpis?.totalRetiroAhorro ?? 0)} retiro` : `+${formatCOP(filteredKpis?.totalAhorros ?? 0)}`} />
+                  <ContainerCard type="ahorro"   icon="⊙" label="Ahorro"   amount={ahorro}   sub="acum."    delta={`+${formatCOP(filteredKpis?.totalAhorros ?? 0)} este periodo`} />
                   <ContainerCard type="credito"  icon="▣" label="Credito"  amount={credito}  sub="deuda"      delta={`+${formatCOP(filteredKpis?.totalCredito ?? 0)}`} />
                   <ContainerCard type="bolsillo" icon="◧" label="Bolsillos" amount={bolsillos} sub={`${categorias.filter(c=>c.tipo==='bolsillo').length} activos`} delta="acum." />
                 </div>
@@ -1475,6 +1475,7 @@ function computeFilteredKPIs(txs: TransaccionConCategoria[], cats: Categoria[], 
     totalIngresos, totalGastos, totalAhorros, totalRetiroAhorro, totalBolsillos, totalUsoBolsillo, totalCredito, totalPagoCredito,
     saldoActual: memberSaldoInicial + totalIngresos - totalGastos - totalAhorros + totalRetiroAhorro - totalBolsillos + totalUsoBolsillo - totalPagoCredito,
     deudaCreditoAcumulada: mb?.deudaCredito ?? 0,
+    saldoAhorroAcumulado: mb?.saldoAhorro ?? 0,
     saldoBolsillosAcumulado: mb?.saldoBolsillos ?? 0,
     fechaCorteCredito: orig.fechaCorteCredito,
     diasParaCorte: orig.diasParaCorte,

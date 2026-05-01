@@ -90,6 +90,7 @@ export interface FinanceKPIs {
   totalPagoCredito: number
   saldoActual: number
   deudaCreditoAcumulada: number
+  saldoAhorroAcumulado: number
   saldoBolsillosAcumulado: number
   fechaCorteCredito: string
   diasParaCorte: number
@@ -106,6 +107,7 @@ export interface FinanceKPIs {
   acumuladoPorMiembro: Record<string, {
     balance: number
     deudaCredito: number
+    saldoAhorro: number
     saldoBolsillos: number
   }>
 }
