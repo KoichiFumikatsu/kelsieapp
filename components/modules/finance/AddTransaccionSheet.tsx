@@ -18,6 +18,8 @@ interface Props {
   categorias: Categoria[]
   members: Member[]
   currentUserId?: string
+  fecha: string
+  onFechaChange: (f: string) => void
 }
 
 type TipoTx =
@@ -52,7 +54,7 @@ function resolvedTipo(group: MainGroup, dir: Direction): TipoTx {
   return dir === 'in' ? dirs.in.tipo : dirs.out.tipo
 }
 
-export function AddTransaccionSheet({ open, onClose, quincenaId, categorias, members, currentUserId }: Props) {
+export function AddTransaccionSheet({ open, onClose, quincenaId, categorias, members, currentUserId, fecha, onFechaChange }: Props) {
   const [group, setGroup]       = useState<MainGroup>('gasto')
   const [dir, setDir]           = useState<Direction>('in')
   const [userId, setUserId]     = useState(currentUserId ?? members[0]?.id ?? '')
@@ -101,7 +103,7 @@ export function AddTransaccionSheet({ open, onClose, quincenaId, categorias, mem
     form.set('tipo', tipo)
     form.set('importe', importe)
     form.set('user_id', userId)
-    form.set('fecha', new Date().toISOString().split('T')[0])
+    form.set('fecha', fecha)
     if (nota) form.set('descripcion', nota)
     const efectiveCat = catId ?? (filteredCats[0]?.id ?? null)
     if (efectiveCat) form.set('categoria_id', efectiveCat)
@@ -235,6 +237,17 @@ export function AddTransaccionSheet({ open, onClose, quincenaId, categorias, mem
             </div>
           </div>
         )}
+
+        {/* ── Fecha (persiste entre transacciones) ── */}
+        <div>
+          <span style={lbl}>Fecha</span>
+          <input
+            type="date"
+            value={fecha}
+            onChange={e => onFechaChange(e.target.value)}
+            className="zinput"
+          />
+        </div>
 
         {/* ── Monto ── */}
         <div>

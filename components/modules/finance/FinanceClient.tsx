@@ -8,7 +8,7 @@ import { getActiveQuincena, getQuincenas, ensureQuincena, updateQuincena } from 
 import { getCategorias, createCategoria, deleteCategoria, updateCategoria } from '@/app/actions/finance/categorias'
 import { getTransacciones, updateTransaccion, deleteTransaccion } from '@/app/actions/finance/transacciones'
 import { getFinanceKPIs } from '@/app/actions/finance/dashboard'
-import { getBudgetItems, markBudgetItemPaid, createBudgetItem, deleteBudgetItem } from '@/app/actions/finance/budget_items'
+import { getBudgetItems, markBudgetItemPaid, createBudgetItem, updateBudgetItem, deleteBudgetItem } from '@/app/actions/finance/budget_items'
 import type { BudgetItem } from '@/app/actions/finance/budget_items'
 import { AddTransaccionSheet } from '@/components/modules/finance/AddTransaccionSheet'
 import { BottomSheet } from '@/components/ui/Modal'
@@ -68,12 +68,14 @@ export function FinanceClient() {
   const [tab, setTab]                   = useState<Tab>('resumen')
   const [filterUserId, setFilterUserId] = useState<string | null>(null)
 
+  const [txFecha, setTxFecha]                 = useState(() => new Date().toISOString().split('T')[0])
   const [showAddTx, setShowAddTx]             = useState(false)
   const [editingTx, setEditingTx]             = useState<TransaccionConCategoria | null>(null)
   const [editingQuincena, setEditingQuincena] = useState<Quincena | null>(null)
   const [showNewBudget, setShowNewBudget]     = useState(false)
   const [showNewCat, setShowNewCat]           = useState(false)
   const [editingCat, setEditingCat]           = useState<Categoria | null>(null)
+  const [editingBudget, setEditingBudget]     = useState<BudgetItem | null>(null)
 
   /* ── load all data ── */
   const loadData = useCallback(async (quincenaId?: string) => {
@@ -330,7 +332,7 @@ export function FinanceClient() {
               <BudgetList items={budgetItems} onToggle={async (id, paid) => {
                 await markBudgetItemPaid(id, paid)
                 loadData(active.id)
-              }} onDelete={async (id) => {
+              }} onEdit={(item) => setEditingBudget(item)} onDelete={async (id) => {
                 if (!confirm('Eliminar este item?')) return
                 await deleteBudgetItem(id)
                 loadData(active.id)
@@ -419,6 +421,8 @@ export function FinanceClient() {
         categorias={filteredCats}
         members={members}
         currentUserId={profile?.id}
+        fecha={txFecha}
+        onFechaChange={setTxFecha}
       />
 
       {editingTx && (
@@ -462,6 +466,14 @@ export function FinanceClient() {
           onSaved={() => { setEditingCat(null); loadData(active.id) }}
           members={members}
           activeHalf={activeHalf}
+        />
+      )}
+
+      {editingBudget && (
+        <EditBudgetItemSheet
+          item={editingBudget}
+          onClose={() => setEditingBudget(null)}
+          onSaved={() => { setEditingBudget(null); loadData(active.id) }}
         />
       )}
     </>
@@ -551,21 +563,32 @@ function TxList({ txs, members, onEdit }: { txs: TransaccionConCategoria[]; memb
   )
 }
 
-function BudgetList({ items, onToggle, onDelete }: { items: BudgetItem[]; onToggle: (id: string, paid: boolean) => void; onDelete: (id: string) => void }) {
+function BudgetList({ items, onToggle, onEdit, onDelete }: {
+  items: BudgetItem[]
+  onToggle: (id: string, paid: boolean) => void
+  onEdit: (item: BudgetItem) => void
+  onDelete: (id: string) => void
+}) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
       {items.map((item) => (
-        <div key={item.id} style={{ background: 'var(--s1)', border: '1px solid var(--b1)', borderRadius: 'var(--rm)', overflow: 'hidden', cursor: 'pointer', transition: 'background .12s, border-color .12s' }}>
+        <div key={item.id} style={{ background: 'var(--s1)', border: '1px solid var(--b1)', borderRadius: 'var(--rm)', overflow: 'hidden', transition: 'border-color .12s' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px' }}>
-            {/* Status indicator */}
-            <div style={{
-              width: 20, height: 20, borderRadius: 'var(--rs)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '.72em', fontWeight: 900,
-              ...(item.status === 'paid'
-                ? { background: 'var(--g1)', border: '1px solid var(--g)', color: 'var(--g)' }
-                : { border: '1px solid var(--b1)' }),
-            }} onClick={() => onToggle(item.id, item.status !== 'paid')}>
+            {/* Status checkbox */}
+            <div
+              onClick={() => onToggle(item.id, item.status !== 'paid')}
+              style={{
+                width: 20, height: 20, borderRadius: 'var(--rs)', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '.72em', fontWeight: 900, cursor: 'pointer',
+                ...(item.status === 'paid'
+                  ? { background: 'var(--g1)', border: '1px solid var(--g)', color: 'var(--g)' }
+                  : { border: '1px solid var(--b1)' }),
+              }}
+            >
               {item.status === 'paid' ? '✓' : ''}
             </div>
+
             {/* Body */}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
@@ -576,16 +599,32 @@ function BudgetList({ items, onToggle, onDelete }: { items: BudgetItem[]; onTogg
                 <span style={{ fontSize: '.7em', color: 'var(--t3)', fontWeight: 600 }}>Dia {item.due_day}</span>
               )}
             </div>
-            {/* Amounts + button */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-              <div style={{ textAlign: 'right' }}>
-                <div className="num" style={{ fontSize: '.88em', fontWeight: 900, color: 'var(--t1)' }}>{formatCOP(item.amount_planned)}</div>
+
+            {/* Amount + actions */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              <div className="num" style={{ fontSize: '.88em', fontWeight: 900, color: 'var(--t1)' }}>
+                {formatCOP(item.amount_planned)}
               </div>
               <button
                 className={`zbtn-go ${item.status === 'paid' ? 'done' : ''}`}
                 onClick={() => onToggle(item.id, item.status !== 'paid')}
               >
                 {item.status === 'paid' ? 'Pagado' : 'Pagar'}
+              </button>
+              <button
+                className="icon-btn"
+                onClick={() => onEdit(item)}
+                title="Editar"
+              >
+                <Pencil size={12} strokeWidth={2} />
+              </button>
+              <button
+                className="icon-btn"
+                onClick={() => onDelete(item.id)}
+                title="Eliminar"
+                style={{ color: 'var(--r)' }}
+              >
+                <Trash2 size={12} strokeWidth={2} />
               </button>
             </div>
           </div>
@@ -812,6 +851,44 @@ function EditQuincenaSheet({ open, quincena, onClose, onSaved }: { open: boolean
         <p style={{ fontSize: '.78em', color: 'var(--t3)' }}>Periodo: {formatPeriod(quincena.fecha_inicio, quincena.fecha_fin)}</p>
         <FieldLabel label="Saldo inicial">
           <input name="saldo_inicial" type="number" step="any" required defaultValue={quincena.saldo_inicial} className="zinput num" />
+        </FieldLabel>
+        <Button type="submit" disabled={pending} className="w-full">{pending ? 'Guardando...' : 'Guardar'}</Button>
+      </form>
+    </BottomSheet>
+  )
+}
+
+function EditBudgetItemSheet({ item, onClose, onSaved }: { item: BudgetItem; onClose: () => void; onSaved: () => void }) {
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  async function handle(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setPending(true)
+    const res = await updateBudgetItem(item.id, new FormData(e.currentTarget))
+    setPending(false)
+    if (!res.ok) { setError(res.error); return }
+    onSaved()
+  }
+  return (
+    <BottomSheet open onClose={onClose} title="Editar item">
+      <form onSubmit={handle} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {error && <p style={{ fontSize: '.82em', color: 'var(--r)' }}>{error}</p>}
+        <FieldLabel label="Nombre">
+          <input name="name" required defaultValue={item.name} className="zinput" />
+        </FieldLabel>
+        <FieldLabel label="Frecuencia">
+          <select name="frequency" defaultValue={item.frequency} className="zinput">
+            <option value="all">Siempre (ambas quincenas)</option>
+            <option value="first">Solo 1ra quincena</option>
+            <option value="second">Solo 2da quincena</option>
+            <option value="once">Unica vez</option>
+          </select>
+        </FieldLabel>
+        <FieldLabel label="Monto previsto">
+          <input name="amount_planned" type="number" min="0" defaultValue={item.amount_planned} className="zinput num" />
+        </FieldLabel>
+        <FieldLabel label="Dia de vencimiento (opcional)">
+          <input name="due_day" type="number" min="1" max="31" defaultValue={item.due_day ?? ''} className="zinput" placeholder="Ej: 5" />
         </FieldLabel>
         <Button type="submit" disabled={pending} className="w-full">{pending ? 'Guardando...' : 'Guardar'}</Button>
       </form>

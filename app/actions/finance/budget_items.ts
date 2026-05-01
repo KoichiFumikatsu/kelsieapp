@@ -96,6 +96,28 @@ export async function markBudgetItemPaid(
   return { ok: true, data: undefined }
 }
 
+export async function updateBudgetItem(id: string, formData: FormData): Promise<ActionResult<BudgetItem>> {
+  const supabase = await createClient()
+
+  const name = formData.get('name') as string
+  const frequency = formData.get('frequency') as BudgetItem['frequency']
+  const amount_planned = Number(formData.get('amount_planned') ?? 0)
+  const due_day_raw = formData.get('due_day') as string
+  const due_day = due_day_raw ? Number(due_day_raw) : null
+
+  if (!name) return { ok: false, error: 'Nombre es requerido' }
+
+  const { data, error } = await supabase
+    .from('budget_items')
+    .update({ name, frequency, amount_planned, due_day })
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, data: data as BudgetItem }
+}
+
 export async function deleteBudgetItem(id: string): Promise<ActionResult<void>> {
   const supabase = await createClient()
   const { error } = await supabase.from('budget_items').delete().eq('id', id)
