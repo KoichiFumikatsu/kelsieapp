@@ -10,6 +10,7 @@ import { getTransacciones, updateTransaccion, deleteTransaccion } from '@/app/ac
 import { getFinanceKPIs } from '@/app/actions/finance/dashboard'
 import { getBudgetItems, markBudgetItemPaid, createBudgetItem, updateBudgetItem, deleteBudgetItem } from '@/app/actions/finance/budget_items'
 import type { BudgetItem } from '@/app/actions/finance/budget_items'
+import { resetFinanceData } from '@/app/actions/finance/reset'
 import { AddTransaccionSheet } from '@/components/modules/finance/AddTransaccionSheet'
 import { BottomSheet } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
@@ -76,6 +77,7 @@ export function FinanceClient() {
   const [showNewCat, setShowNewCat]           = useState(false)
   const [editingCat, setEditingCat]           = useState<Categoria | null>(null)
   const [editingBudget, setEditingBudget]     = useState<BudgetItem | null>(null)
+  const [showReset, setShowReset]             = useState(false)
 
   /* ── load all data ── */
   const loadData = useCallback(async (quincenaId?: string) => {
@@ -315,6 +317,22 @@ export function FinanceClient() {
               </div>
               <TxList txs={filteredTx.slice(0, 5)} members={members} onEdit={setEditingTx} />
             </div>
+
+            {/* Zona de peligro */}
+            <div style={{ marginTop: 8, paddingTop: 16, borderTop: '1px solid var(--b1)' }}>
+              <button
+                onClick={() => setShowReset(true)}
+                style={{
+                  fontSize: '.7em', fontWeight: 800, color: 'var(--t3)', textTransform: 'uppercase',
+                  letterSpacing: '.08em', background: 'none', cursor: 'pointer', border: 'none',
+                  padding: 0, transition: 'color .13s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'var(--r)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'var(--t3)')}
+              >
+                ⚠ Vaciar datos de finanzas
+              </button>
+            </div>
           </>
         )}
 
@@ -476,6 +494,12 @@ export function FinanceClient() {
           onSaved={() => { setEditingBudget(null); loadData(active.id) }}
         />
       )}
+
+      <ResetFinanceSheet
+        open={showReset}
+        onClose={() => setShowReset(false)}
+        onReset={() => { setShowReset(false); loadData() }}
+      />
     </>
   )
 }
@@ -854,6 +878,94 @@ function EditQuincenaSheet({ open, quincena, onClose, onSaved }: { open: boolean
         </FieldLabel>
         <Button type="submit" disabled={pending} className="w-full">{pending ? 'Guardando...' : 'Guardar'}</Button>
       </form>
+    </BottomSheet>
+  )
+}
+
+function ResetFinanceSheet({ open, onClose, onReset }: { open: boolean; onClose: () => void; onReset: () => void }) {
+  const [password, setPassword] = useState('')
+  const [error, setError]       = useState<string | null>(null)
+  const [pending, setPending]   = useState(false)
+
+  function handleClose() {
+    setPassword('')
+    setError(null)
+    onClose()
+  }
+
+  async function handleConfirm() {
+    if (!password) { setError('Ingresa tu contraseña'); return }
+    setPending(true)
+    setError(null)
+    const res = await resetFinanceData(password)
+    setPending(false)
+    if (!res.ok) { setError(res.error); return }
+    setPassword('')
+    onReset()
+  }
+
+  return (
+    <BottomSheet open={open} onClose={handleClose} title="Vaciar datos de finanzas">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{
+          background: 'var(--r0)', border: '1px solid var(--r)',
+          borderRadius: 'var(--rm)', padding: '12px 14px',
+        }}>
+          <p style={{ fontSize: '.82em', fontWeight: 700, color: 'var(--r)', marginBottom: 6 }}>
+            Accion irreversible
+          </p>
+          <p style={{ fontSize: '.78em', color: 'var(--t2)', lineHeight: 1.5 }}>
+            Se eliminaran todas las transacciones, quincenas e items de presupuesto del hogar.
+            Las categorias y configuracion se mantienen.
+          </p>
+        </div>
+
+        <div>
+          <span style={{
+            fontSize: '.65em', fontWeight: 900, textTransform: 'uppercase',
+            letterSpacing: '.12em', color: 'var(--t3)', marginBottom: 8, display: 'block',
+          }}>
+            Confirma tu contraseña
+          </span>
+          <input
+            type="password"
+            placeholder="Contraseña"
+            value={password}
+            onChange={e => { setPassword(e.target.value); setError(null) }}
+            onKeyDown={e => e.key === 'Enter' && handleConfirm()}
+            className="zinput"
+            autoComplete="current-password"
+          />
+        </div>
+
+        {error && (
+          <p style={{
+            fontSize: '.75em', fontWeight: 700, color: 'var(--r)',
+            background: 'var(--r0)', border: '1px solid var(--r)',
+            borderRadius: 'var(--rs)', padding: '8px 12px',
+          }}>
+            {error}
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={handleConfirm}
+          disabled={pending || !password}
+          style={{
+            width: '100%', padding: 13,
+            background: pending || !password ? 'var(--s3)' : 'var(--r)',
+            borderRadius: 'var(--rm)', border: 'none',
+            fontSize: '.9em', fontWeight: 900,
+            color: pending || !password ? 'var(--t3)' : '#fff',
+            textTransform: 'uppercase', letterSpacing: '.06em',
+            cursor: pending || !password ? 'default' : 'pointer',
+            transition: 'background .15s, color .15s',
+          }}
+        >
+          {pending ? 'Vaciando...' : 'Vaciar datos'}
+        </button>
+      </div>
     </BottomSheet>
   )
 }
