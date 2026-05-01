@@ -13,6 +13,7 @@ export type BudgetItem = {
   due_day: number | null
   status: 'pending' | 'paid'
   quincena_id: string | null
+  assigned_to: string | null
   created_at: string
   children?: BudgetItem[]
 }
@@ -60,6 +61,7 @@ export async function createBudgetItem(formData: FormData): Promise<ActionResult
   const due_day = due_day_raw ? Number(due_day_raw) : null
   const parent_id = (formData.get('parent_id') as string) || null
   const quincena_id = (formData.get('quincena_id') as string) || null
+  const assigned_to = (formData.get('assigned_to') as string) || null
 
   if (!name) return { ok: false, error: 'Nombre es requerido' }
 
@@ -74,6 +76,7 @@ export async function createBudgetItem(formData: FormData): Promise<ActionResult
       due_day,
       status: 'pending',
       quincena_id,
+      assigned_to,
     })
     .select()
     .single()
@@ -107,9 +110,12 @@ export async function updateBudgetItem(id: string, formData: FormData): Promise<
 
   if (!name) return { ok: false, error: 'Nombre es requerido' }
 
+  const assigned_to_raw = formData.get('assigned_to') as string | null
+  const assigned_to = assigned_to_raw || null
+
   const { data, error } = await supabase
     .from('budget_items')
-    .update({ name, frequency, amount_planned, due_day })
+    .update({ name, frequency, amount_planned, due_day, assigned_to })
     .eq('id', id)
     .select()
     .single()

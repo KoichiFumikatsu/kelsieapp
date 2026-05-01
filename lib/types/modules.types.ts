@@ -35,7 +35,17 @@ export interface Categoria {
   orden: number
   assigned_to: string | null
   quincena_half: 1 | 2 | null
+  budget_item_id: string | null
+  is_salary: boolean
+  auto_recharge_amount: number | null
+  auto_recharge_user_id: string | null
   created_at: string
+}
+
+export interface AutoRecharged {
+  categoriaId: string
+  nombre: string
+  amount: number
 }
 
 export interface PresupuestoQuincena {

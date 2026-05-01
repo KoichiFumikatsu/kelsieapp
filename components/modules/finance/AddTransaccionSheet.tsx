@@ -61,8 +61,9 @@ export function AddTransaccionSheet({ open, onClose, quincenaId, categorias, mem
   const [catId, setCatId]       = useState<string | null>(null)
   const [importe, setImporte]   = useState('')
   const [nota, setNota]         = useState('')
-  const [error, setError]       = useState<string | null>(null)
-  const [pending, setPending]   = useState(false)
+  const [error, setError]         = useState<string | null>(null)
+  const [pending, setPending]     = useState(false)
+  const [autoRecharged, setAutoRecharged] = useState<{ nombre: string; amount: number }[] | null>(null)
 
   const activeGroup = MAIN_GROUPS.find(g => g.value === group)!
   const dirs = DIRECTIONS[group]
@@ -88,6 +89,7 @@ export function AddTransaccionSheet({ open, onClose, quincenaId, categorias, mem
     setImporte('')
     setNota('')
     setError(null)
+    setAutoRecharged(null)
     onClose()
   }
 
@@ -112,12 +114,58 @@ export function AddTransaccionSheet({ open, onClose, quincenaId, categorias, mem
     setPending(false)
 
     if (!result.ok) { setError(result.error); return }
-    handleClose()
+
+    if (result.data.autoRecharged.length > 0) {
+      setAutoRecharged(result.data.autoRecharged)
+    } else {
+      handleClose()
+    }
   }
 
   const lbl: React.CSSProperties = {
     fontSize: '.65em', fontWeight: 900, textTransform: 'uppercase',
     letterSpacing: '.12em', color: 'var(--t3)', marginBottom: 8, display: 'block',
+  }
+
+  if (autoRecharged !== null) {
+    return (
+      <BottomSheet open={open} onClose={handleClose} title="Recargas automáticas">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <p style={{ fontSize: '.82em', color: 'var(--t2)', lineHeight: 1.5 }}>
+            Del salario se movieron automáticamente los siguientes montos a bolsillos:
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {autoRecharged.map((r, i) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                background: 'var(--s2)', border: '1px solid var(--b1)', borderRadius: 'var(--rm)',
+                padding: '12px 14px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: '1.1em', color: 'var(--bl)' }}>◧</span>
+                  <span style={{ fontSize: '.88em', fontWeight: 800, color: 'var(--t1)' }}>{r.nombre}</span>
+                </div>
+                <span className="num" style={{ fontSize: '.9em', fontWeight: 900, color: 'var(--bl)' }}>
+                  −${r.amount.toLocaleString('es-CO')}
+                </span>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={handleClose}
+            style={{
+              width: '100%', padding: 13,
+              background: 'var(--y)', borderRadius: 'var(--rm)', border: 'none',
+              fontSize: '.9em', fontWeight: 900, color: 'var(--yt)',
+              textTransform: 'uppercase', letterSpacing: '.06em', cursor: 'pointer',
+            }}
+          >
+            Listo
+          </button>
+        </div>
+      </BottomSheet>
+    )
   }
 
   return (

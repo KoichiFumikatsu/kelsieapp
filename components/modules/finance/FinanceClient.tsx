@@ -77,7 +77,7 @@ export function FinanceClient() {
   const [showNewCat, setShowNewCat]           = useState(false)
   const [editingCat, setEditingCat]           = useState<Categoria | null>(null)
   const [editingBudget, setEditingBudget]     = useState<BudgetItem | null>(null)
-  const [payingBudget, setPayingBudget]       = useState<BudgetItem | null>(null)
+  const [payingBudget, setPayingBudget]       = useState<{ item: BudgetItem; categoriaId?: string } | null>(null)
   const [showReset, setShowReset]             = useState(false)
 
   /* ── load all data ── */
@@ -167,9 +167,10 @@ export function FinanceClient() {
     ? computeFilteredKPIs(filteredTx, categorias, kpis, filterUserId)
     : kpis
 
-  const filteredCats = categorias.filter(
-    (c) => c.quincena_half === null || c.quincena_half === activeHalf,
-  )
+  const filteredCats = categorias
+
+  // Budget items that have a linked category — their "Pagar" is handled from the category row
+  const linkedBudgetItemIds = new Set(categorias.filter(c => c.budget_item_id).map(c => c.budget_item_id!))
 
   const saldo    = filteredKpis?.saldoActual ?? 0
   const ingresos = filteredKpis?.totalIngresos ?? 0
@@ -323,7 +324,10 @@ export function FinanceClient() {
                 ) : (
                   <BudgetList
                     items={budgetItems.slice(0, 6)}
-                    onToggle={(item) => setPayingBudget(item)}
+                    linkedBudgetItemIds={linkedBudgetItemIds}
+                    members={members}
+                    filterUserId={filterUserId}
+                    onToggle={(item) => setPayingBudget({ item })}
                     onEdit={(item) => setEditingBudget(item)}
                     onDelete={async (id) => {
                       if (!confirm('Eliminar este item?')) return
@@ -375,7 +379,7 @@ export function FinanceClient() {
                 <span className="zdivider-line" />
                 <button onClick={() => setShowNewBudget(true)} className="zbtn" style={{ padding: '4px 10px', fontSize: '.7em' }}>+ Item</button>
               </div>
-              <BudgetList items={budgetItems} onToggle={(item) => setPayingBudget(item)} onEdit={(item) => setEditingBudget(item)} onDelete={async (id) => {
+              <BudgetList items={budgetItems} linkedBudgetItemIds={linkedBudgetItemIds} members={members} filterUserId={filterUserId} onToggle={(item) => setPayingBudget({ item })} onEdit={(item) => setEditingBudget(item)} onDelete={async (id) => {
                 if (!confirm('Eliminar este item?')) return
                 await deleteBudgetItem(id)
                 loadData(active.id)
@@ -397,26 +401,36 @@ export function FinanceClient() {
                 <button onClick={() => setShowNewCat(true)} className="zbtn" style={{ padding: '4px 10px', fontSize: '.7em' }}>+ Cat.</button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                {filteredCats.map((cat) => (
-                  <div key={cat.id} style={{ background: 'var(--s1)', border: '1px solid var(--b1)', borderRadius: 'var(--rm)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span
-                      style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: TX_COLOR[cat.tipo] ?? 'var(--t3)' }}
-                    />
-                    <span style={{ fontSize: '.87em', fontWeight: 700, color: 'var(--t1)', flex: 1 }}>{cat.nombre}</span>
-                    {cat.presupuesto_default > 0 && (
-                      <span className="num" style={{ fontSize: '.75em', color: 'var(--t3)' }}>{formatCOP(cat.presupuesto_default)}</span>
-                    )}
-                    {cat.quincena_half && (
-                      <span className={`ztag ${cat.quincena_half === 1 ? 'first' : 'second'}`}>Q{cat.quincena_half}</span>
-                    )}
-                    <button onClick={() => setEditingCat(cat)} style={{ background: 'none', color: 'var(--t3)', cursor: 'pointer', padding: 4 }}><Pencil size={12} /></button>
-                    <button onClick={async () => {
-                      if (!confirm(`Eliminar "${cat.nombre}"?`)) return
-                      await deleteCategoria(cat.id)
-                      loadData(active.id)
-                    }} style={{ background: 'none', color: 'var(--t3)', cursor: 'pointer', padding: 4 }}><Trash2 size={12} /></button>
-                  </div>
-                ))}
+                {categorias.map((cat) => {
+                  const linkedItem = cat.budget_item_id ? budgetItems.find(b => b.id === cat.budget_item_id) : null
+                  return (
+                    <div key={cat.id} style={{ background: 'var(--s1)', border: '1px solid var(--b1)', borderRadius: 'var(--rm)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: TX_COLOR[cat.tipo] ?? 'var(--t3)' }} />
+                      <span style={{ fontSize: '.87em', fontWeight: 700, color: 'var(--t1)', flex: 1 }}>{cat.nombre}</span>
+                      {cat.presupuesto_default > 0 && (
+                        <span className="num" style={{ fontSize: '.75em', color: 'var(--t3)' }}>{formatCOP(cat.presupuesto_default)}</span>
+                      )}
+                      {cat.quincena_half && (
+                        <span className={`ztag ${cat.quincena_half === 1 ? 'first' : 'second'}`}>{cat.quincena_half === 1 ? '1ra 15na' : '2da 15na'}</span>
+                      )}
+                      {cat.is_salary && <span className="ztag all">Salario</span>}
+                      {linkedItem && (
+                        <button
+                          className={`zbtn-go ${linkedItem.status === 'paid' ? 'done' : ''}`}
+                          onClick={() => linkedItem.status !== 'paid' && setPayingBudget({ item: linkedItem, categoriaId: cat.id })}
+                        >
+                          {linkedItem.status === 'paid' ? 'Pagado' : 'Pagar'}
+                        </button>
+                      )}
+                      <button onClick={() => setEditingCat(cat)} style={{ background: 'none', color: 'var(--t3)', cursor: 'pointer', padding: 4 }}><Pencil size={12} /></button>
+                      <button onClick={async () => {
+                        if (!confirm(`Eliminar "${cat.nombre}"?`)) return
+                        await deleteCategoria(cat.id)
+                        loadData(active.id)
+                      }} style={{ background: 'none', color: 'var(--t3)', cursor: 'pointer', padding: 4 }}><Trash2 size={12} /></button>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           </div>
@@ -493,6 +507,7 @@ export function FinanceClient() {
         onCreated={() => { setShowNewBudget(false); loadData(active.id) }}
         activeHalf={activeHalf}
         quincenaId={active.id}
+        members={members}
       />
 
       <NewCategoriaSheet
@@ -509,6 +524,7 @@ export function FinanceClient() {
           onClose={() => setEditingCat(null)}
           onSaved={() => { setEditingCat(null); loadData(active.id) }}
           members={members}
+          budgetItems={budgetItems}
           activeHalf={activeHalf}
         />
       )}
@@ -516,6 +532,7 @@ export function FinanceClient() {
       {editingBudget && (
         <EditBudgetItemSheet
           item={editingBudget}
+          members={members}
           onClose={() => setEditingBudget(null)}
           onSaved={() => { setEditingBudget(null); loadData(active.id) }}
         />
@@ -523,7 +540,8 @@ export function FinanceClient() {
 
       {payingBudget && active && (
         <PayBudgetSheet
-          item={payingBudget}
+          item={payingBudget.item}
+          categoriaId={payingBudget.categoriaId}
           quincenaId={active.id}
           members={members}
           currentUserId={profile?.id}
@@ -624,24 +642,34 @@ function TxList({ txs, members, onEdit }: { txs: TransaccionConCategoria[]; memb
   )
 }
 
-function BudgetList({ items, onToggle, onEdit, onDelete }: {
+function BudgetList({ items, linkedBudgetItemIds, members, filterUserId, onToggle, onEdit, onDelete }: {
   items: BudgetItem[]
+  linkedBudgetItemIds: Set<string>
+  members: { id: string; display_name: string; color_hex: string }[]
+  filterUserId: string | null
   onToggle: (item: BudgetItem) => void
   onEdit: (item: BudgetItem) => void
   onDelete: (id: string) => void
 }) {
+  const visibleItems = filterUserId
+    ? items.filter(i => !i.assigned_to || i.assigned_to === filterUserId)
+    : items
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-      {items.map((item) => (
+      {visibleItems.map((item) => {
+        const hasLinkedCat = linkedBudgetItemIds.has(item.id)
+        const assignedMember = item.assigned_to ? members.find(m => m.id === item.assigned_to) : null
+        return (
         <div key={item.id} style={{ background: 'var(--s1)', border: '1px solid var(--b1)', borderRadius: 'var(--rm)', overflow: 'hidden', transition: 'border-color .12s' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px' }}>
             {/* Status checkbox */}
             <div
-              onClick={() => item.status !== 'paid' && onToggle(item)}
+              onClick={() => item.status !== 'paid' && !hasLinkedCat && onToggle(item)}
               style={{
                 width: 20, height: 20, borderRadius: 'var(--rs)', flexShrink: 0,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '.72em', fontWeight: 900, cursor: 'pointer',
+                fontSize: '.72em', fontWeight: 900, cursor: hasLinkedCat ? 'default' : 'pointer',
                 ...(item.status === 'paid'
                   ? { background: 'var(--g1)', border: '1px solid var(--g)', color: 'var(--g)' }
                   : { border: '1px solid var(--b1)' }),
@@ -652,8 +680,11 @@ function BudgetList({ items, onToggle, onEdit, onDelete }: {
 
             {/* Body */}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2, flexWrap: 'wrap' }}>
                 <span className={`ztag ${FREQ_TAG_CLASS[item.frequency]}`}>{FREQ_LABEL[item.frequency]}</span>
+                {assignedMember && (
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: assignedMember.color_hex, flexShrink: 0 }} title={assignedMember.display_name} />
+                )}
                 <span style={{ fontSize: '.87em', fontWeight: 800, color: 'var(--t1)' }}>{item.name}</span>
               </div>
               {item.due_day && (
@@ -666,12 +697,14 @@ function BudgetList({ items, onToggle, onEdit, onDelete }: {
               <div className="num" style={{ fontSize: '.88em', fontWeight: 900, color: 'var(--t1)' }}>
                 {formatCOP(item.amount_planned)}
               </div>
+              {!hasLinkedCat && (
               <button
                 className={`zbtn-go ${item.status === 'paid' ? 'done' : ''}`}
                 onClick={() => item.status !== 'paid' && onToggle(item)}
               >
                 {item.status === 'paid' ? 'Pagado' : 'Pagar'}
               </button>
+              )}
               <button
                 className="icon-btn"
                 onClick={() => onEdit(item)}
@@ -690,14 +723,15 @@ function BudgetList({ items, onToggle, onEdit, onDelete }: {
             </div>
           </div>
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
 
 /* ══ INLINE SHEETS ════════════════════════════════════════ */
 
-function NewBudgetItemSheet({ open, onClose, onCreated, activeHalf, quincenaId }: { open: boolean; onClose: () => void; onCreated: () => void; activeHalf: 1 | 2; quincenaId: string }) {
+function NewBudgetItemSheet({ open, onClose, onCreated, activeHalf, quincenaId, members }: { open: boolean; onClose: () => void; onCreated: () => void; activeHalf: 1 | 2; quincenaId: string; members: { id: string; display_name: string }[] }) {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   async function handle(e: React.FormEvent<HTMLFormElement>) {
@@ -730,6 +764,14 @@ function NewBudgetItemSheet({ open, onClose, onCreated, activeHalf, quincenaId }
         <FieldLabel label="Dia de vencimiento (opcional)">
           <input name="due_day" type="number" min="1" max="31" className="zinput" placeholder="Ej: 5" />
         </FieldLabel>
+        {members.length > 1 && (
+          <FieldLabel label="Asignar a">
+            <select name="assigned_to" className="zinput">
+              <option value="">Compartido</option>
+              {members.map(m => <option key={m.id} value={m.id}>{m.display_name}</option>)}
+            </select>
+          </FieldLabel>
+        )}
         <Button type="submit" disabled={pending} className="w-full">{pending ? 'Creando...' : 'Agregar'}</Button>
       </form>
     </BottomSheet>
@@ -786,13 +828,21 @@ function NewCategoriaSheet({ open, onClose, onCreated, members, activeHalf }: { 
   )
 }
 
-function EditCategoriaSheet({ categoria, onClose, onSaved, members, activeHalf }: { categoria: Categoria; onClose: () => void; onSaved: () => void; members: { id: string; display_name: string }[]; activeHalf: 1 | 2 }) {
+function EditCategoriaSheet({ categoria, onClose, onSaved, members, budgetItems, activeHalf }: {
+  categoria: Categoria; onClose: () => void; onSaved: () => void
+  members: { id: string; display_name: string }[]
+  budgetItems: BudgetItem[]
+  activeHalf: 1 | 2
+}) {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   async function handle(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setPending(true)
-    const res = await updateCategoria(categoria.id, new FormData(e.currentTarget))
+    const fd = new FormData(e.currentTarget)
+    // is_salary checkbox — FormData omits unchecked checkboxes
+    if (!fd.has('is_salary')) fd.set('is_salary', 'false')
+    const res = await updateCategoria(categoria.id, fd)
     setPending(false)
     if (!res.ok) { setError(res.error); return }
     onSaved()
@@ -818,6 +868,56 @@ function EditCategoriaSheet({ categoria, onClose, onSaved, members, activeHalf }
             <option value="2">Solo 2da</option>
           </select>
         </FieldLabel>
+
+        {/* Ingreso: marcar como salario */}
+        {categoria.tipo === 'ingreso' && (
+          <FieldLabel label="Es salario">
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                name="is_salary"
+                value="true"
+                defaultChecked={categoria.is_salary}
+                style={{ width: 16, height: 16, accentColor: 'var(--y)', cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: '.82em', fontWeight: 700, color: 'var(--t2)' }}>
+                Al registrar activa recargas automáticas de bolsillos
+              </span>
+            </label>
+          </FieldLabel>
+        )}
+
+        {/* Gasto: vincular a budget item */}
+        {(categoria.tipo === 'gasto' || categoria.tipo === 'pago_credito') && (
+          <FieldLabel label="Vincular a presupuesto">
+            <select name="budget_item_id" defaultValue={categoria.budget_item_id ?? ''} className="zinput">
+              <option value="">Sin vincular</option>
+              {budgetItems.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </FieldLabel>
+        )}
+
+        {/* Bolsillo: recarga automática */}
+        {categoria.tipo === 'bolsillo' && (
+          <>
+            <FieldLabel label="Recarga automática al salario de">
+              <select name="auto_recharge_user_id" defaultValue={categoria.auto_recharge_user_id ?? ''} className="zinput">
+                <option value="">Desactivada</option>
+                {members.map(m => <option key={m.id} value={m.id}>{m.display_name}</option>)}
+              </select>
+            </FieldLabel>
+            <FieldLabel label="Monto a recargar">
+              <input
+                name="auto_recharge_amount"
+                type="number" min="0"
+                defaultValue={categoria.auto_recharge_amount ?? ''}
+                placeholder="0"
+                className="zinput num"
+              />
+            </FieldLabel>
+          </>
+        )}
+
         <Button type="submit" disabled={pending} className="w-full">{pending ? 'Guardando...' : 'Guardar'}</Button>
       </form>
     </BottomSheet>
@@ -941,8 +1041,9 @@ function EditQuincenaSheet({ open, quincena, members, onClose, onSaved }: {
   )
 }
 
-function PayBudgetSheet({ item, quincenaId, members, currentUserId, onClose, onPaid }: {
+function PayBudgetSheet({ item, categoriaId, quincenaId, members, currentUserId, onClose, onPaid }: {
   item: BudgetItem
+  categoriaId?: string
   quincenaId: string
   members: { id: string; display_name: string; color_hex: string }[]
   currentUserId?: string
@@ -970,12 +1071,13 @@ function PayBudgetSheet({ item, quincenaId, members, currentUserId, onClose, onP
     form.set('user_id', userId)
     form.set('fecha', new Date().toISOString().split('T')[0])
     form.set('descripcion', item.name)
+    if (categoriaId) form.set('categoria_id', categoriaId)
 
     const txRes = await createTransaccion(form)
     if (!txRes.ok) { setError(txRes.error); setPending(false); return }
 
-    // Mark item as paid
-    await markBudgetItemPaid(item.id, true)
+    // If no linked category, mark paid explicitly (otherwise server already did it)
+    if (!categoriaId) await markBudgetItemPaid(item.id, true)
     setPending(false)
     onPaid()
   }
@@ -1143,7 +1245,7 @@ function ResetFinanceSheet({ open, onClose, onReset }: { open: boolean; onClose:
   )
 }
 
-function EditBudgetItemSheet({ item, onClose, onSaved }: { item: BudgetItem; onClose: () => void; onSaved: () => void }) {
+function EditBudgetItemSheet({ item, members, onClose, onSaved }: { item: BudgetItem; members: { id: string; display_name: string }[]; onClose: () => void; onSaved: () => void }) {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   async function handle(e: React.FormEvent<HTMLFormElement>) {
@@ -1175,6 +1277,14 @@ function EditBudgetItemSheet({ item, onClose, onSaved }: { item: BudgetItem; onC
         <FieldLabel label="Dia de vencimiento (opcional)">
           <input name="due_day" type="number" min="1" max="31" defaultValue={item.due_day ?? ''} className="zinput" placeholder="Ej: 5" />
         </FieldLabel>
+        {members.length > 1 && (
+          <FieldLabel label="Asignar a">
+            <select name="assigned_to" defaultValue={item.assigned_to ?? ''} className="zinput">
+              <option value="">Compartido</option>
+              {members.map(m => <option key={m.id} value={m.id}>{m.display_name}</option>)}
+            </select>
+          </FieldLabel>
+        )}
         <Button type="submit" disabled={pending} className="w-full">{pending ? 'Guardando...' : 'Guardar'}</Button>
       </form>
     </BottomSheet>

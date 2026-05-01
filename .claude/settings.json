@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"systemMessage\": \"Antes de terminar: revisa si hubo decisiones importantes, cambios de preferencias o información nueva sobre las personas. Si es así, actualiza los archivos correspondientes en /memory/ (decisions.md, people.md, preferences.md, user.md).\"}'",
+            "statusMessage": "Revisando memoria del proyecto..."
+          }
+        ]
+      }
+    ]
+  }
+}

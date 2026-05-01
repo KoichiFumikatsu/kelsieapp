@@ -85,6 +85,21 @@ export async function updateCategoria(id: string, formData: FormData): Promise<A
     const halfRaw = formData.get('quincena_half') as string
     updates.quincena_half = halfRaw === '1' || halfRaw === '2' ? Number(halfRaw) : null
   }
+  if (formData.has('budget_item_id')) {
+    const raw = formData.get('budget_item_id') as string
+    updates.budget_item_id = raw || null
+  }
+  if (formData.has('is_salary')) {
+    updates.is_salary = formData.get('is_salary') === 'true'
+  }
+  if (formData.has('auto_recharge_amount')) {
+    const raw = formData.get('auto_recharge_amount') as string
+    updates.auto_recharge_amount = raw ? Number(raw) : null
+  }
+  if (formData.has('auto_recharge_user_id')) {
+    const raw = formData.get('auto_recharge_user_id') as string
+    updates.auto_recharge_user_id = raw || null
+  }
 
   const { error } = await supabase.from('categorias').update(updates).eq('id', id)
   if (error) return { ok: false, error: error.message }

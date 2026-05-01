@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import type { ActionResult, Transaccion, TransaccionConCategoria } from '@/lib/types/modules.types'
+import type { ActionResult, AutoRecharged, Transaccion, TransaccionConCategoria } from '@/lib/types/modules.types'
 
 export async function getTransacciones(quincenaId: string): Promise<ActionResult<TransaccionConCategoria[]>> {
   const supabase = await createClient()
@@ -17,7 +17,7 @@ export async function getTransacciones(quincenaId: string): Promise<ActionResult
   return { ok: true, data: data as TransaccionConCategoria[] }
 }
 
-export async function createTransaccion(formData: FormData): Promise<ActionResult<Transaccion>> {
+export async function createTransaccion(formData: FormData): Promise<ActionResult<{ autoRecharged: AutoRecharged[] }>> {
   const supabase = await createClient()
   const user = (await supabase.auth.getUser()).data.user!
   const { data: profile } = await supabase
@@ -29,8 +29,8 @@ export async function createTransaccion(formData: FormData): Promise<ActionResul
   if (!profile?.household_id) return { ok: false, error: 'Sin hogar asignado' }
 
   const quincenaId = formData.get('quincena_id') as string
-  const categoriaId = formData.get('categoria_id') as string
-  const tipo = formData.get('tipo') as 'gasto' | 'ingreso' | 'ahorro' | 'bolsillo'
+  const categoriaId = (formData.get('categoria_id') as string) || null
+  const tipo = formData.get('tipo') as string
   const importe = Number(formData.get('importe'))
   const descripcion = (formData.get('descripcion') as string) || null
   const fecha = (formData.get('fecha') as string) || new Date().toISOString().split('T')[0]
@@ -40,11 +40,11 @@ export async function createTransaccion(formData: FormData): Promise<ActionResul
     return { ok: false, error: 'Campos requeridos: quincena, tipo, importe' }
   }
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('transacciones')
     .insert({
       quincena_id: quincenaId,
-      categoria_id: categoriaId || null,
+      categoria_id: categoriaId,
       user_id: selectedUserId,
       household_id: profile.household_id,
       tipo,
@@ -52,11 +52,49 @@ export async function createTransaccion(formData: FormData): Promise<ActionResul
       importe,
       descripcion,
     })
-    .select()
-    .single()
 
   if (error) return { ok: false, error: error.message }
-  return { ok: true, data: data as Transaccion }
+
+  const autoRecharged: AutoRecharged[] = []
+
+  if (categoriaId) {
+    const { data: cat } = await supabase
+      .from('categorias')
+      .select('budget_item_id, is_salary, auto_recharge_amount, auto_recharge_user_id')
+      .eq('id', categoriaId)
+      .single()
+
+    // Auto-mark linked budget item as paid
+    if (cat?.budget_item_id) {
+      await supabase.from('budget_items').update({ status: 'paid' }).eq('id', cat.budget_item_id)
+    }
+
+    // Auto-recharge bolsillos when salary ingreso is recorded
+    if (cat?.is_salary && tipo === 'ingreso') {
+      const { data: bolsillos } = await supabase
+        .from('categorias')
+        .select('id, nombre, auto_recharge_amount')
+        .eq('household_id', profile.household_id)
+        .eq('auto_recharge_user_id', selectedUserId)
+        .not('auto_recharge_amount', 'is', null)
+
+      for (const b of bolsillos ?? []) {
+        const { error: brErr } = await supabase.from('transacciones').insert({
+          quincena_id: quincenaId,
+          categoria_id: b.id,
+          user_id: selectedUserId,
+          household_id: profile.household_id,
+          tipo: 'bolsillo',
+          fecha,
+          importe: b.auto_recharge_amount,
+          descripcion: `Recarga automática ${b.nombre}`,
+        })
+        if (!brErr) autoRecharged.push({ categoriaId: b.id, nombre: b.nombre, amount: Number(b.auto_recharge_amount) })
+      }
+    }
+  }
+
+  return { ok: true, data: { autoRecharged } }
 }
 
 export async function deleteTransaccion(id: string): Promise<ActionResult<null>> {
