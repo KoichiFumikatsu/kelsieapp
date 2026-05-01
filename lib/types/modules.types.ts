@@ -83,6 +83,7 @@ export interface FinanceKPIs {
   totalIngresos: number
   totalGastos: number
   totalAhorros: number
+  totalRetiroAhorro: number
   totalBolsillos: number
   totalUsoBolsillo: number
   totalCredito: number

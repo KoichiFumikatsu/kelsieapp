@@ -243,7 +243,7 @@ export function FinanceClient() {
   const saldo    = filteredKpis?.saldoActual ?? 0
   const ingresos = filteredKpis?.totalIngresos ?? 0
   const gastos   = filteredKpis?.totalGastos ?? 0
-  const ahorro   = filteredKpis?.totalAhorros ?? 0
+  const ahorro   = (filteredKpis?.totalAhorros ?? 0) - (filteredKpis?.totalRetiroAhorro ?? 0)
   const credito  = filteredKpis?.deudaCreditoAcumulada ?? 0
   const bolsillos = filteredKpis?.saldoBolsillosAcumulado ?? 0
   const pct      = ingresos > 0 ? Math.min(gastos / ingresos, 1) : 0
@@ -370,7 +370,7 @@ export function FinanceClient() {
               <div className="cstrip-wrap">
                 <div className="cstrip">
                   <ContainerCard type="cuenta"   icon="$" label="Cuenta"   amount={saldo}    sub="disponible" delta={formatCOP(-gastos)} />
-                  <ContainerCard type="ahorro"   icon="⊙" label="Ahorro"   amount={ahorro}   sub="colchon"    delta={`+${formatCOP(filteredKpis?.totalAhorros ?? 0)}`} />
+                  <ContainerCard type="ahorro"   icon="⊙" label="Ahorro"   amount={ahorro}   sub="colchon"    delta={ahorro !== (filteredKpis?.totalAhorros ?? 0) ? `−${formatCOP(filteredKpis?.totalRetiroAhorro ?? 0)} retiro` : `+${formatCOP(filteredKpis?.totalAhorros ?? 0)}`} />
                   <ContainerCard type="credito"  icon="▣" label="Credito"  amount={credito}  sub="deuda"      delta={`+${formatCOP(filteredKpis?.totalCredito ?? 0)}`} />
                   <ContainerCard type="bolsillo" icon="◧" label="Bolsillos" amount={bolsillos} sub={`${categorias.filter(c=>c.tipo==='bolsillo').length} activos`} delta="acum." />
                 </div>
@@ -1453,13 +1453,14 @@ function FieldLabel({ label, children }: { label: string; children: React.ReactN
 /* ══ KPI FILTER (client-side) ═══════════════════════════ */
 function computeFilteredKPIs(txs: TransaccionConCategoria[], cats: Categoria[], orig: FinanceKPIs, userId: string): FinanceKPIs {
   const sum = (tipo: string) => txs.filter((t) => t.tipo === tipo).reduce((s, t) => s + Number(t.importe), 0)
-  const totalIngresos    = sum('ingreso')
-  const totalGastos      = sum('gasto')
-  const totalAhorros     = sum('ahorro')
-  const totalBolsillos   = sum('bolsillo')
-  const totalCredito     = sum('credito')
-  const totalPagoCredito = sum('pago_credito')
-  const totalUsoBolsillo = sum('uso_bolsillo')
+  const totalIngresos      = sum('ingreso')
+  const totalGastos        = sum('gasto')
+  const totalAhorros       = sum('ahorro')
+  const totalRetiroAhorro  = sum('retiro_ahorro')
+  const totalBolsillos     = sum('bolsillo')
+  const totalCredito       = sum('credito')
+  const totalPagoCredito   = sum('pago_credito')
+  const totalUsoBolsillo   = sum('uso_bolsillo')
   const real: Record<string, number> = {}
   for (const t of txs) real[t.categoria_id] = (real[t.categoria_id] ?? 0) + Number(t.importe)
   const porCategoria = cats.map((c) => {
@@ -1471,8 +1472,8 @@ function computeFilteredKPIs(txs: TransaccionConCategoria[], cats: Categoria[], 
   const mb = orig.acumuladoPorMiembro[userId]
   return {
     saldoInicial: memberSaldoInicial,
-    totalIngresos, totalGastos, totalAhorros, totalBolsillos, totalUsoBolsillo, totalCredito, totalPagoCredito,
-    saldoActual: memberSaldoInicial + totalIngresos - totalGastos - totalAhorros - totalBolsillos - totalPagoCredito,
+    totalIngresos, totalGastos, totalAhorros, totalRetiroAhorro, totalBolsillos, totalUsoBolsillo, totalCredito, totalPagoCredito,
+    saldoActual: memberSaldoInicial + totalIngresos - totalGastos - totalAhorros + totalRetiroAhorro - totalBolsillos + totalUsoBolsillo - totalPagoCredito,
     deudaCreditoAcumulada: mb?.deudaCredito ?? 0,
     saldoBolsillosAcumulado: mb?.saldoBolsillos ?? 0,
     fechaCorteCredito: orig.fechaCorteCredito,

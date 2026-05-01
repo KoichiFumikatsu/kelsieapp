@@ -56,6 +56,10 @@ export async function getFinanceKPIs(quincenaId: string): Promise<ActionResult<F
     .filter((t) => t.tipo === 'uso_bolsillo')
     .reduce((sum, t) => sum + Number(t.importe), 0)
 
+  const totalRetiroAhorro = (transacciones ?? [])
+    .filter((t) => t.tipo === 'retiro_ahorro')
+    .reduce((sum, t) => sum + Number(t.importe), 0)
+
   const totalCredito = (transacciones ?? [])
     .filter((t) => t.tipo === 'credito')
     .reduce((sum, t) => sum + Number(t.importe), 0)
@@ -145,11 +149,12 @@ export async function getFinanceKPIs(quincenaId: string): Promise<ActionResult<F
       totalIngresos,
       totalGastos,
       totalAhorros,
+      totalRetiroAhorro,
       totalBolsillos,
       totalUsoBolsillo,
       totalCredito,
       totalPagoCredito,
-      saldoActual: Number(quincena.saldo_inicial) + totalIngresos - totalGastos - totalAhorros - totalBolsillos - totalPagoCredito,
+      saldoActual: Number(quincena.saldo_inicial) + totalIngresos - totalGastos - totalAhorros + totalRetiroAhorro - totalBolsillos + totalUsoBolsillo - totalPagoCredito,
       deudaCreditoAcumulada,
       saldoBolsillosAcumulado,
       fechaCorteCredito,
