@@ -697,14 +697,6 @@ function BudgetList({ items, linkedBudgetItemIds, members, filterUserId, onToggl
               <div className="num" style={{ fontSize: '.88em', fontWeight: 900, color: 'var(--t1)' }}>
                 {formatCOP(item.amount_planned)}
               </div>
-              {!hasLinkedCat && (
-              <button
-                className={`zbtn-go ${item.status === 'paid' ? 'done' : ''}`}
-                onClick={() => item.status !== 'paid' && onToggle(item)}
-              >
-                {item.status === 'paid' ? 'Pagado' : 'Pagar'}
-              </button>
-              )}
               <button
                 className="icon-btn"
                 onClick={() => onEdit(item)}
