@@ -62,6 +62,7 @@ export function FinanceClient() {
   const [active, setActive]             = useState<Quincena | null>(null)
   const [categorias, setCategorias]     = useState<Categoria[]>([])
   const [transacciones, setTransacciones] = useState<TransaccionConCategoria[]>([])
+  const [siblingTx, setSiblingTx]       = useState<TransaccionConCategoria[]>([])
   const [kpis, setKPIs]                 = useState<FinanceKPIs | null>(null)
   const [budgetItems, setBudgetItems]   = useState<BudgetItem[]>([])
   const [loading, setLoading]           = useState(true)
@@ -81,6 +82,19 @@ export function FinanceClient() {
   const [showReset, setShowReset]             = useState(false)
 
   /* ── load all data ── */
+  async function loadSiblingTx(q: Quincena, allQuincenas: Quincena[]) {
+    const [fy, fm, fd] = q.fecha_inicio.split('-').map(Number)
+    const sibDay = fd === 1 ? 16 : 1
+    const sibStart = `${fy}-${String(fm).padStart(2, '0')}-${String(sibDay).padStart(2, '0')}`
+    const sib = allQuincenas.find(x => x.fecha_inicio === sibStart)
+    if (sib) {
+      const res = await getTransacciones(sib.id)
+      setSiblingTx(res.ok ? res.data : [])
+    } else {
+      setSiblingTx([])
+    }
+  }
+
   const loadData = useCallback(async (quincenaId?: string) => {
     const [qRes, catRes, biRes] = await Promise.all([
       getQuincenas(),
@@ -106,9 +120,10 @@ export function FinanceClient() {
       ])
       if (txRes.ok) setTransacciones(txRes.data)
       if (kpiRes.ok) setKPIs(kpiRes.data)
+      if (qRes.ok) await loadSiblingTx(q, qRes.data)
     }
     setLoading(false)
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── navigate quincena ── */
   const navigateToPeriod = useCallback(async (year: number, month: number, half: 1 | 2) => {
@@ -123,7 +138,8 @@ export function FinanceClient() {
     ])
     if (txRes.ok) setTransacciones(txRes.data)
     if (kpiRes.ok) setKPIs(kpiRes.data)
-  }, [])
+    if (refreshed.ok) await loadSiblingTx(res.data, refreshed.data)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { loadData() }, [loadData])
 
@@ -199,12 +215,22 @@ export function FinanceClient() {
 
   // Category paid state: derived per-category from transactions (not from budget item status)
   // Also tracks the last transaction ID per category for unpay
+  const allFreqBudgetItemIds = new Set(budgetItems.filter(b => b.frequency === 'all').map(b => b.id))
   const paidCatIds = new Set<string>()
   const lastTxByCatId: Record<string, string> = {}
   for (const tx of transacciones) {
     if (!tx.categoria_id) continue
     paidCatIds.add(tx.categoria_id)
     lastTxByCatId[tx.categoria_id] = tx.id
+  }
+  // For 'all' frequency items: a payment in the sibling quincena of the same month counts as paid
+  for (const tx of siblingTx) {
+    if (!tx.categoria_id) continue
+    const cat = categorias.find(c => c.id === tx.categoria_id)
+    if (!cat?.budget_item_id) continue
+    if (allFreqBudgetItemIds.has(cat.budget_item_id)) {
+      paidCatIds.add(tx.categoria_id)
+    }
   }
 
   const saldo    = filteredKpis?.saldoActual ?? 0
