@@ -172,6 +172,22 @@ export function FinanceClient() {
   // Budget items that have a linked category — their "Pagar" is handled from the category row
   const linkedBudgetItemIds = new Set(categorias.filter(c => c.budget_item_id).map(c => c.budget_item_id!))
 
+  // Spent per budget item (via categoria link) for current quincena filtered view
+  const spentPerBudgetItem: Record<string, number> = {}
+  for (const tx of filteredTx) {
+    if (!tx.categoria_id) continue
+    const cat = categorias.find(c => c.id === tx.categoria_id)
+    if (!cat?.budget_item_id) continue
+    spentPerBudgetItem[cat.budget_item_id] = (spentPerBudgetItem[cat.budget_item_id] ?? 0) + tx.importe
+  }
+
+  // Budget totals for the current member filter
+  const visibleBudgetItems = filterUserId
+    ? budgetItems.filter(i => !i.assigned_to || i.assigned_to === filterUserId)
+    : budgetItems
+  const totalPlanned = visibleBudgetItems.reduce((s, i) => s + i.amount_planned, 0)
+  const totalSpent = visibleBudgetItems.reduce((s, i) => s + (spentPerBudgetItem[i.id] ?? 0), 0)
+
   const saldo    = filteredKpis?.saldoActual ?? 0
   const ingresos = filteredKpis?.totalIngresos ?? 0
   const gastos   = filteredKpis?.totalGastos ?? 0
@@ -325,6 +341,7 @@ export function FinanceClient() {
                   <BudgetList
                     items={budgetItems.slice(0, 6)}
                     linkedBudgetItemIds={linkedBudgetItemIds}
+                    spentPerBudgetItem={spentPerBudgetItem}
                     members={members}
                     filterUserId={filterUserId}
                     onToggle={(item) => setPayingBudget({ item })}
@@ -335,6 +352,9 @@ export function FinanceClient() {
                       loadData(active!.id)
                     }}
                   />
+                )}
+                {budgetItems.length > 0 && (
+                  <BudgetTotalsRow totalPlanned={totalPlanned} totalSpent={totalSpent} ingresos={ingresos} />
                 )}
               </div>
 
@@ -379,16 +399,18 @@ export function FinanceClient() {
                 <span className="zdivider-line" />
                 <button onClick={() => setShowNewBudget(true)} className="zbtn" style={{ padding: '4px 10px', fontSize: '.7em' }}>+ Item</button>
               </div>
-              <BudgetList items={budgetItems} linkedBudgetItemIds={linkedBudgetItemIds} members={members} filterUserId={filterUserId} onToggle={(item) => setPayingBudget({ item })} onEdit={(item) => setEditingBudget(item)} onDelete={async (id) => {
+              <BudgetList items={budgetItems} linkedBudgetItemIds={linkedBudgetItemIds} spentPerBudgetItem={spentPerBudgetItem} members={members} filterUserId={filterUserId} onToggle={(item) => setPayingBudget({ item })} onEdit={(item) => setEditingBudget(item)} onDelete={async (id) => {
                 if (!confirm('Eliminar este item?')) return
                 await deleteBudgetItem(id)
                 loadData(active.id)
               }} />
-              {budgetItems.length === 0 && (
+              {budgetItems.length === 0 ? (
                 <div style={{ padding: '24px 0', textAlign: 'center' }}>
                   <p style={{ fontSize: '.82em', color: 'var(--t3)', marginBottom: 12 }}>Sin items de presupuesto. Crea el primero:</p>
                   <button className="zbtn primary" onClick={() => setShowNewBudget(true)} style={{ padding: '8px 20px' }}>+ Agregar item</button>
                 </div>
+              ) : (
+                <BudgetTotalsRow totalPlanned={totalPlanned} totalSpent={totalSpent} ingresos={ingresos} />
               )}
             </div>
 
@@ -653,9 +675,10 @@ function TxList({ txs, members, onEdit }: { txs: TransaccionConCategoria[]; memb
   )
 }
 
-function BudgetList({ items, linkedBudgetItemIds, members, filterUserId, onToggle, onEdit, onDelete }: {
+function BudgetList({ items, linkedBudgetItemIds, spentPerBudgetItem, members, filterUserId, onToggle, onEdit, onDelete }: {
   items: BudgetItem[]
   linkedBudgetItemIds: Set<string>
+  spentPerBudgetItem: Record<string, number>
   members: { id: string; display_name: string; color_hex: string }[]
   filterUserId: string | null
   onToggle: (item: BudgetItem) => void
@@ -671,8 +694,13 @@ function BudgetList({ items, linkedBudgetItemIds, members, filterUserId, onToggl
       {visibleItems.map((item) => {
         const hasLinkedCat = linkedBudgetItemIds.has(item.id)
         const assignedMember = item.assigned_to ? members.find(m => m.id === item.assigned_to) : null
+        const spent = spentPerBudgetItem[item.id] ?? 0
+        const planned = item.amount_planned
+        const spentPct = planned > 0 ? Math.min(spent / planned, 1) : 0
+        const isOver = spent > planned && planned > 0
+        const barColor = isOver ? 'var(--r)' : 'var(--g)'
         return (
-        <div key={item.id} style={{ background: 'var(--s1)', border: '1px solid var(--b1)', borderRadius: 'var(--rm)', overflow: 'hidden', transition: 'border-color .12s' }}>
+        <div key={item.id} style={{ background: 'var(--s1)', border: `1px solid ${isOver ? 'var(--r)' : 'var(--b1)'}`, borderRadius: 'var(--rm)', overflow: 'hidden', transition: 'border-color .12s' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px' }}>
             {/* Status checkbox */}
             <div
@@ -698,14 +726,19 @@ function BudgetList({ items, linkedBudgetItemIds, members, filterUserId, onToggl
                 )}
                 <span style={{ fontSize: '.87em', fontWeight: 800, color: 'var(--t1)' }}>{item.name}</span>
               </div>
-              {item.due_day && (
+              {spent > 0 ? (
+                <span className="num" style={{ fontSize: '.68em', color: isOver ? 'var(--r)' : 'var(--t3)', fontWeight: 700 }}>
+                  {formatCOP(spent)} de {formatCOP(planned)}
+                  {isOver && ' · excedido'}
+                </span>
+              ) : item.due_day ? (
                 <span style={{ fontSize: '.7em', color: 'var(--t3)', fontWeight: 600 }}>Dia {item.due_day}</span>
-              )}
+              ) : null}
             </div>
 
             {/* Amount + actions */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-              <div className="num" style={{ fontSize: '.88em', fontWeight: 900, color: 'var(--t1)' }}>
+              <div className="num" style={{ fontSize: '.88em', fontWeight: 900, color: spent > 0 ? (isOver ? 'var(--r)' : 'var(--g)') : 'var(--t1)' }}>
                 {formatCOP(item.amount_planned)}
               </div>
               <button
@@ -725,9 +758,57 @@ function BudgetList({ items, linkedBudgetItemIds, members, filterUserId, onToggl
               </button>
             </div>
           </div>
+          {/* Progress bar */}
+          {planned > 0 && (
+            <div style={{ height: 3, background: 'var(--s3)' }}>
+              <div style={{ height: '100%', width: `${spentPct * 100}%`, background: barColor, transition: 'width .3s' }} />
+            </div>
+          )}
         </div>
         )
       })}
+    </div>
+  )
+}
+
+function BudgetTotalsRow({ totalPlanned, totalSpent, ingresos }: {
+  totalPlanned: number
+  totalSpent: number
+  ingresos: number
+}) {
+  const remaining = ingresos - totalPlanned
+  const isOver = remaining < 0
+  const spentPct = totalPlanned > 0 ? Math.min(totalSpent / totalPlanned, 1) : 0
+
+  return (
+    <div style={{ marginTop: 8, background: 'var(--s2)', border: `1px solid ${isOver ? 'var(--r)' : 'var(--b1)'}`, borderRadius: 'var(--rm)', overflow: 'hidden' }}>
+      <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '.72em', fontWeight: 800, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Total presupuestado</span>
+          <span className="num" style={{ fontSize: '.88em', fontWeight: 900, color: isOver ? 'var(--r)' : 'var(--t1)' }}>{formatCOP(totalPlanned)}</span>
+        </div>
+        {ingresos > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '.72em', fontWeight: 700, color: 'var(--t3)' }}>
+              {isOver ? 'Excede ingresos en' : 'Disponible tras presupuesto'}
+            </span>
+            <span className="num" style={{ fontSize: '.82em', fontWeight: 800, color: isOver ? 'var(--r)' : 'var(--g)' }}>
+              {isOver ? '−' : '+'}{formatCOP(Math.abs(remaining))}
+            </span>
+          </div>
+        )}
+        {totalSpent > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '.72em', fontWeight: 700, color: 'var(--t3)' }}>Ejecutado</span>
+            <span className="num" style={{ fontSize: '.82em', fontWeight: 800, color: 'var(--t2)' }}>{formatCOP(totalSpent)}</span>
+          </div>
+        )}
+      </div>
+      {totalPlanned > 0 && (
+        <div style={{ height: 3, background: 'var(--s3)' }}>
+          <div style={{ height: '100%', width: `${spentPct * 100}%`, background: 'var(--y)', transition: 'width .3s' }} />
+        </div>
+      )}
     </div>
   )
 }
