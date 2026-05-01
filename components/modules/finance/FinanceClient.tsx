@@ -181,10 +181,19 @@ export function FinanceClient() {
     spentPerBudgetItem[cat.budget_item_id] = (spentPerBudgetItem[cat.budget_item_id] ?? 0) + tx.importe
   }
 
-  // Budget totals for the current member filter
+  // Filter budget items to only those applicable to the active quincena half
+  const halfFilteredItems = budgetItems.filter(i => {
+    if (i.frequency === 'all') return true
+    if (i.frequency === 'first') return activeHalf === 1
+    if (i.frequency === 'second') return activeHalf === 2
+    if (i.frequency === 'once') return i.quincena_id === active.id
+    return true
+  })
+
+  // Budget totals for the current member filter + active half
   const visibleBudgetItems = filterUserId
-    ? budgetItems.filter(i => !i.assigned_to || i.assigned_to === filterUserId)
-    : budgetItems
+    ? halfFilteredItems.filter(i => !i.assigned_to || i.assigned_to === filterUserId)
+    : halfFilteredItems
   const totalPlanned = visibleBudgetItems.reduce((s, i) => s + i.amount_planned, 0)
   const totalSpent = visibleBudgetItems.reduce((s, i) => s + (spentPerBudgetItem[i.id] ?? 0), 0)
 
@@ -345,11 +354,11 @@ export function FinanceClient() {
                   <span className="zdivider-line" />
                   <button onClick={() => setTab('presupuesto')} style={{ fontSize: '.7em', fontWeight: 800, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.06em', background: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>Ver todo</button>
                 </div>
-                {budgetItems.length === 0 ? (
+                {halfFilteredItems.length === 0 ? (
                   <p style={{ fontSize: '.8em', color: 'var(--t3)', padding: '12px 0' }}>Sin items de presupuesto</p>
                 ) : (
                   <BudgetList
-                    items={budgetItems.slice(0, 6)}
+                    items={halfFilteredItems.slice(0, 6)}
                     linkedBudgetItemIds={linkedBudgetItemIds}
                     spentPerBudgetItem={spentPerBudgetItem}
                     members={members}
@@ -409,7 +418,7 @@ export function FinanceClient() {
                 <span className="zdivider-line" />
                 <button onClick={() => setShowNewBudget(true)} className="zbtn" style={{ padding: '4px 10px', fontSize: '.7em' }}>+ Item</button>
               </div>
-              <BudgetList items={budgetItems} linkedBudgetItemIds={linkedBudgetItemIds} spentPerBudgetItem={spentPerBudgetItem} members={members} filterUserId={filterUserId} onToggle={(item) => setPayingBudget({ item })} onEdit={(item) => setEditingBudget(item)} onDelete={async (id) => {
+              <BudgetList items={halfFilteredItems} linkedBudgetItemIds={linkedBudgetItemIds} spentPerBudgetItem={spentPerBudgetItem} members={members} filterUserId={filterUserId} onToggle={(item) => setPayingBudget({ item })} onEdit={(item) => setEditingBudget(item)} onDelete={async (id) => {
                 if (!confirm('Eliminar este item?')) return
                 await deleteBudgetItem(id)
                 loadData(active.id)
@@ -459,12 +468,13 @@ export function FinanceClient() {
                               if (cat.budget_item_id) await markBudgetItemPaid(cat.budget_item_id, false)
                               loadData(active.id)
                             } else {
+                              const baseItem = linkedItem ?? {
+                                id: '', household_id: '', parent_id: null, quincena_id: null, assigned_to: null,
+                                name: cat.nombre, frequency: 'all' as const, amount_planned: 0,
+                                due_day: null, status: 'pending' as const, created_at: '',
+                              }
                               setPayingBudget({
-                                item: linkedItem ?? {
-                                  id: '', household_id: '', parent_id: null, quincena_id: null, assigned_to: null,
-                                  name: cat.nombre, frequency: 'all', amount_planned: cat.presupuesto_default,
-                                  due_day: null, status: 'pending', created_at: '',
-                                },
+                                item: { ...baseItem, amount_planned: cat.presupuesto_default > 0 ? cat.presupuesto_default : baseItem.amount_planned },
                                 categoriaId: cat.id,
                                 tipo: cat.tipo,
                               })
