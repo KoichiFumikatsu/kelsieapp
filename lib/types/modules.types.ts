@@ -16,6 +16,7 @@ export interface Quincena {
   fecha_inicio: string
   fecha_fin: string
   saldo_inicial: number
+  saldo_por_miembro: Record<string, number>
   is_active: boolean
   created_by: string
   created_at: string
@@ -90,6 +91,7 @@ export interface FinanceKPIs {
     real: number
     porcentaje: number
   }[]
+  saldoPorMiembro: Record<string, number>
   acumuladoPorMiembro: Record<string, {
     balance: number
     deudaCredito: number

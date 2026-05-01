@@ -92,10 +92,11 @@ export async function ensureQuincena(year: number, month: number, half: 1 | 2): 
   const prevMeta = quincenaMeta(prev.year, prev.month, prev.half)
 
   let saldoInicial = 0
+  let saldoPorMiembro: Record<string, number> = {}
 
   const { data: prevQ } = await ctx.supabase
     .from('quincenas')
-    .select('id, saldo_inicial')
+    .select('id, saldo_inicial, saldo_por_miembro')
     .eq('household_id', ctx.householdId)
     .eq('fecha_inicio', prevMeta.fecha_inicio)
     .maybeSingle()
@@ -103,15 +104,25 @@ export async function ensureQuincena(year: number, month: number, half: 1 | 2): 
   if (prevQ) {
     const { data: txs } = await ctx.supabase
       .from('transacciones')
-      .select('tipo, importe')
+      .select('tipo, importe, user_id')
       .eq('quincena_id', prevQ.id)
 
-    const ingresos = (txs ?? []).filter((t) => t.tipo === 'ingreso').reduce((s, t) => s + Number(t.importe), 0)
-    const gastos = (txs ?? []).filter((t) => t.tipo === 'gasto').reduce((s, t) => s + Number(t.importe), 0)
-    const ahorros = (txs ?? []).filter((t) => t.tipo === 'ahorro').reduce((s, t) => s + Number(t.importe), 0)
-    const bolsillos = (txs ?? []).filter((t) => t.tipo === 'bolsillo').reduce((s, t) => s + Number(t.importe), 0)
+    const allTxs = txs ?? []
+    const prevSaldos: Record<string, number> = (prevQ as any).saldo_por_miembro ?? {}
 
-    saldoInicial = Number(prevQ.saldo_inicial) + ingresos - gastos - ahorros - bolsillos
+    // Compute per-member ending balance from previous quincena
+    const userIds = [...new Set(allTxs.map((t) => t.user_id).filter(Boolean))]
+    for (const uid of userIds) {
+      const ut = allTxs.filter((t) => t.user_id === uid)
+      const net = (type: string) => ut.filter(t => t.tipo === type).reduce((s, t) => s + Number(t.importe), 0)
+      saldoPorMiembro[uid] = (prevSaldos[uid] ?? 0) + net('ingreso') - net('gasto') - net('ahorro') - net('bolsillo') - net('pago_credito')
+    }
+    // Also carry over any member in prevSaldos that had no transactions this period
+    for (const uid of Object.keys(prevSaldos)) {
+      if (!(uid in saldoPorMiembro)) saldoPorMiembro[uid] = prevSaldos[uid]
+    }
+
+    saldoInicial = Object.values(saldoPorMiembro).reduce((s, v) => s + v, 0)
   }
 
   // Check if already exists — update saldo_inicial from previous period
@@ -126,9 +137,9 @@ export async function ensureQuincena(year: number, month: number, half: 1 | 2): 
     if (prevQ && Number(existing.saldo_inicial) !== saldoInicial) {
       await ctx.supabase
         .from('quincenas')
-        .update({ saldo_inicial: saldoInicial })
+        .update({ saldo_inicial: saldoInicial, saldo_por_miembro: saldoPorMiembro })
         .eq('id', existing.id)
-      return { ok: true, data: { ...existing, saldo_inicial: saldoInicial } as Quincena }
+      return { ok: true, data: { ...existing, saldo_inicial: saldoInicial, saldo_por_miembro: saldoPorMiembro } as Quincena }
     }
     return { ok: true, data: existing as Quincena }
   }
@@ -149,6 +160,7 @@ export async function ensureQuincena(year: number, month: number, half: 1 | 2): 
       fecha_inicio: meta.fecha_inicio,
       fecha_fin: meta.fecha_fin,
       saldo_inicial: saldoInicial,
+      saldo_por_miembro: saldoPorMiembro,
       is_active: true,
       created_by: ctx.userId,
     })
@@ -165,9 +177,26 @@ export async function updateQuincena(id: string, formData: FormData): Promise<Ac
 
   const updates: Record<string, unknown> = {}
   const nombre = formData.get('nombre') as string | null
-  const saldoInicial = formData.get('saldo_inicial') as string | null
   if (nombre) updates.nombre = nombre
-  if (saldoInicial !== null && saldoInicial !== '') updates.saldo_inicial = Number(saldoInicial)
+
+  // Per-member saldo fields: saldo_uid_<userId>
+  const saldoPorMiembro: Record<string, number> = {}
+  let hasMemberSaldo = false
+  for (const [key, value] of formData.entries()) {
+    if (key.startsWith('saldo_uid_')) {
+      const uid = key.replace('saldo_uid_', '')
+      saldoPorMiembro[uid] = Number(value)
+      hasMemberSaldo = true
+    }
+  }
+
+  if (hasMemberSaldo) {
+    updates.saldo_por_miembro = saldoPorMiembro
+    updates.saldo_inicial = Object.values(saldoPorMiembro).reduce((s, v) => s + v, 0)
+  } else {
+    const saldoInicial = formData.get('saldo_inicial') as string | null
+    if (saldoInicial !== null && saldoInicial !== '') updates.saldo_inicial = Number(saldoInicial)
+  }
 
   const { error } = await supabase
     .from('quincenas')

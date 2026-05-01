@@ -9,7 +9,7 @@ export async function getFinanceKPIs(quincenaId: string): Promise<ActionResult<F
   // Get quincena + household
   const { data: quincena, error: qErr } = await supabase
     .from('quincenas')
-    .select('saldo_inicial, household_id, fecha_inicio, fecha_fin')
+    .select('saldo_inicial, saldo_por_miembro, household_id, fecha_inicio, fecha_fin')
     .eq('id', quincenaId)
     .single()
 
@@ -135,10 +135,13 @@ export async function getFinanceKPIs(quincenaId: string): Promise<ActionResult<F
   const corteDate = new Date(fechaCorteCredito + 'T00:00:00')
   const diasParaCorte = Math.round((corteDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
 
+  const saldoPorMiembro: Record<string, number> = quincena.saldo_por_miembro ?? {}
+
   return {
     ok: true,
     data: {
       saldoInicial: Number(quincena.saldo_inicial),
+      saldoPorMiembro,
       totalIngresos,
       totalGastos,
       totalAhorros,

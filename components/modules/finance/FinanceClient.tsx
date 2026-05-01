@@ -482,6 +482,7 @@ export function FinanceClient() {
       <EditQuincenaSheet
         open={!!editingQuincena}
         quincena={editingQuincena}
+        members={members}
         onClose={() => setEditingQuincena(null)}
         onSaved={() => { setEditingQuincena(null); loadData(editingQuincena?.id) }}
       />
@@ -894,7 +895,13 @@ function EditTxSheet({ tx, categorias, members, onClose, onSaved, onDeleted }: {
   )
 }
 
-function EditQuincenaSheet({ open, quincena, onClose, onSaved }: { open: boolean; quincena: Quincena | null; onClose: () => void; onSaved: () => void }) {
+function EditQuincenaSheet({ open, quincena, members, onClose, onSaved }: {
+  open: boolean
+  quincena: Quincena | null
+  members: { id: string; display_name: string; color_hex: string }[]
+  onClose: () => void
+  onSaved: () => void
+}) {
   const [pending, setPending] = useState(false)
   if (!quincena) return null
   async function handle(e: React.FormEvent<HTMLFormElement>) {
@@ -909,9 +916,25 @@ function EditQuincenaSheet({ open, quincena, onClose, onSaved }: { open: boolean
       <form onSubmit={handle} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <FieldLabel label="Nombre"><input name="nombre" required defaultValue={quincena.nombre} className="zinput" /></FieldLabel>
         <p style={{ fontSize: '.78em', color: 'var(--t3)' }}>Periodo: {formatPeriod(quincena.fecha_inicio, quincena.fecha_fin)}</p>
-        <FieldLabel label="Saldo inicial">
-          <input name="saldo_inicial" type="number" step="any" required defaultValue={quincena.saldo_inicial} className="zinput num" />
-        </FieldLabel>
+        {members.length > 1 ? (
+          <>
+            <p style={{ fontSize: '.7em', fontWeight: 700, color: 'var(--t3)' }}>Saldo inicial por miembro</p>
+            {members.map((m) => (
+              <FieldLabel key={m.id} label={m.display_name}>
+                <input
+                  name={`saldo_uid_${m.id}`}
+                  type="number" step="any"
+                  defaultValue={quincena.saldo_por_miembro?.[m.id] ?? 0}
+                  className="zinput num"
+                />
+              </FieldLabel>
+            ))}
+          </>
+        ) : (
+          <FieldLabel label="Saldo inicial">
+            <input name="saldo_inicial" type="number" step="any" defaultValue={quincena.saldo_inicial} className="zinput num" />
+          </FieldLabel>
+        )}
         <Button type="submit" disabled={pending} className="w-full">{pending ? 'Guardando...' : 'Guardar'}</Button>
       </form>
     </BottomSheet>
@@ -1184,15 +1207,18 @@ function computeFilteredKPIs(txs: TransaccionConCategoria[], cats: Categoria[], 
     const pv = Number(c.presupuesto_default)
     return { categoriaId: c.id, nombre: c.nombre, icono: c.icono ?? 'circle', tipo: c.tipo, previsto: pv, real: rv, porcentaje: pv > 0 ? rv / pv : 0 }
   })
+  const memberSaldoInicial = orig.saldoPorMiembro[userId] ?? 0
   const mb = orig.acumuladoPorMiembro[userId]
   return {
-    saldoInicial: 0, totalIngresos, totalGastos, totalAhorros, totalBolsillos, totalUsoBolsillo, totalCredito, totalPagoCredito,
-    saldoActual: mb?.balance ?? (totalIngresos - totalGastos - totalAhorros - totalBolsillos - totalPagoCredito),
+    saldoInicial: memberSaldoInicial,
+    totalIngresos, totalGastos, totalAhorros, totalBolsillos, totalUsoBolsillo, totalCredito, totalPagoCredito,
+    saldoActual: memberSaldoInicial + totalIngresos - totalGastos - totalAhorros - totalBolsillos - totalPagoCredito,
     deudaCreditoAcumulada: mb?.deudaCredito ?? 0,
     saldoBolsillosAcumulado: mb?.saldoBolsillos ?? 0,
     fechaCorteCredito: orig.fechaCorteCredito,
     diasParaCorte: orig.diasParaCorte,
     porCategoria,
+    saldoPorMiembro: orig.saldoPorMiembro,
     acumuladoPorMiembro: orig.acumuladoPorMiembro,
   }
 }
