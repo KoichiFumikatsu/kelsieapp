@@ -177,7 +177,7 @@ export interface ChoreScoreboard {
 
 export type TaskPriority = 'low' | 'mid' | 'high' | 'urgent'
 export type TaskStatus = 'backlog' | 'in_progress' | 'done' | 'cancelled'
-export type TaskCategoria = 'trabajo' | 'proyecto' | 'hogar'
+export type TaskCategoria = 'trabajo' | 'proyecto'
 
 export interface Subtask {
   text: string
@@ -203,6 +203,7 @@ export interface WorkTask {
   tags: string[]
   subtasks: Subtask[]
   notify_on_due: boolean
+  gcal_event_id: string | null
   created_at: string
   updated_at: string
 }

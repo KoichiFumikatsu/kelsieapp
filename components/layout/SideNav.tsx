@@ -16,7 +16,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard',           label: 'Inicio',        icon: LayoutGrid,    color: 'var(--t2)' },
   { href: '/finance',             label: 'Finanzas',      icon: Wallet,        color: 'var(--c-fin)' },
   { href: '/chores',              label: 'Tareas hogar',  icon: Sparkles,      color: 'var(--c-chor)' },
-  { href: '/tasks',               label: 'Trabajo',       icon: ListChecks,    color: 'var(--c-task)' },
+  { href: '/tasks',               label: 'Agenda',        icon: ListChecks,    color: 'var(--c-task)' },
   { href: '/medical',             label: 'Salud',         icon: HeartPulse,    color: 'var(--c-med)' },
   { href: '/studies',             label: 'Estudio',       icon: GraduationCap, color: 'var(--c-stu)' },
   { href: '/settings/household',  label: 'Config',        icon: Settings,      color: 'var(--t3)' },

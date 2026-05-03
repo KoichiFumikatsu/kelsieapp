@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createGCalEvent, updateGCalEvent, deleteGCalEvent } from '@/lib/gcal'
 import type { ActionResult, WorkTask, TaskStatus, TaskCategoria, Subtask } from '@/lib/types/modules.types'
 
 async function getCtx() {
@@ -28,6 +29,27 @@ export async function getAllWorkTasks(): Promise<ActionResult<WorkTask[]>> {
 
   if (error) return { ok: false, error: error.message }
   return { ok: true, data: data as WorkTask[] }
+}
+
+export async function getGCalStatus(): Promise<{ connected: boolean }> {
+  const ctx = await getCtx()
+  if (!ctx) return { connected: false }
+  const { data } = await ctx.supabase
+    .from('google_calendar_tokens')
+    .select('id')
+    .eq('user_id', ctx.userId)
+    .single()
+  return { connected: !!data }
+}
+
+export async function disconnectGCal(): Promise<ActionResult<null>> {
+  const ctx = await getCtx()
+  if (!ctx) return { ok: false, error: 'No autenticado' }
+  await ctx.supabase
+    .from('google_calendar_tokens')
+    .delete()
+    .eq('user_id', ctx.userId)
+  return { ok: true, data: null }
 }
 
 export async function createWorkTask(formData: FormData): Promise<ActionResult<WorkTask>> {
@@ -72,7 +94,15 @@ export async function createWorkTask(formData: FormData): Promise<ActionResult<W
     .single()
 
   if (error) return { ok: false, error: error.message }
-  return { ok: true, data: data as WorkTask }
+  const task = data as WorkTask
+
+  const eventId = await createGCalEvent(ctx.userId, task)
+  if (eventId) {
+    await ctx.supabase.from('work_tasks').update({ gcal_event_id: eventId }).eq('id', task.id)
+    task.gcal_event_id = eventId
+  }
+
+  return { ok: true, data: task }
 }
 
 export async function updateTaskStatus(id: string, status: TaskStatus): Promise<ActionResult<WorkTask>> {
@@ -119,12 +149,31 @@ export async function updateWorkTask(id: string, formData: FormData): Promise<Ac
     .single()
 
   if (error) return { ok: false, error: error.message }
-  return { ok: true, data: data as WorkTask }
+  const task = data as WorkTask
+
+  if (task.gcal_event_id) {
+    await updateGCalEvent(ctx.userId, task.gcal_event_id, task)
+  } else {
+    const eventId = await createGCalEvent(ctx.userId, task)
+    if (eventId) {
+      await ctx.supabase.from('work_tasks').update({ gcal_event_id: eventId }).eq('id', task.id)
+      task.gcal_event_id = eventId
+    }
+  }
+
+  return { ok: true, data: task }
 }
 
 export async function deleteWorkTask(id: string): Promise<ActionResult<null>> {
   const ctx = await getCtx()
   if (!ctx) return { ok: false, error: 'No autenticado' }
+
+  const { data: taskData } = await ctx.supabase
+    .from('work_tasks')
+    .select('gcal_event_id')
+    .eq('id', id)
+    .eq('user_id', ctx.userId)
+    .single()
 
   const { error } = await ctx.supabase
     .from('work_tasks')
@@ -133,5 +182,10 @@ export async function deleteWorkTask(id: string): Promise<ActionResult<null>> {
     .eq('user_id', ctx.userId)
 
   if (error) return { ok: false, error: error.message }
+
+  if (taskData?.gcal_event_id) {
+    await deleteGCalEvent(ctx.userId, taskData.gcal_event_id)
+  }
+
   return { ok: true, data: null }
 }

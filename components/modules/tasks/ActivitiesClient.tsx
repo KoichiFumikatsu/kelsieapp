@@ -1,20 +1,20 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { Plus, Pencil, Trash2, CalendarPlus } from 'lucide-react'
-import { getAllWorkTasks, createWorkTask, updateWorkTask, updateTaskStatus, deleteWorkTask } from '@/app/actions/tasks/tasks'
+import { Plus, Pencil, Trash2, CalendarPlus, ChevronLeft, ChevronRight, Link2, Link2Off } from 'lucide-react'
+import { getAllWorkTasks, createWorkTask, updateWorkTask, updateTaskStatus, deleteWorkTask, getGCalStatus, disconnectGCal } from '@/app/actions/tasks/tasks'
 import { BottomSheet } from '@/components/ui/Modal'
 import type { WorkTask, TaskCategoria, TaskPriority, TaskStatus, Subtask } from '@/lib/types/modules.types'
 
 /* ─ constants ─────────────────────────────────────────── */
-type Tab = 'todas' | 'trabajo' | 'proyecto' | 'hogar'
+type Tab = 'todas' | 'trabajo' | 'proyecto' | 'calendario'
 
 const PRIO_PTS: Record<TaskPriority, number> = { urgent: 300, high: 150, mid: 100, low: 50 }
 const DAILY_GOAL = 400
 const MILESTONES = [100, 200, 300, 400]
 
-const CAT_TAG: Record<TaskCategoria, string> = { trabajo: 'task', proyecto: 'pm', hogar: 'chor' }
-const CAT_LABEL: Record<TaskCategoria, string> = { trabajo: 'Trabajo', proyecto: 'Proyecto', hogar: 'Hogar' }
+const CAT_TAG: Record<TaskCategoria, string> = { trabajo: 'task', proyecto: 'pm' }
+const CAT_LABEL: Record<TaskCategoria, string> = { trabajo: 'Trabajo', proyecto: 'Proyecto' }
 const PRIO_LABEL: Record<TaskPriority, string> = { low: 'Baja', mid: 'Media', high: 'Alta', urgent: 'Urgente' }
 const STATUS_LABEL: Record<TaskStatus, string> = { backlog: 'Pendiente', in_progress: 'En curso', done: 'Hecho', cancelled: 'Cancelado' }
 
@@ -40,19 +40,13 @@ function getWeeks(refDate: Date): { label: string; start: Date; end: Date }[] {
   for (let w = 0; w < 4; w++) {
     const start = new Date(year, month, 1 + w * 7)
     const end = new Date(year, month, Math.min(7 + w * 7, new Date(year, month + 1, 0).getDate()))
-    const fmt = (d: Date) => `${String(d.getMonth() + 1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`
     weeks.push({ label: `Semana ${w + 1}`, start, end })
-    void fmt
   }
   return weeks
 }
 
 function fmt(d: Date) {
   return `${String(d.getMonth() + 1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`
-}
-
-function dateStr(d: Date) {
-  return d.toISOString().split('T')[0]
 }
 
 function todayStr() {
@@ -78,14 +72,25 @@ export function ActivitiesClient() {
   const [selectedWeek, setSelectedWeek] = useState(0)
   const [showAdd, setShowAdd] = useState(false)
   const [editing, setEditing] = useState<WorkTask | null>(null)
+  const [gcalConnected, setGcalConnected] = useState(false)
 
   const load = useCallback(async () => {
-    const res = await getAllWorkTasks()
+    const [res, status] = await Promise.all([getAllWorkTasks(), getGCalStatus()])
     if (res.ok) setTasks(res.data)
+    setGcalConnected(status.connected)
     setLoading(false)
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  /* check URL params for gcal connection result */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('gcal_connected')) {
+      setGcalConnected(true)
+      window.history.replaceState({}, '', '/tasks')
+    }
+  }, [])
 
   /* points */
   const today = todayStr()
@@ -95,9 +100,10 @@ export function ActivitiesClient() {
   const ptsPct = Math.min(ptsToday / DAILY_GOAL, 1)
 
   /* filtered active tasks */
+  const catFilter = tab === 'calendario' ? 'todas' : tab
   const activeTasks = tasks.filter(t =>
     t.status !== 'cancelled' &&
-    (tab === 'todas' || t.categoria === tab)
+    (catFilter === 'todas' || t.categoria === catFilter)
   )
   const cardTasks = activeTasks.filter(t => t.status !== 'done')
   const doneTasks = activeTasks.filter(t => t.status === 'done').slice(0, 3)
@@ -109,14 +115,13 @@ export function ActivitiesClient() {
     if (!t.due_date) return false
     const d = new Date(t.due_date + 'T12:00:00')
     return d >= week.start && d <= week.end &&
-      (tab === 'todas' || t.categoria === tab)
+      (catFilter === 'todas' || t.categoria === catFilter)
   }).sort((a, b) => {
     const pa = a.prioridad === 'urgent' ? 0 : a.prioridad === 'high' ? 1 : 2
     const pb = b.prioridad === 'urgent' ? 0 : b.prioridad === 'high' ? 1 : 2
     return pa - pb
   })
 
-  /* current week index */
   useEffect(() => {
     const todayDate = new Date()
     const idx = weeks.findIndex(w => todayDate >= w.start && todayDate <= w.end)
@@ -160,140 +165,151 @@ export function ActivitiesClient() {
 
       {/* Sub-tabs */}
       <div className="activity-subtabs">
-        {([['todas', 'Todas'], ['trabajo', 'Trabajo'], ['proyecto', 'Proyectos ★'], ['hogar', 'Hogar']] as [Tab, string][]).map(([key, label]) => (
+        {([['todas', 'Todas'], ['trabajo', 'Trabajo'], ['proyecto', 'Proyectos ★'], ['calendario', 'Calendario']] as [Tab, string][]).map(([key, label]) => (
           <button key={key} className={`atab${tab === key ? ' active' : ''}`} onClick={() => setTab(key)}>
             {label}
           </button>
         ))}
       </div>
 
-      {/* Content */}
-      <div style={{ padding: 'var(--pad)', display: 'flex', flexDirection: 'column', gap: 20, paddingBottom: 96 }}>
+      {/* Calendar tab */}
+      {tab === 'calendario' ? (
+        <CalendarView
+          tasks={tasks}
+          gcalConnected={gcalConnected}
+          onDisconnect={async () => { await disconnectGCal(); setGcalConnected(false) }}
+          onEditTask={setEditing}
+        />
+      ) : (
+        /* Content */
+        <div style={{ padding: 'var(--pad)', display: 'flex', flexDirection: 'column', gap: 20, paddingBottom: 96 }}>
 
-        {/* Active task cards */}
-        <div>
-          <div className="zdivider">
-            <span className="zdivider-star">◆</span>
-            <span className="zdivider-label">Tareas activas</span>
-            <span className="zdivider-line" />
-            <span style={{ fontSize: '.72em', color: 'var(--t3)', fontWeight: 700 }}>{cardTasks.length}</span>
-          </div>
+          {/* Active task cards */}
+          <div>
+            <div className="zdivider">
+              <span className="zdivider-star">◆</span>
+              <span className="zdivider-label">Tareas activas</span>
+              <span className="zdivider-line" />
+              <span style={{ fontSize: '.72em', color: 'var(--t3)', fontWeight: 700 }}>{cardTasks.length}</span>
+            </div>
 
-          {cardTasks.length === 0 ? (
-            <p style={{ fontSize: '.82em', color: 'var(--t3)', padding: '16px 0' }}>
-              {tab === 'todas' ? 'Sin tareas activas' : `Sin tareas de ${CAT_LABEL[tab as TaskCategoria]}`}
-            </p>
-          ) : (
-            <div className="task-cards-scroll">
-              <div className="task-cards">
-                {cardTasks.map(task => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    onEdit={() => setEditing(task)}
-                    onStatusChange={async (s) => { await updateTaskStatus(task.id, s); load() }}
-                    onDelete={async () => { if (!confirm('Eliminar actividad?')) return; await deleteWorkTask(task.id); load() }}
-                  />
+            {cardTasks.length === 0 ? (
+              <p style={{ fontSize: '.82em', color: 'var(--t3)', padding: '16px 0' }}>
+                {catFilter === 'todas' ? 'Sin tareas activas' : `Sin tareas de ${CAT_LABEL[catFilter as TaskCategoria]}`}
+              </p>
+            ) : (
+              <div className="task-cards-scroll">
+                <div className="task-cards">
+                  {cardTasks.map(task => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      onEdit={() => setEditing(task)}
+                      onStatusChange={async (s) => { await updateTaskStatus(task.id, s); load() }}
+                      onDelete={async () => { if (!confirm('Eliminar actividad?')) return; await deleteWorkTask(task.id); load() }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Done today */}
+            {doneTasks.length > 0 && (
+              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {doneTasks.map(task => (
+                  <div key={task.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '8px 12px', background: 'var(--s1)',
+                    border: '1px solid var(--b1)', borderRadius: 'var(--rm)', opacity: 0.65
+                  }}>
+                    <span style={{ color: 'var(--g)', fontSize: '.8em' }}>✓</span>
+                    <span className={`ztag ${CAT_TAG[task.categoria]}`}>{CAT_LABEL[task.categoria]}</span>
+                    <span style={{ flex: 1, fontSize: '.85em', fontWeight: 700, color: 'var(--t2)', textDecoration: 'line-through' }}>{task.titulo}</span>
+                    <span style={{ fontSize: '.72em', color: 'var(--y)', fontWeight: 800, fontStyle: 'italic' }}>★ {PRIO_PTS[task.prioridad]} pts</span>
+                  </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* Done today */}
-          {doneTasks.length > 0 && (
-            <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
-              {doneTasks.map(task => (
-                <div key={task.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '8px 12px', background: 'var(--s1)',
-                  border: '1px solid var(--b1)', borderRadius: 'var(--rm)', opacity: 0.65
-                }}>
-                  <span style={{ color: 'var(--g)', fontSize: '.8em' }}>✓</span>
-                  <span className={`ztag ${CAT_TAG[task.categoria]}`}>{CAT_LABEL[task.categoria]}</span>
-                  <span style={{ flex: 1, fontSize: '.85em', fontWeight: 700, color: 'var(--t2)', textDecoration: 'line-through' }}>{task.titulo}</span>
-                  <span style={{ fontSize: '.72em', color: 'var(--y)', fontWeight: 800, fontStyle: 'italic' }}>★ {PRIO_PTS[task.prioridad]} pts</span>
+          {/* Weekly schedule */}
+          <div>
+            <div className="zdivider">
+              <span className="zdivider-star">◆</span>
+              <span className="zdivider-label">Cronograma semanal</span>
+              <span className="zdivider-line" />
+            </div>
+
+            <div className="schedule-weeks">
+              {weeks.map((w, i) => (
+                <div
+                  key={i}
+                  className={`sweek${selectedWeek === i ? ' active' : ''}`}
+                  onClick={() => setSelectedWeek(i)}
+                >
+                  {w.label}
+                  <div className="sweek-dates">{fmt(w.start)}–{fmt(w.end)}</div>
                 </div>
               ))}
             </div>
-          )}
-        </div>
 
-        {/* Weekly schedule */}
-        <div>
-          <div className="zdivider">
-            <span className="zdivider-star">◆</span>
-            <span className="zdivider-label">Cronograma semanal</span>
-            <span className="zdivider-line" />
-          </div>
-
-          <div className="schedule-weeks">
-            {weeks.map((w, i) => (
-              <div
-                key={i}
-                className={`sweek${selectedWeek === i ? ' active' : ''}`}
-                onClick={() => setSelectedWeek(i)}
-              >
-                {w.label}
-                <div className="sweek-dates">{fmt(w.start)}–{fmt(w.end)}</div>
-              </div>
-            ))}
-          </div>
-
-          <div className="schedule-rows">
-            {weekTasks.length === 0 ? (
-              <div style={{ padding: '16px 14px', fontSize: '.82em', color: 'var(--t3)' }}>
-                Sin actividades para esta semana
-              </div>
-            ) : (
-              weekTasks.map(task => (
-                <div
-                  key={task.id}
-                  className={`srow${task.prioridad === 'urgent' ? ' featured' : ''}`}
-                  onClick={() => setEditing(task)}
-                >
-                  <div className="srow-name">
-                    {task.prioridad === 'urgent' && '★ '}{task.titulo}
-                  </div>
-                  <div className="srow-chips">
-                    {task.tags.slice(0, 2).map(tag => (
-                      <div key={tag} className="srow-chip">{tag.slice(0, 2).toUpperCase()}</div>
-                    ))}
-                    {task.due_time && <div className="srow-chip" style={{ fontSize: '.55em', width: 32, borderRadius: 'var(--rs)' }}>{task.due_time.slice(0,5)}</div>}
-                    <div className="srow-chip" style={{ background: 'none', border: 'none', color: 'var(--t3)' }}>›</div>
-                  </div>
-                  <a
-                    href={gcalUrl(task)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={e => e.stopPropagation()}
-                    title="Agregar a Google Calendar"
-                    style={{ color: 'var(--t3)', display: 'flex', alignItems: 'center', flexShrink: 0 }}
-                  >
-                    <CalendarPlus size={14} strokeWidth={2} />
-                  </a>
+            <div className="schedule-rows">
+              {weekTasks.length === 0 ? (
+                <div style={{ padding: '16px 14px', fontSize: '.82em', color: 'var(--t3)' }}>
+                  Sin actividades para esta semana
                 </div>
-              ))
-            )}
+              ) : (
+                weekTasks.map(task => (
+                  <div
+                    key={task.id}
+                    className={`srow${task.prioridad === 'urgent' ? ' featured' : ''}`}
+                    onClick={() => setEditing(task)}
+                  >
+                    <div className="srow-name">
+                      {task.prioridad === 'urgent' && '★ '}{task.titulo}
+                    </div>
+                    <div className="srow-chips">
+                      {task.tags.slice(0, 2).map(tag => (
+                        <div key={tag} className="srow-chip">{tag.slice(0, 2).toUpperCase()}</div>
+                      ))}
+                      {task.due_time && <div className="srow-chip" style={{ fontSize: '.55em', width: 32, borderRadius: 'var(--rs)' }}>{task.due_time.slice(0,5)}</div>}
+                    </div>
+                    <a
+                      href={gcalUrl(task)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={e => e.stopPropagation()}
+                      title="Agregar a Google Calendar"
+                      style={{ color: 'var(--t3)', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                    >
+                      <CalendarPlus size={14} strokeWidth={2} />
+                    </a>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* FAB */}
-      <button
-        onClick={() => setShowAdd(true)}
-        style={{
-          position: 'fixed', bottom: 80, right: 16, zIndex: 20,
-          display: 'flex', alignItems: 'center', gap: 6,
-          padding: '11px 20px', borderRadius: 'var(--rm)',
-          background: 'var(--y)', color: 'var(--yt)',
-          fontSize: '.85em', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.06em',
-          boxShadow: '0 4px 22px rgba(236,199,0,.45)',
-          cursor: 'pointer',
-        }}
-        className="sm:bottom-6! sm:right-6!"
-      >
-        <Plus size={16} strokeWidth={2.5} /> Nueva
-      </button>
+      {tab !== 'calendario' && (
+        <button
+          onClick={() => setShowAdd(true)}
+          style={{
+            position: 'fixed', bottom: 80, right: 16, zIndex: 20,
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '11px 20px', borderRadius: 'var(--rm)',
+            background: 'var(--y)', color: 'var(--yt)',
+            fontSize: '.85em', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.06em',
+            boxShadow: '0 4px 22px rgba(236,199,0,.45)',
+            cursor: 'pointer',
+          }}
+          className="sm:bottom-6! sm:right-6!"
+        >
+          <Plus size={16} strokeWidth={2.5} /> Nueva
+        </button>
+      )}
 
       {showAdd && (
         <ActivitySheet
@@ -316,6 +332,166 @@ export function ActivitiesClient() {
         />
       )}
     </>
+  )
+}
+
+/* ─ CalendarView ──────────────────────────────────────── */
+function CalendarView({ tasks, gcalConnected, onDisconnect, onEditTask }: {
+  tasks: WorkTask[]
+  gcalConnected: boolean
+  onDisconnect: () => void
+  onEditTask: (t: WorkTask) => void
+}) {
+  const [currentDate, setCurrentDate] = useState(() => new Date())
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
+
+  const year = currentDate.getFullYear()
+  const month = currentDate.getMonth()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const firstDayOfWeek = new Date(year, month, 1).getDay()
+  const startOffset = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1
+
+  const monthLabel = new Date(year, month, 1).toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })
+  const today = todayStr()
+
+  const tasksByDay: Record<string, WorkTask[]> = {}
+  for (const t of tasks) {
+    if (!t.due_date) continue
+    const prefix = `${year}-${String(month + 1).padStart(2, '0')}`
+    if (!t.due_date.startsWith(prefix)) continue
+    if (!tasksByDay[t.due_date]) tasksByDay[t.due_date] = []
+    tasksByDay[t.due_date].push(t)
+  }
+
+  const cells: (number | null)[] = [
+    ...Array(startOffset).fill(null),
+    ...[...Array(daysInMonth)].map((_, i) => i + 1),
+  ]
+  while (cells.length % 7 !== 0) cells.push(null)
+
+  const selectedTasks = selectedDay ? (tasksByDay[selectedDay] ?? []) : []
+
+  return (
+    <div style={{ padding: '0 var(--pad)', paddingBottom: 40 }}>
+      {/* Month nav */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', marginBottom: 6 }}>
+        <button onClick={() => { setCurrentDate(new Date(year, month - 1, 1)); setSelectedDay(null) }} style={{ background: 'none', color: 'var(--t3)', cursor: 'pointer', padding: 8 }}>
+          <ChevronLeft size={18} strokeWidth={2} />
+        </button>
+        <span style={{ fontSize: '.9em', fontWeight: 800, textTransform: 'capitalize', color: 'var(--t1)', letterSpacing: '.02em' }}>{monthLabel}</span>
+        <button onClick={() => { setCurrentDate(new Date(year, month + 1, 1)); setSelectedDay(null) }} style={{ background: 'none', color: 'var(--t3)', cursor: 'pointer', padding: 8 }}>
+          <ChevronRight size={18} strokeWidth={2} />
+        </button>
+      </div>
+
+      {/* Day headers */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 4 }}>
+        {['L','M','X','J','V','S','D'].map(d => (
+          <div key={d} style={{ textAlign: 'center', fontSize: '.6em', fontWeight: 900, color: 'var(--t3)', padding: '3px 0', textTransform: 'uppercase', letterSpacing: '.08em' }}>{d}</div>
+        ))}
+      </div>
+
+      {/* Day grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+        {cells.map((day, i) => {
+          if (!day) return <div key={i} />
+          const ds = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+          const dayTasks = tasksByDay[ds] ?? []
+          const isToday = ds === today
+          const isSelected = ds === selectedDay
+
+          return (
+            <div
+              key={i}
+              onClick={() => setSelectedDay(isSelected ? null : ds)}
+              style={{
+                minHeight: 44, padding: '4px 3px 5px',
+                borderRadius: 'var(--rs)',
+                background: isSelected ? 'rgba(236,199,0,.15)' : isToday ? 'rgba(236,199,0,.07)' : 'transparent',
+                border: `1px solid ${isSelected ? 'rgba(236,199,0,.5)' : isToday ? 'rgba(236,199,0,.25)' : 'var(--b0)'}`,
+                cursor: 'pointer',
+              }}
+            >
+              <div style={{ fontSize: '.7em', fontWeight: isToday ? 900 : 600, color: isToday ? 'var(--y)' : 'var(--t2)', textAlign: 'center' }}>{day}</div>
+              {dayTasks.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, marginTop: 3, justifyContent: 'center' }}>
+                  {dayTasks.slice(0, 4).map((t, j) => (
+                    <div key={j} style={{
+                      width: 5, height: 5, borderRadius: '50%',
+                      background: t.prioridad === 'urgent' ? 'var(--r)' : t.prioridad === 'high' ? 'var(--o, #f97316)' : t.categoria === 'proyecto' ? 'var(--p, #a855f7)' : 'var(--y)',
+                      opacity: t.status === 'done' ? 0.35 : 1,
+                    }} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Selected day tasks */}
+      {selectedDay && (
+        <div style={{ marginTop: 16 }}>
+          <div className="zdivider" style={{ marginBottom: 10 }}>
+            <span className="zdivider-star">◆</span>
+            <span className="zdivider-label" style={{ textTransform: 'capitalize' }}>
+              {new Date(selectedDay + 'T12:00:00').toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </span>
+            <span className="zdivider-line" />
+          </div>
+          {selectedTasks.length === 0 ? (
+            <p style={{ fontSize: '.82em', color: 'var(--t3)', padding: '8px 0' }}>Sin actividades</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {selectedTasks.map(t => (
+                <div
+                  key={t.id}
+                  onClick={() => onEditTask(t)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '8px 12px', background: 'var(--s1)',
+                    border: '1px solid var(--b1)', borderRadius: 'var(--rm)',
+                    opacity: t.status === 'done' ? 0.6 : 1, cursor: 'pointer',
+                  }}
+                >
+                  <span className={`ztag ${CAT_TAG[t.categoria]}`}>{CAT_LABEL[t.categoria]}</span>
+                  <span style={{ flex: 1, fontSize: '.85em', fontWeight: 700, color: 'var(--t2)', textDecoration: t.status === 'done' ? 'line-through' : 'none' }}>{t.titulo}</span>
+                  {t.due_time && <span style={{ fontSize: '.72em', color: 'var(--t3)', fontWeight: 700 }}>{t.due_time.slice(0, 5)}</span>}
+                  <a href={gcalUrl(t)} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ color: 'var(--t3)', display: 'flex' }}>
+                    <CalendarPlus size={12} strokeWidth={2} />
+                  </a>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* GCal connection */}
+      <div style={{ marginTop: 24, padding: '14px', background: 'var(--s1)', border: '1px solid var(--b1)', borderRadius: 'var(--rm)' }}>
+        <div style={{ fontSize: '.72em', fontWeight: 900, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>Google Calendar</div>
+        {gcalConnected ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '.82em', fontWeight: 700, color: 'var(--g, #22c55e)' }}>
+              <Link2 size={13} strokeWidth={2} /> Sincronizacion activa
+            </div>
+            <button
+              onClick={onDisconnect}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '.75em', fontWeight: 700, color: 'var(--t3)', background: 'none', cursor: 'pointer' }}
+            >
+              <Link2Off size={12} strokeWidth={2} /> Desconectar
+            </button>
+          </div>
+        ) : (
+          <a
+            href="/api/auth/gcal"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '.82em', fontWeight: 700, color: 'var(--y)' }}
+          >
+            <CalendarPlus size={13} strokeWidth={2} /> Conectar sincronizacion
+          </a>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -430,20 +606,17 @@ function ActivitySheet({ task, onClose, onSaved, onDelete }: {
     <BottomSheet open onClose={onClose} title={task ? 'Editar actividad' : 'Nueva actividad'}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-        {/* Titulo */}
         <div>
           <span style={lbl}>Titulo</span>
           <input className="zinput" value={titulo} onChange={e => setTitulo(e.target.value)} placeholder="Nombre de la actividad" />
         </div>
 
-        {/* Categoria + Prioridad */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           <div>
             <span style={lbl}>Categoria</span>
             <select className="zinput" value={categoria} onChange={e => setCategoria(e.target.value as TaskCategoria)}>
               <option value="trabajo">Trabajo</option>
               <option value="proyecto">Proyecto</option>
-              <option value="hogar">Hogar</option>
             </select>
           </div>
           <div>
@@ -457,7 +630,6 @@ function ActivitySheet({ task, onClose, onSaved, onDelete }: {
           </div>
         </div>
 
-        {/* Status */}
         {task && (
           <div>
             <span style={lbl}>Estado</span>
@@ -469,7 +641,6 @@ function ActivitySheet({ task, onClose, onSaved, onDelete }: {
           </div>
         )}
 
-        {/* Fecha + Hora */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           <div>
             <span style={lbl}>Fecha</span>
@@ -481,19 +652,16 @@ function ActivitySheet({ task, onClose, onSaved, onDelete }: {
           </div>
         </div>
 
-        {/* Tags */}
         <div>
           <span style={lbl}>Tags (separados por coma)</span>
           <input className="zinput" value={tags} onChange={e => setTags(e.target.value)} placeholder="UI, UX, Backend..." />
         </div>
 
-        {/* Descripcion */}
         <div>
           <span style={lbl}>Descripcion</span>
           <textarea className="zinput" value={descripcion} onChange={e => setDescripcion(e.target.value)} rows={2} placeholder="Detalles opcionales..." style={{ resize: 'none' }} />
         </div>
 
-        {/* Subtasks */}
         <div>
           <span style={lbl}>Subtareas ({subtasks.filter(s => s.done).length}/{subtasks.length})</span>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 8 }}>
@@ -513,7 +681,6 @@ function ActivitySheet({ task, onClose, onSaved, onDelete }: {
           </div>
         </div>
 
-        {/* Google Calendar link (if has date) */}
         {(task && task.due_date) && (
           <a
             href={gcalUrl(task)}

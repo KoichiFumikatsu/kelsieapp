@@ -15,7 +15,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/finance',   label: 'Finanzas', icon: Wallet },
   { href: '/chores',    label: 'Tareas',   icon: Sparkles },
   { href: '/dashboard', label: 'Inicio',   icon: LayoutGrid },
-  { href: '/tasks',     label: 'Trabajo',  icon: ListChecks },
+  { href: '/tasks',     label: 'Agenda',   icon: ListChecks },
   { href: '/studies',   label: 'Estudio',  icon: GraduationCap },
 ]
 
