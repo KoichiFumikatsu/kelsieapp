@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import type { ActionResult, WorkTask, TaskStatus, Subtask } from '@/lib/types/modules.types'
+import type { ActionResult, WorkTask, TaskStatus, TaskCategoria, Subtask } from '@/lib/types/modules.types'
 
 async function getCtx() {
   const supabase = await createClient()
@@ -15,23 +15,6 @@ async function getCtx() {
   return { supabase, userId: user.id, householdId: profile?.household_id as string | null }
 }
 
-export async function getWorkTasks(status?: TaskStatus): Promise<ActionResult<WorkTask[]>> {
-  const ctx = await getCtx()
-  if (!ctx?.householdId) return { ok: false, error: 'Sin hogar asignado' }
-
-  let query = ctx.supabase
-    .from('work_tasks')
-    .select('*')
-    .eq('user_id', ctx.userId)
-
-  if (status) query = query.eq('status', status)
-
-  const { data, error } = await query.order('created_at', { ascending: false })
-
-  if (error) return { ok: false, error: error.message }
-  return { ok: true, data: data as WorkTask[] }
-}
-
 export async function getAllWorkTasks(): Promise<ActionResult<WorkTask[]>> {
   const ctx = await getCtx()
   if (!ctx?.householdId) return { ok: false, error: 'Sin hogar asignado' }
@@ -40,6 +23,7 @@ export async function getAllWorkTasks(): Promise<ActionResult<WorkTask[]>> {
     .from('work_tasks')
     .select('*')
     .eq('user_id', ctx.userId)
+    .order('due_date', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: false })
 
   if (error) return { ok: false, error: error.message }
@@ -53,6 +37,7 @@ export async function createWorkTask(formData: FormData): Promise<ActionResult<W
   const titulo = formData.get('titulo') as string
   const descripcion = (formData.get('descripcion') as string) || null
   const prioridad = (formData.get('prioridad') as string) || 'mid'
+  const categoria = ((formData.get('categoria') as string) || 'trabajo') as TaskCategoria
   const dueDate = (formData.get('due_date') as string) || null
   const dueTime = (formData.get('due_time') as string) || null
   const isRecurring = formData.get('is_recurring') === 'on'
@@ -74,6 +59,7 @@ export async function createWorkTask(formData: FormData): Promise<ActionResult<W
       titulo,
       descripcion,
       prioridad,
+      categoria,
       due_date: dueDate || null,
       due_time: dueTime || null,
       is_recurring: isRecurring,
@@ -112,6 +98,7 @@ export async function updateWorkTask(id: string, formData: FormData): Promise<Ac
   const titulo = formData.get('titulo') as string
   const descripcion = (formData.get('descripcion') as string) || null
   const prioridad = (formData.get('prioridad') as string) || 'mid'
+  const categoria = ((formData.get('categoria') as string) || 'trabajo') as TaskCategoria
   const dueDate = (formData.get('due_date') as string) || null
   const dueTime = (formData.get('due_time') as string) || null
   const isRecurring = formData.get('is_recurring') === 'on'
@@ -125,7 +112,7 @@ export async function updateWorkTask(id: string, formData: FormData): Promise<Ac
 
   const { data, error } = await ctx.supabase
     .from('work_tasks')
-    .update({ titulo, descripcion, prioridad, due_date: dueDate || null, due_time: dueTime || null, is_recurring: isRecurring, recurrence_pattern: recurrencePattern, recurrence_end: recurrenceEnd || null, tags, subtasks })
+    .update({ titulo, descripcion, prioridad, categoria, due_date: dueDate || null, due_time: dueTime || null, is_recurring: isRecurring, recurrence_pattern: recurrencePattern, recurrence_end: recurrenceEnd || null, tags, subtasks })
     .eq('id', id)
     .eq('user_id', ctx.userId)
     .select()

@@ -177,6 +177,7 @@ export interface ChoreScoreboard {
 
 export type TaskPriority = 'low' | 'mid' | 'high' | 'urgent'
 export type TaskStatus = 'backlog' | 'in_progress' | 'done' | 'cancelled'
+export type TaskCategoria = 'trabajo' | 'proyecto' | 'hogar'
 
 export interface Subtask {
   text: string
@@ -193,6 +194,7 @@ export interface WorkTask {
   descripcion: string | null
   prioridad: TaskPriority
   status: TaskStatus
+  categoria: TaskCategoria
   due_date: string | null
   due_time: string | null
   is_recurring: boolean
