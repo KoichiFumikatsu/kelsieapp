@@ -88,26 +88,48 @@ export async function fetchCalendarEvents(userId: string, year: number, month: n
   const token = await getAccessToken(userId)
   if (!token) return []
 
+  const calListRes = await fetch(`${GCAL_API}/users/me/calendarList`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!calListRes.ok) return []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const calListData = await calListRes.json()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const calendars: { id: string }[] = (calListData.items ?? []).filter((c: any) => c.selected !== false)
+
   const timeMin = new Date(year, month, 1).toISOString()
   const timeMax = new Date(year, month + 1, 0, 23, 59, 59).toISOString()
-
   const params = new URLSearchParams({
     timeMin,
     timeMax,
     singleEvents: 'true',
     orderBy: 'startTime',
-    maxResults: '100',
+    maxResults: '250',
   })
 
-  const res = await fetch(`${GCAL_API}/calendars/primary/events?${params}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-
-  if (!res.ok) return []
-  const data = await res.json()
+  const perCal = await Promise.all(
+    calendars.map(async (cal) => {
+      const res = await fetch(`${GCAL_API}/calendars/${encodeURIComponent(cal.id)}/events?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) return []
+      const d = await res.json()
+      return d.items ?? []
+    })
+  )
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (data.items ?? []).map((item: any): GCalEvent => {
+  const all: any[] = perCal.flat()
+  const seen = new Set<string>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const unique = all.filter((item: any) => {
+    if (seen.has(item.id)) return false
+    seen.add(item.id)
+    return true
+  })
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return unique.map((item: any): GCalEvent => {
     const allDay = !item.start?.dateTime
     const date = allDay ? item.start.date : item.start.dateTime.split('T')[0]
     const time = allDay ? undefined : item.start.dateTime.split('T')[1].slice(0, 5)
