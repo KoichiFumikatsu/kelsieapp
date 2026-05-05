@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { Plus, Pencil, Trash2, CalendarPlus, ChevronLeft, ChevronRight, Link2, Link2Off } from 'lucide-react'
-import { getAllWorkTasks, createWorkTask, updateWorkTask, updateTaskStatus, deleteWorkTask, getGCalStatus, disconnectGCal } from '@/app/actions/tasks/tasks'
+import { getAllWorkTasks, createWorkTask, updateWorkTask, updateTaskStatus, deleteWorkTask, getGCalStatus, disconnectGCal, getCalendarEvents } from '@/app/actions/tasks/tasks'
+import type { GCalEvent } from '@/lib/gcal'
 import { BottomSheet } from '@/components/ui/Modal'
 import type { WorkTask, TaskCategoria, TaskPriority, TaskStatus, Subtask } from '@/lib/types/modules.types'
 
@@ -179,6 +180,7 @@ export function ActivitiesClient() {
           gcalConnected={gcalConnected}
           onDisconnect={async () => { await disconnectGCal(); setGcalConnected(false) }}
           onEditTask={setEditing}
+          loadGCalEvents={getCalendarEvents}
         />
       ) : (
         /* Content */
@@ -336,17 +338,30 @@ export function ActivitiesClient() {
 }
 
 /* ─ CalendarView ──────────────────────────────────────── */
-function CalendarView({ tasks, gcalConnected, onDisconnect, onEditTask }: {
+function CalendarView({ tasks, gcalConnected, onDisconnect, onEditTask, loadGCalEvents }: {
   tasks: WorkTask[]
   gcalConnected: boolean
   onDisconnect: () => void
   onEditTask: (t: WorkTask) => void
+  loadGCalEvents: (year: number, month: number) => Promise<{ ok: boolean; data?: GCalEvent[] }>
 }) {
   const [currentDate, setCurrentDate] = useState(() => new Date())
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
+  const [gcalEvents, setGcalEvents] = useState<GCalEvent[]>([])
+  const [gcalLoading, setGcalLoading] = useState(false)
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
+
+  useEffect(() => {
+    if (!gcalConnected) return
+    setGcalLoading(true)
+    loadGCalEvents(year, month).then(res => {
+      if (res.ok && res.data) setGcalEvents(res.data)
+      setGcalLoading(false)
+    })
+  }, [gcalConnected, year, month]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const firstDayOfWeek = new Date(year, month, 1).getDay()
   const startOffset = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1
@@ -363,6 +378,12 @@ function CalendarView({ tasks, gcalConnected, onDisconnect, onEditTask }: {
     tasksByDay[t.due_date].push(t)
   }
 
+  const gcalByDay: Record<string, GCalEvent[]> = {}
+  for (const e of gcalEvents) {
+    if (!gcalByDay[e.date]) gcalByDay[e.date] = []
+    gcalByDay[e.date].push(e)
+  }
+
   const cells: (number | null)[] = [
     ...Array(startOffset).fill(null),
     ...[...Array(daysInMonth)].map((_, i) => i + 1),
@@ -370,6 +391,7 @@ function CalendarView({ tasks, gcalConnected, onDisconnect, onEditTask }: {
   while (cells.length % 7 !== 0) cells.push(null)
 
   const selectedTasks = selectedDay ? (tasksByDay[selectedDay] ?? []) : []
+  const selectedGcal = selectedDay ? (gcalByDay[selectedDay] ?? []) : []
 
   return (
     <div style={{ padding: '0 var(--pad)', paddingBottom: 40 }}>
@@ -397,6 +419,7 @@ function CalendarView({ tasks, gcalConnected, onDisconnect, onEditTask }: {
           if (!day) return <div key={i} />
           const ds = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
           const dayTasks = tasksByDay[ds] ?? []
+          const dayGcal = gcalByDay[ds] ?? []
           const isToday = ds === today
           const isSelected = ds === selectedDay
 
@@ -413,14 +436,17 @@ function CalendarView({ tasks, gcalConnected, onDisconnect, onEditTask }: {
               }}
             >
               <div style={{ fontSize: '.7em', fontWeight: isToday ? 900 : 600, color: isToday ? 'var(--y)' : 'var(--t2)', textAlign: 'center' }}>{day}</div>
-              {dayTasks.length > 0 && (
+              {(dayTasks.length > 0 || dayGcal.length > 0) && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, marginTop: 3, justifyContent: 'center' }}>
-                  {dayTasks.slice(0, 4).map((t, j) => (
+                  {dayTasks.slice(0, 3).map((t, j) => (
                     <div key={j} style={{
                       width: 5, height: 5, borderRadius: '50%',
                       background: t.prioridad === 'urgent' ? 'var(--r)' : t.prioridad === 'high' ? 'var(--o, #f97316)' : t.categoria === 'proyecto' ? 'var(--p, #a855f7)' : 'var(--y)',
                       opacity: t.status === 'done' ? 0.35 : 1,
                     }} />
+                  ))}
+                  {dayGcal.slice(0, 2).map((_, j) => (
+                    <div key={`g${j}`} style={{ width: 5, height: 5, borderRadius: '50%', background: '#4285f4' }} />
                   ))}
                 </div>
               )}
@@ -439,7 +465,7 @@ function CalendarView({ tasks, gcalConnected, onDisconnect, onEditTask }: {
             </span>
             <span className="zdivider-line" />
           </div>
-          {selectedTasks.length === 0 ? (
+          {selectedTasks.length === 0 && selectedGcal.length === 0 ? (
             <p style={{ fontSize: '.82em', color: 'var(--t3)', padding: '8px 0' }}>Sin actividades</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -457,9 +483,17 @@ function CalendarView({ tasks, gcalConnected, onDisconnect, onEditTask }: {
                   <span className={`ztag ${CAT_TAG[t.categoria]}`}>{CAT_LABEL[t.categoria]}</span>
                   <span style={{ flex: 1, fontSize: '.85em', fontWeight: 700, color: 'var(--t2)', textDecoration: t.status === 'done' ? 'line-through' : 'none' }}>{t.titulo}</span>
                   {t.due_time && <span style={{ fontSize: '.72em', color: 'var(--t3)', fontWeight: 700 }}>{t.due_time.slice(0, 5)}</span>}
-                  <a href={gcalUrl(t)} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ color: 'var(--t3)', display: 'flex' }}>
-                    <CalendarPlus size={12} strokeWidth={2} />
-                  </a>
+                </div>
+              ))}
+              {selectedGcal.map(e => (
+                <div key={e.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '8px 12px', background: 'var(--s1)',
+                  border: '1px solid rgba(66,133,244,.35)', borderRadius: 'var(--rm)',
+                }}>
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4285f4', flexShrink: 0 }} />
+                  <span style={{ flex: 1, fontSize: '.85em', fontWeight: 700, color: 'var(--t2)' }}>{e.title}</span>
+                  {e.time && <span style={{ fontSize: '.72em', color: 'var(--t3)', fontWeight: 700 }}>{e.time}</span>}
                 </div>
               ))}
             </div>
@@ -470,6 +504,7 @@ function CalendarView({ tasks, gcalConnected, onDisconnect, onEditTask }: {
       {/* GCal connection */}
       <div style={{ marginTop: 24, padding: '14px', background: 'var(--s1)', border: '1px solid var(--b1)', borderRadius: 'var(--rm)' }}>
         <div style={{ fontSize: '.72em', fontWeight: 900, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>Google Calendar</div>
+        {gcalLoading && <div style={{ fontSize: '.78em', color: 'var(--t3)', marginBottom: 8 }}>Cargando eventos...</div>}
         {gcalConnected ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '.82em', fontWeight: 700, color: 'var(--g, #22c55e)' }}>

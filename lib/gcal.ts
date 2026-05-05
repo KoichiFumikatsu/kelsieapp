@@ -1,7 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
 
 const GCAL_API = 'https://www.googleapis.com/calendar/v3'
-const SCOPES = 'https://www.googleapis.com/auth/calendar.events'
+const SCOPE = 'https://www.googleapis.com/auth/calendar.readonly'
+
+export interface GCalEvent {
+  id: string
+  title: string
+  date: string
+  time?: string
+  allDay: boolean
+}
 
 export function isGCalConfigured(): boolean {
   return !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_REDIRECT_URI)
@@ -12,7 +20,7 @@ export function getOAuthUrl(): string {
     client_id: process.env.GOOGLE_CLIENT_ID!,
     redirect_uri: process.env.GOOGLE_REDIRECT_URI!,
     response_type: 'code',
-    scope: SCOPES,
+    scope: SCOPE,
     access_type: 'offline',
     prompt: 'consent',
   })
@@ -76,55 +84,33 @@ export async function getAccessToken(userId: string): Promise<string | null> {
   return refreshed.access_token
 }
 
-type TaskLike = { titulo: string; descripcion?: string | null; due_date?: string | null; due_time?: string | null }
-
-function toGCalEvent(task: TaskLike) {
-  const summary = task.titulo
-  const description = task.descripcion ?? undefined
-  if (!task.due_date) {
-    const today = new Date().toISOString().split('T')[0]
-    return { summary, description, start: { date: today }, end: { date: today } }
-  }
-  if (task.due_time) {
-    const d = task.due_date
-    const t = task.due_time.slice(0, 5)
-    const [h, m] = t.split(':').map(Number)
-    const endH = String(h + 1).padStart(2, '0')
-    const start = `${d}T${t}:00`
-    const end = `${d}T${endH}:${String(m).padStart(2, '0')}:00`
-    return { summary, description, start: { dateTime: start, timeZone: 'America/Bogota' }, end: { dateTime: end, timeZone: 'America/Bogota' } }
-  }
-  return { summary, description, start: { date: task.due_date }, end: { date: task.due_date } }
-}
-
-export async function createGCalEvent(userId: string, task: TaskLike): Promise<string | null> {
+export async function fetchCalendarEvents(userId: string, year: number, month: number): Promise<GCalEvent[]> {
   const token = await getAccessToken(userId)
-  if (!token) return null
-  const res = await fetch(`${GCAL_API}/calendars/primary/events`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(toGCalEvent(task)),
+  if (!token) return []
+
+  const timeMin = new Date(year, month, 1).toISOString()
+  const timeMax = new Date(year, month + 1, 0, 23, 59, 59).toISOString()
+
+  const params = new URLSearchParams({
+    timeMin,
+    timeMax,
+    singleEvents: 'true',
+    orderBy: 'startTime',
+    maxResults: '100',
   })
-  if (!res.ok) return null
-  const data = await res.json()
-  return data.id ?? null
-}
 
-export async function updateGCalEvent(userId: string, eventId: string, task: TaskLike): Promise<void> {
-  const token = await getAccessToken(userId)
-  if (!token) return
-  await fetch(`${GCAL_API}/calendars/primary/events/${eventId}`, {
-    method: 'PATCH',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(toGCalEvent(task)),
-  })
-}
-
-export async function deleteGCalEvent(userId: string, eventId: string): Promise<void> {
-  const token = await getAccessToken(userId)
-  if (!token) return
-  await fetch(`${GCAL_API}/calendars/primary/events/${eventId}`, {
-    method: 'DELETE',
+  const res = await fetch(`${GCAL_API}/calendars/primary/events?${params}`, {
     headers: { Authorization: `Bearer ${token}` },
+  })
+
+  if (!res.ok) return []
+  const data = await res.json()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data.items ?? []).map((item: any): GCalEvent => {
+    const allDay = !item.start?.dateTime
+    const date = allDay ? item.start.date : item.start.dateTime.split('T')[0]
+    const time = allDay ? undefined : item.start.dateTime.split('T')[1].slice(0, 5)
+    return { id: item.id, title: item.summary ?? '(Sin titulo)', date, time, allDay }
   })
 }
