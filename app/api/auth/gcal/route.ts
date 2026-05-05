@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 import { getOAuthUrl, isGCalConfigured } from '@/lib/gcal'
 
-export async function GET() {
+export async function GET(req: Request) {
+  const origin = new URL(req.url).origin
   if (!isGCalConfigured()) {
-    return NextResponse.redirect(new URL('/tasks?gcal_error=not_configured', process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'))
+    return NextResponse.redirect(`${origin}/tasks?gcal_error=not_configured`)
   }
   return NextResponse.redirect(getOAuthUrl())
 }
