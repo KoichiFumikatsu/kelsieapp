@@ -12,6 +12,7 @@ import { getBudgetItems, markBudgetItemPaid, createBudgetItem, updateBudgetItem,
 import type { BudgetItem } from '@/app/actions/finance/budget_items'
 import { resetFinanceData } from '@/app/actions/finance/reset'
 import { AddTransaccionSheet } from '@/components/modules/finance/AddTransaccionSheet'
+import { FinanceKPIPanel } from '@/components/modules/finance/FinanceKPIPanel'
 import { BottomSheet } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { useHousehold } from '@/hooks/useHousehold'
@@ -80,6 +81,7 @@ export function FinanceClient() {
   const [editingBudget, setEditingBudget]     = useState<BudgetItem | null>(null)
   const [payingBudget, setPayingBudget]       = useState<{ item: BudgetItem; categoriaId?: string; tipo?: string } | null>(null)
   const [showReset, setShowReset]             = useState(false)
+  const [confirmDelete, setConfirmDelete]     = useState<{ label: string; onConfirm: () => Promise<void> } | null>(null)
 
   /* ── load all data ── */
   async function loadSiblingTx(q: Quincena, allQuincenas: Quincena[]) {
@@ -294,11 +296,11 @@ export function FinanceClient() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px var(--pad)', background: 'var(--s1)', borderBottom: '1px solid var(--b1)' }}>
         <span style={{ fontSize: '.65em', fontWeight: 800, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.10em', flexShrink: 0 }}>Quincena</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
-          <button onClick={goPrev} style={{ width: 26, height: 26, borderRadius: 'var(--rs)', background: 'var(--s2)', border: '1px solid var(--b1)', color: 'var(--t2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '.9em', fontWeight: 700, flexShrink: 0, cursor: 'pointer' }}>‹</button>
+          <button onClick={goPrev} style={{ minWidth: 44, minHeight: 44, borderRadius: 'var(--rs)', background: 'var(--s2)', border: '1px solid var(--b1)', color: 'var(--t2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '.9em', fontWeight: 700, flexShrink: 0, cursor: 'pointer' }}>‹</button>
           <button onClick={() => setEditingQuincena(active)} style={{ fontSize: '.82em', fontWeight: 800, color: 'var(--t1)', flex: 1, textAlign: 'center', cursor: 'pointer', background: 'none' }}>
             {formatPeriod(active.fecha_inicio, active.fecha_fin)}
           </button>
-          <button onClick={goNext} style={{ width: 26, height: 26, borderRadius: 'var(--rs)', background: 'var(--s2)', border: '1px solid var(--b1)', color: 'var(--t2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '.9em', fontWeight: 700, flexShrink: 0, cursor: 'pointer' }}>›</button>
+          <button onClick={goNext} style={{ minWidth: 44, minHeight: 44, borderRadius: 'var(--rs)', background: 'var(--s2)', border: '1px solid var(--b1)', color: 'var(--t2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '.9em', fontWeight: 700, flexShrink: 0, cursor: 'pointer' }}>›</button>
         </div>
         {active.is_active && (
           <span style={{ fontSize: '.65em', fontWeight: 900, background: 'var(--y)', color: 'var(--yt)', padding: '2px 8px', borderRadius: 'var(--rs)', textTransform: 'uppercase', letterSpacing: '.04em', flexShrink: 0 }}>
@@ -377,6 +379,14 @@ export function FinanceClient() {
               </div>
             </div>
 
+            {/* Análisis */}
+            {filteredKpis && (
+              <div>
+                <div className="zdivider"><span className="zdivider-star">◆</span><span className="zdivider-label">Análisis</span><span className="zdivider-line" /></div>
+                <FinanceKPIPanel kpis={filteredKpis} isFiltered={filterUserId !== null} />
+              </div>
+            )}
+
             {/* Presupuesto + Recientes — dos columnas en desktop */}
             <div className="fin-two-col">
               {/* Presupuesto */}
@@ -399,11 +409,10 @@ export function FinanceClient() {
                     filterUserId={filterUserId}
                     onToggle={(item) => setPayingBudget({ item })}
                     onEdit={(item) => setEditingBudget(item)}
-                    onDelete={async (id) => {
-                      if (!confirm('Eliminar este item?')) return
-                      await deleteBudgetItem(id)
-                      loadData(active!.id)
-                    }}
+                    onDelete={(id) => setConfirmDelete({
+                      label: 'Se eliminará este item del presupuesto.',
+                      onConfirm: async () => { await deleteBudgetItem(id); loadData(active!.id) },
+                    })}
                   />
                 )}
                 {budgetItems.length > 0 && (
@@ -452,11 +461,10 @@ export function FinanceClient() {
                 <span className="zdivider-line" />
                 <button onClick={() => setShowNewBudget(true)} className="zbtn" style={{ padding: '4px 10px', fontSize: '.7em' }}>+ Item</button>
               </div>
-              <BudgetList items={halfFilteredItems} linkedBudgetItemIds={linkedBudgetItemIds} spentPerBudgetItem={spentPerBudgetItem} allFreqIds={allFreqIds} members={members} filterUserId={filterUserId} onToggle={(item) => setPayingBudget({ item })} onEdit={(item) => setEditingBudget(item)} onDelete={async (id) => {
-                if (!confirm('Eliminar este item?')) return
-                await deleteBudgetItem(id)
-                loadData(active.id)
-              }} />
+              <BudgetList items={halfFilteredItems} linkedBudgetItemIds={linkedBudgetItemIds} spentPerBudgetItem={spentPerBudgetItem} allFreqIds={allFreqIds} members={members} filterUserId={filterUserId} onToggle={(item) => setPayingBudget({ item })} onEdit={(item) => setEditingBudget(item)} onDelete={(id) => setConfirmDelete({
+                label: 'Se eliminará este item del presupuesto.',
+                onConfirm: async () => { await deleteBudgetItem(id); loadData(active.id) },
+              })} />
               {budgetItems.length === 0 ? (
                 <div style={{ padding: '24px 0', textAlign: 'center' }}>
                   <p style={{ fontSize: '.82em', color: 'var(--t3)', marginBottom: 12 }}>Sin items de presupuesto. Crea el primero:</p>
@@ -494,13 +502,18 @@ export function FinanceClient() {
                       {isPayable && (
                         <button
                           className={`zbtn-go ${isPaid ? 'done' : ''}`}
-                          onClick={async () => {
+                          onClick={() => {
                             if (isPaid) {
                               const txId = lastTxByCatId[cat.id]
-                              if (!txId || !confirm('Revertir el pago de esta categoria?')) return
-                              await deleteTransaccion(txId)
-                              if (cat.budget_item_id) await markBudgetItemPaid(cat.budget_item_id, false)
-                              loadData(active.id)
+                              if (!txId) return
+                              setConfirmDelete({
+                                label: `Revertir el pago de "${cat.nombre}". Se eliminará la transacción correspondiente.`,
+                                onConfirm: async () => {
+                                  await deleteTransaccion(txId)
+                                  if (cat.budget_item_id) await markBudgetItemPaid(cat.budget_item_id, false)
+                                  loadData(active.id)
+                                },
+                              })
                             } else {
                               const baseItem = linkedItem ?? {
                                 id: '', household_id: '', parent_id: null, quincena_id: null, assigned_to: null,
@@ -518,12 +531,11 @@ export function FinanceClient() {
                           {isPaid ? 'Pagado' : 'Pagar'}
                         </button>
                       )}
-                      <button onClick={() => setEditingCat(cat)} style={{ background: 'none', color: 'var(--t3)', cursor: 'pointer', padding: 4 }}><Pencil size={12} /></button>
-                      <button onClick={async () => {
-                        if (!confirm(`Eliminar "${cat.nombre}"?`)) return
-                        await deleteCategoria(cat.id)
-                        loadData(active.id)
-                      }} style={{ background: 'none', color: 'var(--t3)', cursor: 'pointer', padding: 4 }}><Trash2 size={12} /></button>
+                      <button onClick={() => setEditingCat(cat)} style={{ background: 'none', color: 'var(--t3)', cursor: 'pointer', minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Pencil size={12} /></button>
+                      <button onClick={() => setConfirmDelete({
+                        label: `Se eliminará la categoría "${cat.nombre}".`,
+                        onConfirm: async () => { await deleteCategoria(cat.id); loadData(active.id) },
+                      })} style={{ background: 'none', color: 'var(--t3)', cursor: 'pointer', minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Trash2 size={12} /></button>
                     </div>
                   )
                 })}
@@ -652,6 +664,14 @@ export function FinanceClient() {
         onClose={() => setShowReset(false)}
         onReset={() => { setShowReset(false); loadData() }}
       />
+
+      {confirmDelete && (
+        <ConfirmSheet
+          label={confirmDelete.label}
+          onConfirm={confirmDelete.onConfirm}
+          onClose={() => setConfirmDelete(null)}
+        />
+      )}
     </>
   )
 }
@@ -769,19 +789,28 @@ function BudgetList({ items, linkedBudgetItemIds, spentPerBudgetItem, allFreqIds
         <div key={item.id} style={{ background: 'var(--s1)', border: `1px solid ${isOver ? 'var(--r)' : 'var(--b1)'}`, borderRadius: 'var(--rm)', overflow: 'hidden', transition: 'border-color .12s' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px' }}>
             {/* Status checkbox */}
-            <div
-              onClick={() => item.status !== 'paid' && !hasLinkedCat && onToggle(item)}
+            <button
+              type="button"
+              onClick={() => { if (item.status !== 'paid' && !hasLinkedCat) onToggle(item) }}
+              aria-label={item.status === 'paid' ? 'Pagado' : hasLinkedCat ? 'Se paga desde la categoría' : 'Marcar como pagado'}
               style={{
-                width: 20, height: 20, borderRadius: 'var(--rs)', flexShrink: 0,
+                minWidth: 44, minHeight: 44, flexShrink: 0,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '.72em', fontWeight: 900, cursor: hasLinkedCat ? 'default' : 'pointer',
+                background: 'none', border: 'none',
+                cursor: (item.status === 'paid' || hasLinkedCat) ? 'default' : 'pointer',
+              }}
+            >
+              <div style={{
+                width: 20, height: 20, borderRadius: 'var(--rs)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '.72em', fontWeight: 900, pointerEvents: 'none',
                 ...(item.status === 'paid'
                   ? { background: 'var(--g1)', border: '1px solid var(--g)', color: 'var(--g)' }
                   : { border: '1px solid var(--b1)' }),
-              }}
-            >
-              {item.status === 'paid' ? '✓' : ''}
-            </div>
+              }}>
+                {item.status === 'paid' ? '✓' : ''}
+              </div>
+            </button>
 
             {/* Body */}
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -1021,7 +1050,7 @@ function EditCategoriaSheet({ categoria, onClose, onSaved, members, budgetItems,
         {/* Ingreso: marcar como salario */}
         {categoria.tipo === 'ingreso' && (
           <FieldLabel label="Es salario">
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
               <input
                 type="checkbox"
                 name="is_salary"
@@ -1032,7 +1061,7 @@ function EditCategoriaSheet({ categoria, onClose, onSaved, members, budgetItems,
               <span style={{ fontSize: '.82em', fontWeight: 700, color: 'var(--t2)' }}>
                 Al registrar activa recargas automáticas de bolsillos
               </span>
-            </label>
+            </div>
           </FieldLabel>
         )}
 
@@ -1079,6 +1108,7 @@ function EditTxSheet({ tx, categorias, members, onClose, onSaved, onDeleted }: {
 }) {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [confirmDel, setConfirmDel] = useState(false)
   async function handle(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setPending(true)
@@ -1132,13 +1162,29 @@ function EditTxSheet({ tx, categorias, members, onClose, onSaved, onDeleted }: {
         <FieldLabel label="Fecha">
           <input name="fecha" type="date" defaultValue={tx.fecha} className="zinput" />
         </FieldLabel>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Button type="submit" disabled={pending} style={{ flex: 1 }}>{pending ? 'Guardando...' : 'Guardar'}</Button>
-          <button type="button" onClick={async () => { if (!confirm('Eliminar?')) return; await deleteTransaccion(tx.id); onDeleted() }}
-            style={{ padding: '8px 16px', borderRadius: 'var(--rm)', border: '1px solid var(--r)', color: 'var(--r)', background: 'none', cursor: 'pointer' }}>
-            <Trash2 size={14} />
-          </button>
-        </div>
+        {!confirmDel ? (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button type="submit" disabled={pending} style={{ flex: 1 }}>{pending ? 'Guardando...' : 'Guardar'}</Button>
+            <button type="button" onClick={() => setConfirmDel(true)}
+              style={{ minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--rm)', border: '1px solid var(--r)', color: 'var(--r)', background: 'none', cursor: 'pointer' }}>
+              <Trash2 size={14} />
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <p style={{ fontSize: '.82em', color: 'var(--t2)' }}>¿Eliminar esta transacción?</p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" onClick={() => setConfirmDel(false)}
+                style={{ flex: 1, padding: 13, borderRadius: 'var(--rm)', border: '1px solid var(--b1)', background: 'var(--s2)', fontSize: '.88em', fontWeight: 800, color: 'var(--t2)', cursor: 'pointer' }}>
+                Cancelar
+              </button>
+              <button type="button" onClick={async () => { await deleteTransaccion(tx.id); onDeleted() }}
+                style={{ flex: 1, padding: 13, borderRadius: 'var(--rm)', border: 'none', background: 'var(--r)', color: '#fff', fontSize: '.88em', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.06em', cursor: 'pointer' }}>
+                Eliminar
+              </button>
+            </div>
+          </div>
+        )}
       </form>
     </BottomSheet>
   )
@@ -1443,10 +1489,60 @@ function EditBudgetItemSheet({ item, members, onClose, onSaved }: { item: Budget
 
 function FieldLabel({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <span style={{ fontSize: '.65em', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.12em', color: 'var(--t3)' }}>{label}</span>
       {children}
-    </div>
+    </label>
+  )
+}
+
+function ConfirmSheet({ label, onConfirm, onClose }: {
+  label: string
+  onConfirm: () => Promise<void>
+  onClose: () => void
+}) {
+  const [pending, setPending] = useState(false)
+  async function handle() {
+    setPending(true)
+    await onConfirm()
+    onClose()
+  }
+  return (
+    <BottomSheet open onClose={onClose} title="Confirmar eliminación">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <p style={{ fontSize: '.88em', color: 'var(--t2)', lineHeight: 1.5 }}>{label}</p>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={pending}
+            style={{
+              flex: 1, padding: 13, borderRadius: 'var(--rm)',
+              border: '1px solid var(--b1)', background: 'var(--s2)',
+              fontSize: '.88em', fontWeight: 800, color: 'var(--t2)', cursor: 'pointer',
+            }}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handle}
+            disabled={pending}
+            style={{
+              flex: 1, padding: 13, borderRadius: 'var(--rm)', border: 'none',
+              background: pending ? 'var(--s3)' : 'var(--r)',
+              fontSize: '.88em', fontWeight: 900,
+              color: pending ? 'var(--t3)' : '#fff',
+              textTransform: 'uppercase', letterSpacing: '.06em',
+              cursor: pending ? 'default' : 'pointer',
+              transition: 'background .15s, color .15s',
+            }}
+          >
+            {pending ? 'Eliminando...' : 'Eliminar'}
+          </button>
+        </div>
+      </div>
+    </BottomSheet>
   )
 }
 

@@ -91,7 +91,7 @@ export function TransaccionList({ transacciones, onEdit, className = '', pageSiz
           <button
             onClick={() => setPage((p) => Math.max(0, p - 1))}
             disabled={page === 0}
-            className="rounded p-1 text-[var(--text-3)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--text-1)] disabled:opacity-30"
+            className="rounded min-w-[44px] min-h-[44px] flex items-center justify-center text-[var(--text-3)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--text-1)] disabled:opacity-30"
           >
             <ChevronLeft size={16} />
           </button>
@@ -99,7 +99,7 @@ export function TransaccionList({ transacciones, onEdit, className = '', pageSiz
           <button
             onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
             disabled={page >= totalPages - 1}
-            className="rounded p-1 text-[var(--text-3)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--text-1)] disabled:opacity-30"
+            className="rounded min-w-[44px] min-h-[44px] flex items-center justify-center text-[var(--text-3)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--text-1)] disabled:opacity-30"
           >
             <ChevronRight size={16} />
           </button>

@@ -244,8 +244,8 @@ body::before {
 
 /* Small icon button */
 .icon-btn {
-  width: 34px;
-  height: 34px;
+  min-width: 44px;
+  min-height: 44px;
   border-radius: var(--rs);
   background: var(--s2);
   border: 1px solid var(--b1);
@@ -258,6 +258,14 @@ body::before {
   transition: border-color .14s, color .14s;
 }
 .icon-btn:hover { border-color: var(--b2); color: var(--t1); }
+
+/* ══ FOCUS VISIBLE ═══════════════════════════════════════ */
+button:focus-visible,
+[role="button"]:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--y);
+  outline-offset: 2px;
+}
 
 /* ══ NUMBERS — Poppins italic bold ═══════════════════════ */
 .num {
