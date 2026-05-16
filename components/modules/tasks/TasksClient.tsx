@@ -7,6 +7,7 @@ import { getAllWorkTasks, createWorkTask, updateWorkTask, updateTaskStatus, dele
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { BottomSheet } from '@/components/ui/Modal'
+import { ConfirmSheet } from '@/components/ui/ConfirmSheet'
 import type { WorkTask, TaskStatus, TaskPriority, Subtask } from '@/lib/types/modules.types'
 
 const COLUMNS: { key: TaskStatus; label: string; color: string }[] = [
@@ -35,6 +36,7 @@ export function TasksClient() {
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
   const [editingTask, setEditingTask] = useState<WorkTask | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; titulo: string } | null>(null)
   const [quickAdd, setQuickAdd] = useState('')
   const [collapsedCols, setCollapsedCols] = useState<Set<TaskStatus>>(new Set(['cancelled']))
   const [view, setView] = useState<'kanban' | 'calendar'>('kanban')
@@ -65,9 +67,9 @@ export function TasksClient() {
     loadTasks()
   }
 
-  async function handleDelete(taskId: string) {
-    await deleteWorkTask(taskId)
-    loadTasks()
+  function handleDelete(taskId: string) {
+    const t = tasks.find(x => x.id === taskId)
+    setConfirmDelete({ id: taskId, titulo: t?.titulo ?? 'esta tarea' })
   }
 
   function toggleCollapse(col: TaskStatus) {
@@ -159,7 +161,8 @@ export function TasksClient() {
         <button
           onClick={handleQuickAdd}
           disabled={!quickAdd.trim()}
-          className="flex h-9 w-9 items-center justify-center rounded border border-[var(--mod-tasks)] text-[var(--mod-tasks)] transition-colors hover:bg-[var(--mod-tasks)] hover:text-white disabled:opacity-30"
+          aria-label="Agregar tarea"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded border border-[var(--mod-tasks)] text-[var(--mod-tasks)] transition-colors hover:bg-[var(--mod-tasks)] hover:text-white disabled:opacity-30"
         >
           <Plus size={16} />
         </button>
@@ -169,7 +172,7 @@ export function TasksClient() {
       <div className="flex items-center gap-1 rounded-md bg-[var(--surface-2)] p-1">
         <button
           onClick={() => setView('kanban')}
-          className={`flex flex-1 items-center justify-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+          className={`flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
             view === 'kanban' ? 'bg-[var(--surface)] text-[var(--text-1)] shadow-sm' : 'text-[var(--text-3)] hover:text-[var(--text-2)]'
           }`}
         >
@@ -178,7 +181,7 @@ export function TasksClient() {
         </button>
         <button
           onClick={() => setView('calendar')}
-          className={`flex flex-1 items-center justify-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+          className={`flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
             view === 'calendar' ? 'bg-[var(--surface)] text-[var(--text-1)] shadow-sm' : 'text-[var(--text-3)] hover:text-[var(--text-2)]'
           }`}
         >
@@ -256,6 +259,13 @@ export function TasksClient() {
         onClose={() => setEditingTask(null)}
         onSaved={() => { setEditingTask(null); loadTasks() }}
       />
+      {confirmDelete && (
+        <ConfirmSheet
+          label={`Eliminar "${confirmDelete.titulo}"?`}
+          onConfirm={async () => { await deleteWorkTask(confirmDelete.id); loadTasks() }}
+          onClose={() => setConfirmDelete(null)}
+        />
+      )}
     </div>
   )
 }
@@ -332,25 +342,25 @@ function TaskCard({
           </div>
         </div>
 
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col">
           <button
             onClick={() => onEdit(task)}
-            className="rounded p-1 text-[var(--text-3)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]"
-            title="Editar"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-[var(--text-3)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]"
+            aria-label="Editar"
           >
             <Pencil size={14} />
           </button>
           <button
             onClick={() => onStatusChange(task.id, nextStatus[task.status])}
-            className="rounded p-1 text-[var(--text-3)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]"
-            title={`Mover a ${nextStatus[task.status]}`}
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-[var(--text-3)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]"
+            aria-label={`Mover a ${nextStatus[task.status]}`}
           >
             <GripVertical size={14} />
           </button>
           <button
             onClick={() => onDelete(task.id)}
-            className="rounded p-1 text-[var(--text-3)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--expense)]"
-            title="Eliminar"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-[var(--text-3)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--expense)]"
+            aria-label="Eliminar"
           >
             <Trash2 size={14} />
           </button>
@@ -692,11 +702,11 @@ function TaskCalendar({
     <div className="space-y-2">
       {/* Navigation */}
       <div className="flex items-center justify-between">
-        <button onClick={() => onMonthChange(new Date(y, m - 1, 1))} className="rounded p-1.5 text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]">
+        <button onClick={() => onMonthChange(new Date(y, m - 1, 1))} aria-label="Mes anterior" className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]">
           <ChevronLeft size={16} />
         </button>
         <span className="text-sm font-semibold capitalize text-[var(--text-1)]">{monthLabel}</span>
-        <button onClick={() => onMonthChange(new Date(y, m + 1, 1))} className="rounded p-1.5 text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]">
+        <button onClick={() => onMonthChange(new Date(y, m + 1, 1))} aria-label="Mes siguiente" className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]">
           <ChevronRight size={16} />
         </button>
       </div>

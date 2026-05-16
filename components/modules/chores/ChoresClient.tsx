@@ -238,12 +238,11 @@ export function ChoresClient() {
           { key: 'all' as Tab, label: 'Pendientes', icon: RefreshCw },
           { key: 'done' as Tab, label: 'Hechas', icon: History },
           { key: 'calendar' as Tab, label: 'Calendario', icon: CalendarDays },
-          { key: 'done' as Tab, label: 'Completadas', icon: History },
         ]).map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+            className={`flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
               tab === key
                 ? 'bg-[var(--surface)] text-[var(--text-1)] shadow-sm'
                 : 'text-[var(--text-3)] hover:text-[var(--text-2)]'
@@ -267,7 +266,7 @@ export function ChoresClient() {
               <span className="ml-2 num text-[var(--income)]">{doneCount}</span>
             )}
           </span>
-          <button onClick={handleRefresh} className="text-[var(--text-3)] hover:text-[var(--text-1)]" title="Regenerar tareas">
+          <button onClick={handleRefresh} className="flex min-h-[44px] min-w-[44px] items-center justify-center text-[var(--text-3)] hover:text-[var(--text-1)]" aria-label="Regenerar tareas">
             <RefreshCw size={14} />
           </button>
         </div>
@@ -376,11 +375,11 @@ function ChoresCalendar({ year, month, instances, selectedDay, onSelectDay, onPr
     <div className="space-y-3">
       {/* Month nav */}
       <div className="flex items-center justify-between">
-        <button onClick={onPrevMonth} className="rounded p-1 text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]">
+        <button onClick={onPrevMonth} aria-label="Mes anterior" className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]">
           <ChevronLeft size={18} />
         </button>
         <p className="text-sm font-bold capitalize text-[var(--text-1)]">{monthName}</p>
-        <button onClick={onNextMonth} className="rounded p-1 text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]">
+        <button onClick={onNextMonth} aria-label="Mes siguiente" className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]">
           <ChevronRight size={18} />
         </button>
       </div>

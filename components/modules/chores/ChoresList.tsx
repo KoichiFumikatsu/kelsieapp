@@ -69,15 +69,15 @@ export function ChoresList({ instances, onComplete, onSkip, completing }: Chores
                   <button
                     onClick={() => onComplete(inst.id)}
                     disabled={isCompleting}
-                    className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--mod-chores)] text-[var(--mod-chores)] transition-colors hover:bg-[var(--mod-chores)] hover:text-white active:scale-90"
-                    title="Completar"
+                    className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-[var(--mod-chores)] text-[var(--mod-chores)] transition-colors hover:bg-[var(--mod-chores)] hover:text-white active:scale-90"
+                    aria-label="Completar"
                   >
                     <Check size={16} />
                   </button>
                   <button
                     onClick={() => onSkip(inst.id)}
-                    className="flex h-6 w-6 items-center justify-center self-center rounded-full text-[var(--text-3)] transition-colors hover:text-[var(--text-2)]"
-                    title="Saltar"
+                    className="flex min-h-[44px] min-w-[44px] items-center justify-center self-center rounded-full text-[var(--text-3)] transition-colors hover:text-[var(--text-2)]"
+                    aria-label="Saltar"
                   >
                     <SkipForward size={12} />
                   </button>

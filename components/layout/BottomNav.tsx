@@ -24,6 +24,7 @@ export function BottomNav() {
 
   return (
     <nav
+      aria-label="Navegación principal"
       className="fixed bottom-0 left-0 right-0 z-30 flex h-14.5 items-center justify-around sm:hidden"
       style={{ background: 'var(--s1)', borderTop: '1px solid var(--b1)' }}
     >
@@ -34,6 +35,7 @@ export function BottomNav() {
           <Link
             key={item.href}
             href={item.href}
+            aria-current={isActive ? 'page' : undefined}
             className="relative flex flex-col items-center gap-0.5 px-4 py-2"
           >
             {isActive && (
@@ -44,6 +46,7 @@ export function BottomNav() {
             )}
             <Icon
               size={20}
+              aria-hidden="true"
               strokeWidth={isActive ? 2.2 : 1.5}
               style={{ color: isActive ? 'var(--y)' : 'var(--t3)' }}
             />

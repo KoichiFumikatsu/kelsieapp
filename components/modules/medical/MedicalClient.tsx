@@ -11,6 +11,7 @@ import { useHousehold } from '@/hooks/useHousehold'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { BottomSheet } from '@/components/ui/Modal'
+import { ConfirmSheet } from '@/components/ui/ConfirmSheet'
 import type { MedicalRecord, Medicamento } from '@/lib/types/modules.types'
 import { formatDateShort } from '@/lib/utils/format'
 
@@ -33,6 +34,7 @@ export function MedicalClient() {
   const [showAddMed, setShowAddMed] = useState(false)
   const [editingMed, setEditingMed] = useState<Medicamento | null>(null)
   const [editingRecord, setEditingRecord] = useState<MedicalRecord | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<{ label: string; onConfirm: () => Promise<void> } | null>(null)
   const { members, profile } = useHousehold()
 
   const loadData = useCallback(async () => {
@@ -49,9 +51,8 @@ export function MedicalClient() {
 
   useEffect(() => { loadData() }, [loadData])
 
-  async function handleDeleteRecord(id: string) {
-    await deleteMedicalRecord(id)
-    loadData()
+  function handleDeleteRecord(rec: MedicalRecord) {
+    setConfirmDelete({ label: `Eliminar "${rec.especialidad ?? rec.tipo}"?`, onConfirm: async () => { await deleteMedicalRecord(rec.id); loadData() } })
   }
 
   async function handleToggleMed(id: string, activo: boolean) {
@@ -59,9 +60,8 @@ export function MedicalClient() {
     loadData()
   }
 
-  async function handleDeleteMed(id: string) {
-    await deleteMedicamento(id)
-    loadData()
+  function handleDeleteMed(med: Medicamento) {
+    setConfirmDelete({ label: `Eliminar "${med.nombre}"?`, onConfirm: async () => { await deleteMedicamento(med.id); loadData() } })
   }
 
   if (loading) {
@@ -128,7 +128,7 @@ export function MedicalClient() {
       <div className="flex items-center gap-1 rounded-md bg-[var(--surface-2)] p-1">
         <button
           onClick={() => setTab('timeline')}
-          className={`flex flex-1 items-center justify-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+          className={`flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
             tab === 'timeline' ? 'bg-[var(--surface)] text-[var(--text-1)] shadow-sm' : 'text-[var(--text-3)] hover:text-[var(--text-2)]'
           }`}
         >
@@ -137,7 +137,7 @@ export function MedicalClient() {
         </button>
         <button
           onClick={() => setTab('meds')}
-          className={`flex flex-1 items-center justify-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+          className={`flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
             tab === 'meds' ? 'bg-[var(--surface)] text-[var(--text-1)] shadow-sm' : 'text-[var(--text-3)] hover:text-[var(--text-2)]'
           }`}
         >
@@ -198,13 +198,15 @@ export function MedicalClient() {
                       </div>
                       <button
                         onClick={() => setEditingRecord(rec)}
-                        className="ml-2 rounded p-1 text-[var(--text-3)] hover:text-[var(--mod-medical)]"
+                        aria-label="Editar"
+                        className="ml-2 flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-[var(--text-3)] hover:text-[var(--mod-medical)]"
                       >
                         <Pencil size={14} />
                       </button>
                       <button
-                        onClick={() => handleDeleteRecord(rec.id)}
-                        className="ml-1 rounded p-1 text-[var(--text-3)] hover:text-[var(--expense)]"
+                        onClick={() => handleDeleteRecord(rec)}
+                        aria-label="Eliminar"
+                        className="ml-1 flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-[var(--text-3)] hover:text-[var(--expense)]"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -264,14 +266,14 @@ export function MedicalClient() {
                     <div className="flex gap-1">
                       <button
                         onClick={() => setEditingMed(med)}
-                        className="rounded p-1 text-[var(--text-3)] hover:text-[var(--mod-medical)]"
-                        title="Editar"
+                        aria-label="Editar"
+                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-[var(--text-3)] hover:text-[var(--mod-medical)]"
                       >
                         <Pencil size={14} />
                       </button>
                       <button
                         onClick={() => handleToggleMed(med.id, !med.activo)}
-                        className={`rounded px-2 py-1 text-[10px] font-medium ${
+                        className={`min-h-[44px] rounded px-2 text-[10px] font-medium ${
                           med.activo
                             ? 'bg-[var(--surface-2)] text-[var(--text-2)]'
                             : 'bg-[color-mix(in_srgb,var(--income)_10%,transparent)] text-[var(--income)]'
@@ -280,8 +282,9 @@ export function MedicalClient() {
                         {med.activo ? 'Desactivar' : 'Activar'}
                       </button>
                       <button
-                        onClick={() => handleDeleteMed(med.id)}
-                        className="rounded p-1 text-[var(--text-3)] hover:text-[var(--expense)]"
+                        onClick={() => handleDeleteMed(med)}
+                        aria-label="Eliminar"
+                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-[var(--text-3)] hover:text-[var(--expense)]"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -327,6 +330,14 @@ export function MedicalClient() {
         currentUserId={profile?.id}
         records={records}
       />
+
+      {confirmDelete && (
+        <ConfirmSheet
+          label={confirmDelete.label}
+          onConfirm={confirmDelete.onConfirm}
+          onClose={() => setConfirmDelete(null)}
+        />
+      )}
     </div>
   )
 }

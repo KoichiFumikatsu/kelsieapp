@@ -5,6 +5,7 @@ import { Plus, Pencil, Trash2, CalendarPlus, ChevronLeft, ChevronRight, Link2, L
 import { getAllWorkTasks, createWorkTask, updateWorkTask, updateTaskStatus, deleteWorkTask, getGCalStatus, disconnectGCal, getCalendarEvents } from '@/app/actions/tasks/tasks'
 import type { GCalEvent } from '@/lib/gcal'
 import { BottomSheet } from '@/components/ui/Modal'
+import { ConfirmSheet } from '@/components/ui/ConfirmSheet'
 import type { WorkTask, TaskCategoria, TaskPriority, TaskStatus, Subtask } from '@/lib/types/modules.types'
 
 /* ─ constants ─────────────────────────────────────────── */
@@ -73,6 +74,7 @@ export function ActivitiesClient() {
   const [selectedWeek, setSelectedWeek] = useState(0)
   const [showAdd, setShowAdd] = useState(false)
   const [editing, setEditing] = useState<WorkTask | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<{ label: string; onConfirm: () => Promise<void> } | null>(null)
   const [gcalConnected, setGcalConnected] = useState(false)
 
   const load = useCallback(async () => {
@@ -208,7 +210,7 @@ export function ActivitiesClient() {
                       task={task}
                       onEdit={() => setEditing(task)}
                       onStatusChange={async (s) => { await updateTaskStatus(task.id, s); load() }}
-                      onDelete={async () => { if (!confirm('Eliminar actividad?')) return; await deleteWorkTask(task.id); load() }}
+                      onDelete={() => setConfirmDelete({ label: `Eliminar "${task.titulo}"?`, onConfirm: async () => { await deleteWorkTask(task.id); load() } })}
                     />
                   ))}
                 </div>
@@ -244,14 +246,15 @@ export function ActivitiesClient() {
 
             <div className="schedule-weeks">
               {weeks.map((w, i) => (
-                <div
+                <button
                   key={i}
+                  type="button"
                   className={`sweek${selectedWeek === i ? ' active' : ''}`}
                   onClick={() => setSelectedWeek(i)}
                 >
                   {w.label}
                   <div className="sweek-dates">{fmt(w.start)}–{fmt(w.end)}</div>
-                </div>
+                </button>
               ))}
             </div>
 
@@ -281,8 +284,8 @@ export function ActivitiesClient() {
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={e => e.stopPropagation()}
-                      title="Agregar a Google Calendar"
-                      style={{ color: 'var(--t3)', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                      aria-label="Agregar a Google Calendar"
+                      style={{ color: 'var(--t3)', display: 'flex', alignItems: 'center', flexShrink: 0, minHeight: 44, minWidth: 44, justifyContent: 'center' }}
                     >
                       <CalendarPlus size={14} strokeWidth={2} />
                     </a>
@@ -325,12 +328,18 @@ export function ActivitiesClient() {
           task={editing}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); load() }}
-          onDelete={async () => {
-            if (!confirm('Eliminar actividad?')) return
-            await deleteWorkTask(editing.id)
+          onDelete={() => {
             setEditing(null)
-            load()
+            setConfirmDelete({ label: `Eliminar "${editing.titulo}"?`, onConfirm: async () => { await deleteWorkTask(editing.id); load() } })
           }}
+        />
+      )}
+
+      {confirmDelete && (
+        <ConfirmSheet
+          label={confirmDelete.label}
+          onConfirm={confirmDelete.onConfirm}
+          onClose={() => setConfirmDelete(null)}
         />
       )}
     </>
@@ -397,11 +406,11 @@ function CalendarView({ tasks, gcalConnected, onDisconnect, onEditTask, loadGCal
     <div style={{ padding: '0 var(--pad)', paddingBottom: 40 }}>
       {/* Month nav */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', marginBottom: 6 }}>
-        <button onClick={() => { setCurrentDate(new Date(year, month - 1, 1)); setSelectedDay(null) }} style={{ background: 'none', color: 'var(--t3)', cursor: 'pointer', padding: 8 }}>
+        <button onClick={() => { setCurrentDate(new Date(year, month - 1, 1)); setSelectedDay(null) }} aria-label="Mes anterior" style={{ background: 'none', color: 'var(--t3)', cursor: 'pointer', minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <ChevronLeft size={18} strokeWidth={2} />
         </button>
         <span style={{ fontSize: '.9em', fontWeight: 800, textTransform: 'capitalize', color: 'var(--t1)', letterSpacing: '.02em' }}>{monthLabel}</span>
-        <button onClick={() => { setCurrentDate(new Date(year, month + 1, 1)); setSelectedDay(null) }} style={{ background: 'none', color: 'var(--t3)', cursor: 'pointer', padding: 8 }}>
+        <button onClick={() => { setCurrentDate(new Date(year, month + 1, 1)); setSelectedDay(null) }} aria-label="Mes siguiente" style={{ background: 'none', color: 'var(--t3)', cursor: 'pointer', minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <ChevronRight size={18} strokeWidth={2} />
         </button>
       </div>
@@ -573,7 +582,7 @@ function TaskCard({ task, onEdit, onStatusChange, onDelete }: {
               >
                 {task.status === 'backlog' ? 'Ir' : 'Hecho'}
               </button>
-              <button onClick={(e) => { e.stopPropagation(); onDelete() }} style={{ background: 'none', color: 'var(--t3)', cursor: 'pointer', padding: 2 }}>
+              <button onClick={(e) => { e.stopPropagation(); onDelete() }} aria-label="Eliminar" style={{ background: 'none', color: 'var(--t3)', cursor: 'pointer', minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Trash2 size={12} strokeWidth={2} />
               </button>
             </div>

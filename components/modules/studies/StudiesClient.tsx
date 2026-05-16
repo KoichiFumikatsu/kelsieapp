@@ -11,6 +11,7 @@ import { useHousehold } from '@/hooks/useHousehold'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { BottomSheet } from '@/components/ui/Modal'
+import { ConfirmSheet } from '@/components/ui/ConfirmSheet'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import type { StudyGoal, StudyGoalStatus } from '@/lib/types/modules.types'
 
@@ -36,6 +37,7 @@ export function StudiesClient() {
   const [showAddGoal, setShowAddGoal] = useState(false)
   const [sessionGoal, setSessionGoal] = useState<StudyGoal | null>(null)
   const [editingGoal, setEditingGoal] = useState<StudyGoal | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<{ label: string; onConfirm: () => Promise<void> } | null>(null)
   const { members, profile } = useHousehold()
 
   const loadData = useCallback(async () => {
@@ -50,9 +52,8 @@ export function StudiesClient() {
 
   useEffect(() => { loadData() }, [loadData])
 
-  async function handleDelete(id: string) {
-    await deleteStudyGoal(id)
-    loadData()
+  function handleDelete(goal: StudyGoal) {
+    setConfirmDelete({ label: `Eliminar "${goal.titulo}"?`, onConfirm: async () => { await deleteStudyGoal(goal.id); loadData() } })
   }
 
   async function handleTogglePause(goal: StudyGoal) {
@@ -133,7 +134,7 @@ export function StudiesClient() {
                   goal={goal}
                   onSessionClick={() => setSessionGoal(goal)}
                   onEdit={() => setEditingGoal(goal)}
-                  onDelete={() => handleDelete(goal.id)}
+                  onDelete={() => handleDelete(goal)}
                   onTogglePause={() => handleTogglePause(goal)}
                 />
               ))}
@@ -151,7 +152,7 @@ export function StudiesClient() {
                   key={goal.id}
                   goal={goal}
                   onEdit={() => setEditingGoal(goal)}
-                  onDelete={() => handleDelete(goal.id)}
+                  onDelete={() => handleDelete(goal)}
                   completed
                 />
               ))}
@@ -186,6 +187,14 @@ export function StudiesClient() {
           open={!!sessionGoal}
           onClose={() => { setSessionGoal(null); loadData() }}
           goal={sessionGoal}
+        />
+      )}
+
+      {confirmDelete && (
+        <ConfirmSheet
+          label={confirmDelete.label}
+          onConfirm={confirmDelete.onConfirm}
+          onClose={() => setConfirmDelete(null)}
         />
       )}
     </div>
@@ -250,12 +259,12 @@ function GoalCard({
           )}
         </div>
 
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col">
           {!completed && onSessionClick && (
             <button
               onClick={onSessionClick}
-              className="rounded bg-[color-mix(in_srgb,var(--mod-studies)_10%,transparent)] p-1.5 text-[var(--mod-studies)] transition-colors hover:bg-[color-mix(in_srgb,var(--mod-studies)_20%,transparent)]"
-              title="Registrar sesion"
+              className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded bg-[color-mix(in_srgb,var(--mod-studies)_10%,transparent)] text-[var(--mod-studies)] transition-colors hover:bg-[color-mix(in_srgb,var(--mod-studies)_20%,transparent)]"
+              aria-label="Registrar sesion"
             >
               <Timer size={14} />
             </button>
@@ -263,8 +272,8 @@ function GoalCard({
           {!completed && onTogglePause && (
             <button
               onClick={onTogglePause}
-              className="rounded p-1.5 text-[var(--text-3)] text-[10px] hover:text-[var(--text-2)]"
-              title={goal.status === 'paused' ? 'Reanudar' : 'Pausar'}
+              className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-[var(--text-3)] text-[10px] hover:text-[var(--text-2)]"
+              aria-label={goal.status === 'paused' ? 'Reanudar' : 'Pausar'}
             >
               {goal.status === 'paused' ? '>' : '||'}
             </button>
@@ -274,23 +283,23 @@ function GoalCard({
               href={goal.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded p-1.5 text-[var(--text-3)] hover:text-[var(--info)]"
-              title="Abrir enlace"
+              className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-[var(--text-3)] hover:text-[var(--info)]"
+              aria-label="Abrir enlace"
             >
               <ExternalLink size={14} />
             </a>
           )}
           <button
             onClick={onEdit}
-            className="rounded p-1.5 text-[var(--text-3)] hover:text-[var(--text-1)]"
-            title="Editar"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-[var(--text-3)] hover:text-[var(--text-1)]"
+            aria-label="Editar"
           >
             <Pencil size={14} />
           </button>
           <button
             onClick={onDelete}
-            className="rounded p-1.5 text-[var(--text-3)] hover:text-[var(--expense)]"
-            title="Eliminar"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-[var(--text-3)] hover:text-[var(--expense)]"
+            aria-label="Eliminar"
           >
             <Trash2 size={14} />
           </button>
