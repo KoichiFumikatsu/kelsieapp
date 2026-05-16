@@ -7,8 +7,8 @@ import type { FinanceKPIs } from '@/lib/types/modules.types'
 import { TrendingDown, TrendingUp, Wallet, PiggyBank, AlertTriangle, Landmark, FolderHeart, CreditCard, BadgeDollarSign, ChevronDown, CalendarClock } from 'lucide-react'
 
 const CHART_COLORS = [
-  '#6366f1', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6',
-  '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#84cc16',
+  'var(--bl)', 'var(--y)',     'var(--g)',     'var(--r)',     'var(--pu)',
+  'var(--or)', 'var(--c-fin)', 'var(--c-task)','var(--c-chor)','var(--c-med)',
 ]
 
 interface FinanceKPIPanelProps {

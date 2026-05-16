@@ -142,7 +142,7 @@ export function AddTransaccionSheet({ open, onClose, quincenaId, categorias, mem
                 padding: '12px 14px',
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: '1.1em', color: 'var(--bl)' }}>◧</span>
+                  <span aria-hidden="true" style={{ fontSize: '1.1em', color: 'var(--bl)' }}>◧</span>
                   <span style={{ fontSize: '.88em', fontWeight: 800, color: 'var(--t1)' }}>{r.nombre}</span>
                 </div>
                 <span className="num" style={{ fontSize: '.9em', fontWeight: 900, color: 'var(--bl)' }}>
@@ -192,7 +192,7 @@ export function AddTransaccionSheet({ open, onClose, quincenaId, categorias, mem
                     transition: 'all .13s', cursor: 'pointer',
                   }}
                 >
-                  <span style={{ fontSize: '1.2em', lineHeight: 1, color: sel ? g.color : 'var(--t3)' }}>
+                  <span aria-hidden="true" style={{ fontSize: '1.2em', lineHeight: 1, color: sel ? g.color : 'var(--t3)' }}>
                     {g.icon}
                   </span>
                   <span style={{
@@ -230,7 +230,7 @@ export function AddTransaccionSheet({ open, onClose, quincenaId, categorias, mem
                       transition: 'all .13s', cursor: 'pointer',
                     }}
                   >
-                    <span style={{ fontSize: '1em', color: sel ? activeGroup.color : 'var(--t3)' }}>
+                    <span aria-hidden="true" style={{ fontSize: '1em', color: sel ? activeGroup.color : 'var(--t3)' }}>
                       {d === 'in' ? '→' : '←'}
                     </span>
                     <span style={{

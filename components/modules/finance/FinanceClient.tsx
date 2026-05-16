@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2, AlertTriangle } from 'lucide-react'
 import { createBrowserClient } from '@supabase/ssr'
 
 import { getActiveQuincena, getQuincenas, ensureQuincena, updateQuincena } from '@/app/actions/finance/quincenas'
@@ -440,11 +440,13 @@ export function FinanceClient() {
                   fontSize: '.7em', fontWeight: 800, color: 'var(--t3)', textTransform: 'uppercase',
                   letterSpacing: '.08em', background: 'none', cursor: 'pointer', border: 'none',
                   padding: 0, transition: 'color .13s',
+                  display: 'flex', alignItems: 'center', gap: 5,
                 }}
                 onMouseEnter={e => (e.currentTarget.style.color = 'var(--r)')}
                 onMouseLeave={e => (e.currentTarget.style.color = 'var(--t3)')}
               >
-                ⚠ Vaciar datos de finanzas
+                <AlertTriangle size={12} aria-hidden="true" />
+                Vaciar datos de finanzas
               </button>
             </div>
           </>
@@ -702,7 +704,7 @@ function ContainerCard({ type, icon, label, amount, sub, delta }: {
     <div style={{ flexShrink: 0, minWidth: 148, background: 'var(--s1)', border: '1px solid var(--b1)', borderRadius: 'var(--rl)', padding: 14, position: 'relative', overflow: 'hidden', transition: 'border-color .15s, background .15s', cursor: 'pointer' }}>
       <span style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2.5, background: c, borderRadius: 'var(--rl) var(--rl) 0 0' }} />
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <div style={{ width: 34, height: 34, borderRadius: 'var(--rs)', background: bgs[type], display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.05em', color: c }}>
+        <div aria-hidden="true" style={{ width: 34, height: 34, borderRadius: 'var(--rs)', background: bgs[type], display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.05em', color: c }}>
           {icon}
         </div>
         <div style={{ width: 7, height: 7, borderRadius: '50%', background: c, boxShadow: `0 0 6px ${c}` }} />
@@ -736,7 +738,7 @@ function TxList({ txs, members, onEdit }: { txs: TransaccionConCategoria[]; memb
             onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--s2)'; e.currentTarget.style.borderColor = 'var(--b2)' }}
             onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--s1)'; e.currentTarget.style.borderColor = 'var(--b1)' }}
           >
-            <div style={{ width: 36, height: 36, borderRadius: 'var(--rs)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.05em', flexShrink: 0, background: `color-mix(in srgb, ${c} 12%, transparent)`, color: c }}>
+            <div aria-hidden="true" style={{ width: 36, height: 36, borderRadius: 'var(--rs)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.05em', flexShrink: 0, background: `color-mix(in srgb, ${c} 12%, transparent)`, color: c }}>
               {icon}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
