@@ -15,6 +15,7 @@ import { AddTransaccionSheet } from '@/components/modules/finance/AddTransaccion
 import { FinanceKPIPanel } from '@/components/modules/finance/FinanceKPIPanel'
 import { BottomSheet } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
+import { ConfirmSheet } from '@/components/ui/ConfirmSheet'
 import { useHousehold } from '@/hooks/useHousehold'
 import { formatCOP, formatPeriod, formatDateShort } from '@/lib/utils/format'
 import type {
@@ -1495,56 +1496,6 @@ function FieldLabel({ label, children }: { label: string; children: React.ReactN
       <span style={{ fontSize: '.65em', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.12em', color: 'var(--t3)' }}>{label}</span>
       {children}
     </label>
-  )
-}
-
-function ConfirmSheet({ label, onConfirm, onClose }: {
-  label: string
-  onConfirm: () => Promise<void>
-  onClose: () => void
-}) {
-  const [pending, setPending] = useState(false)
-  async function handle() {
-    setPending(true)
-    await onConfirm()
-    onClose()
-  }
-  return (
-    <BottomSheet open onClose={onClose} title="Confirmar eliminación">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <p style={{ fontSize: '.88em', color: 'var(--t2)', lineHeight: 1.5 }}>{label}</p>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={pending}
-            style={{
-              flex: 1, padding: 13, borderRadius: 'var(--rm)',
-              border: '1px solid var(--b1)', background: 'var(--s2)',
-              fontSize: '.88em', fontWeight: 800, color: 'var(--t2)', cursor: 'pointer',
-            }}
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={handle}
-            disabled={pending}
-            style={{
-              flex: 1, padding: 13, borderRadius: 'var(--rm)', border: 'none',
-              background: pending ? 'var(--s3)' : 'var(--r)',
-              fontSize: '.88em', fontWeight: 900,
-              color: pending ? 'var(--t3)' : '#fff',
-              textTransform: 'uppercase', letterSpacing: '.06em',
-              cursor: pending ? 'default' : 'pointer',
-              transition: 'background .15s, color .15s',
-            }}
-          >
-            {pending ? 'Eliminando...' : 'Eliminar'}
-          </button>
-        </div>
-      </div>
-    </BottomSheet>
   )
 }
 
